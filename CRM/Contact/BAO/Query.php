@@ -323,6 +323,8 @@ class CRM_Contact_BAO_Query {
    */
   public $_distinctComponentClause;
 
+  public $_rowCountClause;
+
   /**
    * use groupBy component clause for component searches
    *
@@ -634,14 +636,9 @@ class CRM_Contact_BAO_Query {
           }
         }
       }
-      // Fixme: this stuff does not need to be hard-coded, should be retrieved from schema metadata
+
       if (in_array($name, array('prefix_id', 'suffix_id', 'gender_id'))) {
-        if (
-          // Hack for default search view
-          !empty($this->_returnProperties[$field['pseudoconstant']['optionGroupName']]) ||
-          // Hack for profile search view
-          !empty($this->_returnProperties[$name])
-        ) {
+        if (CRM_Utils_Array::value($field['pseudoconstant']['optionGroupName'], $this->_returnProperties)) {
           $makeException = TRUE;
         }
       }
@@ -718,15 +715,19 @@ class CRM_Contact_BAO_Query {
               // also get the id of the tableName
               $tName = substr($tableName, 8);
               if (in_array($tName, array('country', 'state_province', 'county'))) {
-                $pf = ($tName == 'state_province') ? 'state_province_name' : $name;
-                $this->_pseudoConstantsSelect[$pf] =
-                  array('pseudoField' => "{$tName}_id", 'idCol' => "{$tName}_id", 'bao' => 'CRM_Core_BAO_Address',
-                    'table' => "civicrm_{$tName}", 'join' => " LEFT JOIN civicrm_{$tName} ON civicrm_address.{$tName}_id = civicrm_{$tName}.id ");
-
                 if ($tName == 'state_province') {
+                  $this->_pseudoConstantsSelect['state_province_name'] =
+                    array('pseudoField' => "{$tName}", 'idCol' => "{$tName}_id", 'bao' => 'CRM_Core_BAO_Address',
+                     'table' => "civicrm_{$tName}", 'join' => " LEFT JOIN civicrm_{$tName} ON civicrm_address.{$tName}_id = civicrm_{$tName}.id ");
+
                   $this->_pseudoConstantsSelect[$tName] =
                     array('pseudoField' => 'state_province_abbreviation', 'idCol' => "{$tName}_id",
                       'table' => "civicrm_{$tName}", 'join' => " LEFT JOIN civicrm_{$tName} ON civicrm_address.{$tName}_id = civicrm_{$tName}.id ");
+                }
+                else {
+                  $this->_pseudoConstantsSelect[$name] =
+                  array('pseudoField' => "{$tName}_id", 'idCol' => "{$tName}_id", 'bao' => 'CRM_Core_BAO_Address',
+                  'table' => "civicrm_{$tName}", 'join' => " LEFT JOIN civicrm_{$tName} ON civicrm_address.{$tName}_id = civicrm_{$tName}.id ");
                 }
 
                 $this->_select["{$tName}_id"] = "civicrm_address.{$tName}_id as {$tName}_id";
@@ -757,31 +758,13 @@ class CRM_Contact_BAO_Query {
                 }
                 elseif ($fieldName != 'id') {
                   if ($fieldName == 'prefix_id') {
-                    // Hack - profile views use different field name than normal views!
-                    $this->_pseudoConstantsSelect['prefix_id'] =
-                    $this->_pseudoConstantsSelect['individual_prefix'] = array(
-                      'pseudoField' => 'prefix_id',
-                      'idCol' => "prefix_id",
-                      'bao' => 'CRM_Contact_BAO_Contact'
-                    );
+                    $this->_pseudoConstantsSelect['individual_prefix'] = array('pseudoField' => 'prefix_id', 'idCol' => "prefix_id", 'bao' => 'CRM_Contact_BAO_Contact');
                   }
                   if ($fieldName == 'suffix_id') {
-                    // Hack - profile views use different field name than normal views!
-                    $this->_pseudoConstantsSelect['suffix_id'] =
-                    $this->_pseudoConstantsSelect['individual_suffix'] = array(
-                      'pseudoField' => 'suffix_id',
-                      'idCol' => "suffix_id",
-                      'bao' => 'CRM_Contact_BAO_Contact'
-                    );
+                    $this->_pseudoConstantsSelect['individual_suffix'] = array('pseudoField' => 'suffix_id', 'idCol' => "suffix_id", 'bao' => 'CRM_Contact_BAO_Contact');
                   }
                   if ($fieldName == 'gender_id') {
-                    // Hack - profile views use different field name than normal views!
-                    $this->_pseudoConstantsSelect['gender_id'] =
-                    $this->_pseudoConstantsSelect['gender'] = array(
-                      'pseudoField' => 'gender_id',
-                      'idCol' => "gender_id",
-                      'bao' => 'CRM_Contact_BAO_Contact'
-                    );
+                    $this->_pseudoConstantsSelect['gender'] = array('pseudoField' => 'gender_id', 'idCol' => "gender_id", 'bao' => 'CRM_Contact_BAO_Contact');
                   }
                   if ($name == 'communication_style_id') {
                     $this->_pseudoConstantsSelect['communication_style'] = array('pseudoField' => 'communication_style_id', 'idCol' => "communication_style_id", 'bao' => 'CRM_Contact_BAO_Contact');
@@ -789,13 +772,13 @@ class CRM_Contact_BAO_Query {
                   $this->_select[$name] = "contact_a.{$fieldName}  as `$name`";
                 }
               }
-              elseif (in_array($tName, array('state_province', 'country', 'county'))) {
-                $this->_pseudoConstantsSelect[$pf]['select'] = "{$field['where']} as `$name`";
-                $this->_pseudoConstantsSelect[$pf]['element'] = $name;
-                if ($tName == 'state_province') {
-                  $this->_pseudoConstantsSelect[$tName]['select'] = "{$field['where']} as `$name`";
-                  $this->_pseudoConstantsSelect[$tName]['element'] = $name;
-                }
+              elseif (in_array($tName, array('country', 'county'))) {
+                $this->_pseudoConstantsSelect[$name]['select'] = "{$field['where']} as `$name`";
+                $this->_pseudoConstantsSelect[$name]['element'] = $name;
+              }
+              elseif ($tName == 'state_province') {
+                $this->_pseudoConstantsSelect[$tName]['select'] = "{$field['where']} as `$name`";
+                $this->_pseudoConstantsSelect[$tName]['element'] = $name;
               }
               else {
                 $this->_select[$name] = "{$field['where']} as `$name`";
@@ -1051,7 +1034,7 @@ class CRM_Contact_BAO_Query {
           }
 
           foreach ($this->_params as $id => $values) {
-            if ($values[0] == $nm ||
+            if ((is_array($values) && $values[0] == $nm) ||
               (in_array($elementName, array('phone', 'im'))
                 && (strpos($values[0], $nm) !== FALSE)
               )
@@ -1263,7 +1246,9 @@ class CRM_Contact_BAO_Query {
    */
   function query($count = FALSE, $sortByChar = FALSE, $groupContacts = FALSE) {
     if ($count) {
-      if (isset($this->_distinctComponentClause)) {
+      if (isset($this->_rowCountClause)) {
+        $select = "SELECT {$this->_rowCountClause}";
+      } else if (isset($this->_distinctComponentClause)) {
         // we add distinct to get the right count for components
         // for the more complex result set, we use GROUP BY the same id
         // CRM-9630
@@ -4556,6 +4541,32 @@ SELECT COUNT( conts.total_amount ) as total_count,
       $summary['total']['amount'] = $summary['total']['avg'] = 0;
     }
 
+    // soft credit summary
+    if (CRM_Contribute_BAO_Query::isSoftCreditOptionEnabled()) {
+      $softCreditWhere = "{$completedWhere} AND civicrm_contribution_soft.id IS NOT NULL";
+      $query = "
+        $select FROM (
+          SELECT civicrm_contribution_soft.amount as total_amount, civicrm_contribution_soft.currency $from $softCreditWhere
+          GROUP BY civicrm_contribution_soft.id
+        ) as conts
+        GROUP BY currency";
+      $dao = CRM_Core_DAO::executeQuery($query);
+      $summary['soft_credit']['count'] = 0;
+      $summary['soft_credit']['amount'] = $summary['soft_credit']['avg'] = array();
+      while ($dao->fetch()) {
+        $summary['soft_credit']['count'] += $dao->total_count;
+        $summary['soft_credit']['amount'][] = CRM_Utils_Money::format($dao->total_amount, $dao->currency);
+        $summary['soft_credit']['avg'][] = CRM_Utils_Money::format($dao->total_avg, $dao->currency);
+      }
+      if (!empty($summary['soft_credit']['amount'])) {
+        $summary['soft_credit']['amount'] = implode(',&nbsp;', $summary['soft_credit']['amount']);
+        $summary['soft_credit']['avg'] = implode(',&nbsp;', $summary['soft_credit']['avg']);
+      }
+      else {
+        $summary['soft_credit']['amount'] = $summary['soft_credit']['avg'] = 0;
+      }
+    }
+
     // hack $select
     //@todo  - this could be one query using the IF in mysql - eg
     //  SELECT sum(total_completed), sum(count_completed), sum(count_cancelled), sum(total_cancelled) FROM (
@@ -5203,7 +5214,6 @@ AND   displayRelType.is_active = 1
 
   /**
    * convert the pseudo constants id's to their names
-   * FIXME: Get rid of hard-coded references to fields, should be retrievable from schema metadata
    *
    * @param  reference parameter $dao
    * @param bool $return
@@ -5230,7 +5240,7 @@ AND   displayRelType.is_active = 1
           //preserve id value
           $idColumn = "{$key}_id";
           $dao->$idColumn = $val;
-          $dao->$key = CRM_Core_PseudoConstant::getLabel($baoName, $value['pseudoField'], $val);
+          $dao->$value['pseudoField'] = $dao->$key = CRM_Core_PseudoConstant::getLabel($baoName, $value['pseudoField'], $val);
         }
         elseif ($value['pseudoField'] == 'state_province_abbreviation') {
           $dao->$key = CRM_Core_PseudoConstant::stateProvinceAbbreviation($val);

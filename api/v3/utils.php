@@ -48,7 +48,7 @@ function _civicrm_api3_initialize() {
 /**
  * Wrapper Function for civicrm_verify_mandatory to make it simple to pass either / or fields for checking
  *
- * @param array $params array of fields to check
+ * @param array $params array of fields to checkl
  * @param array $daoName string DAO to check for required fields (create functions only)
  * @param array $keyoptions
  *
@@ -78,8 +78,7 @@ function civicrm_api3_verify_one_mandatory($params, $daoName = NULL, $keyoptions
  *
  * @todo see notes on _civicrm_api3_check_required_fields regarding removing $daoName param
  */
-function civicrm_api3_verify_mandatory($params, $daoName = NULL, $keys = array(
-  ), $verifyDAO = TRUE) {
+function civicrm_api3_verify_mandatory($params, $daoName = NULL, $keys = array(), $verifyDAO = TRUE) {
 
   $unmatched = array();
   if ($daoName != NULL && $verifyDAO && empty($params['id'])) {
@@ -181,8 +180,7 @@ function civicrm_api3_create_error($msg, $data = array(), &$dao = NULL) {
  *
  * @return array $result
  */
-function civicrm_api3_create_success($values = 1, $params = array(
-  ), $entity = NULL, $action = NULL, &$dao = NULL, $extraReturnValues = array()) {
+function civicrm_api3_create_success($values = 1, $params = array(), $entity = NULL, $action = NULL, &$dao = NULL, $extraReturnValues = array()) {
   $result = array();
   $result['is_error'] = 0;
   //lets set the ['id'] field if it's not set & we know what the entity is
@@ -253,7 +251,13 @@ function civicrm_api3_create_success($values = 1, $params = array(
   else {
     $result['values'] = $values;
   }
-
+  if(!empty($params['options']['metadata'])) {
+    // we've made metadata an array but only supporting 'fields' atm
+    if(in_array('fields', $params['options']['metadata'])) {
+      $fields = civicrm_api3($entity, 'getfields', array('action' => substr($action, 0, 3) == 'get' ? 'get' : 'create'));
+      $result['metadata']['fields'] = $fields['values'];
+    }
+  }
   return array_merge($result, $extraReturnValues);
 }
 
@@ -580,6 +584,7 @@ function _civicrm_api3_dao_set_filter(&$dao, $params, $unique = TRUE, $entity) {
       $dao->selectAdd($allfields[$uniqueVal]);
     }
   }
+  $dao->setApiFilter($params);
 }
 
 /**
@@ -775,12 +780,15 @@ function _civicrm_api3_get_unique_name_array(&$bao) {
  * @static void
  * @access public
  */
-function _civicrm_api3_dao_to_array($dao, $params = NULL, $uniqueFields = TRUE, $entity = "") {
+function _civicrm_api3_dao_to_array($dao, $params = NULL, $uniqueFields = TRUE, $entity = "", $autoFind = TRUE) {
   $result = array();
   if(isset($params['options']) && !empty($params['options']['is_count'])) {
     return $dao->count();
   }
-  if (empty($dao) || !$dao->find()) {
+  if (empty($dao)) {
+    return array();
+  }
+  if ($autoFind && !$dao->find()) {
     return array();
   }
 
@@ -986,9 +994,9 @@ function _civicrm_api3_api_check_permission($entity, $action, &$params, $throw =
  */
 function _civicrm_api3_basic_get($bao_name, &$params, $returnAsSuccess = TRUE, $entity = "") {
   $bao = new $bao_name();
-  _civicrm_api3_dao_set_filter($bao, $params, TRUE,$entity);
+  _civicrm_api3_dao_set_filter($bao, $params, TRUE, $entity);
   if ($returnAsSuccess) {
-      return civicrm_api3_create_success(_civicrm_api3_dao_to_array($bao, $params, FALSE, $entity), $params, $entity);
+      return civicrm_api3_create_success(_civicrm_api3_dao_to_array($bao, $params, FALSE, $entity), $params, $entity, 'get');
   }
   else {
     return _civicrm_api3_dao_to_array($bao, $params, FALSE, $entity);
@@ -1384,8 +1392,7 @@ function _civicrm_api3_generic_replace_base_params($params) {
  *
  * @return array
  */
-function _civicrm_api_get_fields($entity, $unique = FALSE, &$params = array(
-  )) {
+function _civicrm_api_get_fields($entity, $unique = FALSE, &$params = array()) {
   $unsetIfEmpty = array('dataPattern', 'headerPattern', 'default', 'export', 'import');
   $dao = _civicrm_api3_get_DAO($entity);
   if (empty($dao)) {
@@ -1673,7 +1680,7 @@ function _civicrm_api3_validate_string(&$params, &$fieldName, &$fieldInfo, $enti
         throw new Exception("Currency not a valid code: $value");
       }
     }
-    if (!empty($fieldInfo['pseudoconstant']) || !empty($fieldInfo['options']) || !empty($fieldInfo['enumValues'])) {
+    if (!empty($fieldInfo['pseudoconstant']) || !empty($fieldInfo['options'])) {
       _civicrm_api3_api_match_pseudoconstant($params, $entity, $fieldName, $fieldInfo);
     }
     // Check our field length

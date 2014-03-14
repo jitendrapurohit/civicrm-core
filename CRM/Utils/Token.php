@@ -1140,6 +1140,39 @@ class CRM_Utils_Token {
   }
 
   /**
+   * Call hooks on tokens for anonymous users - contact id is set to 0 - this allows non-contact
+   * specific tokens to be rendered
+   *
+   * @param array $contactIDs - this should always be array(0) or its not anonymous - left to keep signature same
+   * as main fn
+   * @param string $returnProperties
+   * @param boolean $skipOnHold
+   * @param boolean $skipDeceased
+   * @param string $extraParams
+   * @param array $tokens
+   * @param string $className sent as context to the hook
+   * @param string $jobID
+   * @return array contactDetails with hooks swapped out
+   */
+  function getAnonymousTokenDetails($contactIDs = array(0),
+    $returnProperties = NULL,
+    $skipOnHold       = TRUE,
+    $skipDeceased     = TRUE,
+    $extraParams      = NULL,
+    $tokens           = array(),
+    $className        = NULL,
+    $jobID            = NULL) {
+    $details = array(0 => array());
+      // also call a hook and get token details
+      CRM_Utils_Hook::tokenValues($details[0],
+      $contactIDs,
+      $jobID,
+      $tokens,
+      $className
+    );
+    return $details;
+  }
+  /**
    * gives required details of contribuion in an indexed array format so we
    * can iterate in a nice loop and do token evaluation
    *
@@ -1496,6 +1529,41 @@ class CRM_Utils_Token {
       'gender' => 'gender_id',
       'communication_style' => 'communication_style_id',
     );
+  }
+
+  /**
+   * Formats a token list for the select2 widget
+   * @param $tokens
+   * @return array
+   */
+  static function formatTokensForDisplay($tokens) {
+    $sorted = $output = array();
+
+    // Sort in ascending order by ignoring word case
+    natcasesort($tokens);
+
+    // Attempt to place tokens into optgroups
+    // TODO: These groupings could be better and less hackish. Getting them pre-grouped from upstream would be nice.
+    foreach ($tokens as $k => $v) {
+      // Check to see if this token is already in a group e.g. for custom fields
+      $split = explode(' :: ', $v);
+      if (!empty($split[1])) {
+        $sorted[$split[1]][] = array('id' => $k, 'text' => $split[0]);
+      }
+      // Group by entity
+      else {
+        $split = explode('.', trim($k, '{}'));
+        $entity = isset($split[1]) ? ucfirst($split[0]) : 'Contact';
+        $sorted[ts($entity)][] = array('id' => $k, 'text' => $v);
+      }
+    }
+
+    ksort($sorted);
+    foreach ($sorted as $k => $v) {
+      $output[] = array('text' => $k, 'children' => $v);
+    }
+
+    return $output;
   }
 
 }

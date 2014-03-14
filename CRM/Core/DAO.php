@@ -929,8 +929,11 @@ FROM   civicrm_domain
    * execute a query and get the single result
    *
    * @param string $query query to be executed
+   * @param array $params
+   * @param bool $abort
+   * @param bool $i18nRewrite
+   * @return string|null the result of the query if any
    *
-   * @return string the result of the query
    * @static
    * @access public
    */
@@ -1336,7 +1339,12 @@ SELECT contact_id
             case CRM_Utils_Type::T_INT:
             case CRM_Utils_Type::T_FLOAT:
             case CRM_Utils_Type::T_MONEY:
-              $object->$dbName = $counter;
+              if (isset($value['precision'])) {
+                // $object->$dbName = CRM_Utils_Number::createRandomDecimal($value['precision']);
+                $object->$dbName = CRM_Utils_Number::createTruncatedDecimal($counter, $value['precision']);
+              } else {
+                $object->$dbName = $counter;
+              }
               break;
 
             case CRM_Utils_Type::T_BOOLEAN:
@@ -1380,26 +1388,10 @@ SELECT contact_id
             case CRM_Utils_Type::T_LONGTEXT:
             case CRM_Utils_Type::T_EMAIL:
             default:
-              if (isset($value['enumValues'])) {
-                if (isset($value['default'])) {
-                  $object->$dbName = $value['default'];
-                }
-                else {
-                  if (is_array($value['enumValues'])) {
-                    $object->$dbName = $value['enumValues'][0];
-                  }
-                  else {
-                    $defaultValues = explode(',', $value['enumValues']);
-                    $object->$dbName = $defaultValues[0];
-                  }
-                }
-              }
-              else {
-                $object->$dbName = $dbName . '_' . $counter;
-                $maxlength = CRM_Utils_Array::value('maxlength', $value);
-                if ($maxlength > 0 && strlen($object->$dbName) > $maxlength) {
-                  $object->$dbName = substr($object->$dbName, 0, $value['maxlength']);
-                }
+              $object->$dbName = $dbName . '_' . $counter;
+              $maxlength = CRM_Utils_Array::value('maxlength', $value);
+              if ($maxlength > 0 && strlen($object->$dbName) > $maxlength) {
+                $object->$dbName = substr($object->$dbName, 0, $value['maxlength']);
               }
           }
         }
@@ -1842,6 +1834,26 @@ EOS;
   }
 
   /**
+   * @param $fieldName
+   * @return bool|array
+   */
+  function getFieldSpec($fieldName) {
+    $fields = $this->fields();
+    $fieldKeys = $this->fieldKeys();
+
+    // Support "unique names" as well as sql names
+    $fieldKey = $fieldName;
+    if (empty($fields[$fieldKey])) {
+      $fieldKey = CRM_Utils_Array::value($fieldName, $fieldKeys);
+    }
+    // If neither worked then this field doesn't exist. Return false.
+    if (empty($fields[$fieldKey])) {
+      return FALSE;
+    }
+    return $fields[$fieldKey];
+  }
+
+  /**
    * SQL version of api function to assign filters to the DAO based on the syntax
    * $field => array('IN' => array(4,6,9))
    * OR
@@ -1955,5 +1967,7 @@ EOS;
     $md5string = substr(md5($string), 0, 8);
     return substr($string, 0, $length - 8) . "_{$md5string}";
   }
+
+  function setApiFilter(&$params) {}
 
 }

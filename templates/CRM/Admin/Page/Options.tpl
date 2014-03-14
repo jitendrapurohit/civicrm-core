@@ -24,7 +24,10 @@
  +--------------------------------------------------------------------+
 *}
 
-{if $action eq 1 or $action eq 2 or $action eq 8}
+{if empty($gName)}
+  {include file="CRM/Admin/Page/OptionGroup.tpl"}
+
+{elseif $action eq 1 or $action eq 2 or $action eq 8}
    {include file="CRM/Admin/Form/Options.tpl"}
 {else}
 
@@ -61,7 +64,7 @@
   {elseif $gName eq 'from_email_address'}
     {ts}By default, CiviCRM uses the primary email address of the logged in user as the FROM address when sending emails to contacts. However, you can use this page to define one or more general Email Addresses that can be selected as an alternative. EXAMPLE: <em>"Client Services" &lt;clientservices@example.org&gt;</em>{/ts}
   {else}
-    {ts 1=$GName}The existing option choices for %1 group are listed below. You can add, edit or delete them from this screen.{/ts}
+    {ts 1=$gLabel}The existing option choices for %1 group are listed below. You can add, edit or delete them from this screen.{/ts}
   {/if}
 </div>
 
@@ -69,7 +72,7 @@
 {if $rows}
 {if $action ne 1 and $action ne 2}
     <div class="action-link">
-        <a href="{crmURL q="group="|cat:$gName|cat:"&action=add&reset=1"}" class="button new-option"><span><div class="icon add-icon"></div>{ts 1=$GName}Add %1{/ts}</span></a>
+        <a href="{crmURL p="civicrm/admin/options/$gName" q='action=add&reset=1'}" class="button new-option"><span><div class="icon add-icon"></div>{ts 1=$gLabel}Add %1{/ts}</span></a>
     </div>
 {/if}
 <div id={$gName}>
@@ -152,14 +155,14 @@
 
         {if $action ne 1 and $action ne 2}
             <div class="action-link">
-                <a href="{crmURL q="group="|cat:$gName|cat:"&action=add&reset=1"}" class="button new-option"><span><div class="icon add-icon"></div>{ts 1=$GName}Add %1{/ts}</span></a>
+                <a href="{crmURL p="civicrm/admin/options/$gName" q='action=add&reset=1'}" class="button new-option"><span><div class="icon add-icon"></div>{ts 1=$gLabel}Add %1{/ts}</span></a>
             </div>
         {/if}
 </div>
 {else}
     <div class="messages status no-popup">
          <div class="icon inform-icon"></div>
-        {capture assign=crmURL}{crmURL  q="group="|cat:$gName|cat:"&action=add&reset=1"}{/capture}
+        {capture assign=crmURL}{crmURL p="civicrm/admin/options/$gName" q='action=add&reset=1'}{/capture}
         {ts 1=$crmURL}There are no option values entered. You can <a href='%1'>add one</a>.{/ts}
     </div>
 {/if}

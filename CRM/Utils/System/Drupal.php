@@ -50,7 +50,8 @@ class CRM_Utils_System_Drupal extends CRM_Utils_System_DrupalBase {
    *
    */
   function createUser(&$params, $mail) {
-    $form_state = array();
+    $form_state = form_state_defaults();
+
     $form_state['input'] = array(
       'name' => $params['cms_name'],
       'mail' => $params[$mail],
@@ -578,10 +579,6 @@ AND    u.status = 1
    */
   function setMessage($message) {
     drupal_set_message($message);
-  }
-
-  function permissionDenied() {
-    drupal_access_denied();
   }
 
   function logout() {
