@@ -95,6 +95,11 @@ class CRM_Core_Resources {
   protected $cacheCodeKey = NULL;
 
   /**
+   * @var bool
+   */
+  public $ajaxPopupsEnabled;
+
+  /**
    * Get or set the single instance of CRM_Core_Resources
    *
    * @param $instance CRM_Core_Resources, new copy of the manager
@@ -134,6 +139,9 @@ class CRM_Core_Resources {
     if (!$this->cacheCode) {
       $this->resetCacheCode();
     }
+    $this->ajaxPopupsEnabled = (bool) CRM_Core_BAO_Setting::getItem(
+      CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'ajaxPopupsEnabled', NULL, TRUE
+    );
   }
 
   /**
@@ -429,9 +437,8 @@ class CRM_Core_Resources {
       $config = CRM_Core_Config::singleton();
 
       // Add resources from coreResourceList
-      $files = $this->coreResourceList();
       $jsWeight = -9999;
-      foreach ($files as $file) {
+      foreach ($this->coreResourceList() as $file) {
         if (substr($file, -2) == 'js') {
           // Don't bother  looking for ts() calls in packages, there aren't any
           $translate = (substr($file, 0, 9) != 'packages/');
@@ -455,6 +462,7 @@ class CRM_Core_Resources {
         'userFramework' => $config->userFramework,
         'resourceBase' => $config->resourceBase,
         'lcMessages' => $config->lcMessages,
+        'ajaxPopupsEnabled' => $this->ajaxPopupsEnabled,
       );
       $this->addSetting(array('config' => $settings));
 
@@ -557,9 +565,11 @@ class CRM_Core_Resources {
     // Use minified files for production, uncompressed in debug mode
     $min = $config->debug ? '' : '.min';
 
+    // Scripts needed by everyone, everywhere
+    // FIXME: This is too long; list needs finer-grained segmentation
     $items = array(
       "packages/jquery/jquery-1.10.2$min.js",
-      "packages/jquery/jquery-migrate-1.2.1.js",
+      "packages/jquery/jquery-migrate-1.2.1.js", // TODO: Remove before 4.5 release
       "packages/jquery/jquery-ui/js/jquery-ui-1.10.3.custom$min.js",
       "packages/jquery/jquery-ui/css/black-tie/jquery-ui-1.10.3.custom$min.css",
 
@@ -570,20 +580,15 @@ class CRM_Core_Resources {
       "packages/jquery/plugins/select2/select2.js", // No mini until release of select2 3.4.6
       "packages/jquery/plugins/select2/select2.css",
 
+      // TODO: Remove before 4.5 release
       "packages/jquery/plugins/jquery.autocomplete.js",
       "packages/jquery/css/jquery.autocomplete.css",
-
-      "packages/jquery/plugins/jquery.menu$min.js",
-      "packages/jquery/css/menu.css",
 
       "packages/jquery/plugins/jquery.tableHeader.js",
 
       "packages/jquery/plugins/jquery.textarearesizer.js",
 
       "packages/jquery/plugins/jquery.form$min.js",
-
-      "packages/jquery/plugins/jquery.tokeninput$min.js",
-      "packages/jquery/css/token-input-facebook.css",
 
       "packages/jquery/plugins/jquery.timeentry$min.js",
 
@@ -594,17 +599,28 @@ class CRM_Core_Resources {
       "packages/jquery/plugins/jquery.validate$min.js",
       "packages/jquery/plugins/jquery.ui.datepicker.validation.pack.js",
 
-      "packages/jquery/plugins/jquery.jeditable$min.js",
-
-      "packages/jquery/plugins/jquery.blockUI$min.js",
-
-      "packages/jquery/plugins/jquery.notify$min.js",
-
-      "js/rest.js",
       "js/Common.js",
-
-      "js/jquery/jquery.crmeditable.js",
+      "js/crm.ajax.js",
     );
+
+    // These scripts are only needed by back-office users
+    if (CRM_Core_Permission::check('access CiviCRM')) {
+      $items[] = "packages/jquery/plugins/jquery.menu$min.js";
+      $items[] = "packages/jquery/css/menu.css";
+      $items[] = "packages/jquery/plugins/jquery.jeditable$min.js";
+      $items[] = "packages/jquery/plugins/jquery.blockUI$min.js";
+      $items[] = "packages/jquery/plugins/jquery.notify$min.js";
+      $items[] = "js/jquery/jquery.crmeditable.js";
+
+      // TODO: tokeninput is deprecated in favor of select2 and will be removed soon
+      $items[] = "packages/jquery/plugins/jquery.tokeninput$min.js";
+      $items[] = "packages/jquery/css/token-input-facebook.css";
+    }
+
+    // Enable administrators to edit option lists in a dialog
+    if (CRM_Core_Permission::check('administer CiviCRM') && $this->ajaxPopupsEnabled) {
+      $items[] = "js/crm.optionEdit.js";
+    }
 
     // Add localized jQuery UI files
     if ($config->lcMessages && $config->lcMessages != 'en_US') {

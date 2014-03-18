@@ -265,6 +265,7 @@ class CRM_Contribute_Form_Search extends CRM_Core_Form {
 
     $rows = $this->get('rows');
     if (is_array($rows)) {
+      CRM_Core_Resources::singleton()->addScriptFile('civicrm', 'js/crm.livePage.js');
       CRM_Core_Resources::singleton()->addScriptFile('civicrm', 'js/crm.searchForm.js');
       if (!$this->_single) {
         $this->addElement('checkbox',
@@ -285,7 +286,12 @@ class CRM_Contribute_Form_Search extends CRM_Core_Form {
 
       $permission = CRM_Core_Permission::getPermission();
 
-      $tasks = array('' => ts('- actions -')) + CRM_Contribute_Task::permissionedTaskTitles($permission);
+      $queryParams = $this->get('queryParams');
+      $softCreditFiltering = FALSE;
+      if (!empty($queryParams)) {
+        $softCreditFiltering = CRM_Contribute_BAO_Query::isSoftCreditOptionEnabled($queryParams);
+      }
+      $tasks = array('' => ts('- actions -')) + CRM_Contribute_Task::permissionedTaskTitles($permission, $softCreditFiltering);
       $this->add('select', 'task', ts('Actions:') . ' ', $tasks);
       $this->add('submit', $this->_actionButtonName, ts('Go'),
         array(

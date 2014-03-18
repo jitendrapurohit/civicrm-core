@@ -29,22 +29,13 @@ cj(function($) {
             })
           });
         }
-        if (ui.tab.hasClass('livePage')) {
+        if (ui.tab.hasClass('livePage') && CRM.config.ajaxPopupsEnabled) {
           ui.panel
             .off('click.crmLivePage')
-            .on('click.crmLivePage', 'a.button, a.action-item', function() {
-              var url = $(this).attr('href');
-              // only follow real links not javascript buttons
-              if (url === '#' || $(this).attr('onclick') || $(this).hasClass('no-popup')) {
-                return;
-              }
-              CRM.loadForm(url, {
-                openInline: 'a:not("[href=#], .no-popup")'
-              }).on('crmFormSuccess', function(e, data) {
-                  // Refresh when form completes
-                  ui.panel.crmSnippet('refresh');
-                });
-              return false;
+            .on('click.crmLivePage', 'a.button, a.action-item', CRM.popup)
+            .on('crmPopupFormSuccess.crmLivePage', 'a.button, a.action-item', function() {
+              // Refresh panel when form completes
+              ui.panel.crmSnippet('refresh');
             });
         }
         ui.panel
@@ -76,6 +67,14 @@ cj(function($) {
 (function($) {
   // Utility functions
   CRM.tabHeader = CRM.tabHeader || {};
+
+  /**
+   * Make a given tab the active one
+   * @param tab jQuery selector
+   */
+  CRM.tabHeader.focus = function(tab) {
+    $('#mainTabContainer').tabs('option', 'active', $(tab).prevAll().length);
+  };
 
   /**
    * @param tab jQuery selector
