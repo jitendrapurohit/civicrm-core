@@ -420,11 +420,12 @@ CRM.validate = CRM.validate || {
           target.toggleClass('crm-row-selected', $(this).is(':checked'));
         })
         .find('input.select-row:checked').parents('tr').addClass('crm-row-selected');
-      $('.crm-select2:not(.select2-offscreen)', e.target).crmSelect2();
-      $('.crm-form-entityref:not(.select2-offscreen)', e.target).crmEntityRef();
+      $('.crm-select2:not(.select2-offscreen, .select2-container)', e.target).crmSelect2();
+      $('.crm-form-entityref:not(.select2-offscreen, .select2-container)', e.target).crmEntityRef();
     })
     // Modal dialogs should disable scrollbars
     .on('dialogopen', function(e) {
+      $(e.target).parent().addClass('crm-container');
       if ($(e.target).dialog('option', 'modal')) {
         $(e.target).addClass('modal-dialog');
         $('body').css({overflow: 'hidden'});
@@ -647,7 +648,7 @@ CRM.validate = CRM.validate || {
       modal: true,
       width: 'auto',
       close: function () {
-        $(dialog).remove();
+        $(dialog).dialog('destroy').remove();
       },
       buttons: {}
     };
@@ -670,10 +671,10 @@ CRM.validate = CRM.validate || {
         }
       };
     });
-    dialog = $('<div class="crm-container crm-confirm-dialog"></div>')
+    dialog = $('<div class="crm-confirm-dialog"></div>')
       .html(options.message)
-      .appendTo('body')
-      .dialog(settings);
+      .dialog(settings)
+      .trigger('crmLoad');
     return dialog;
   };
 
@@ -789,7 +790,7 @@ CRM.validate = CRM.validate || {
     // bind the event for image popup
     $('body')
       .on('click', 'a.crm-image-popup', function() {
-        var o = $('<div class="crm-container crm-custom-image-popup"><img src=' + $(this).attr('href') + '></div>');
+        var o = $('<div class="crm-custom-image-popup"><img src=' + $(this).attr('href') + '></div>');
 
         CRM.confirm('',
           {
