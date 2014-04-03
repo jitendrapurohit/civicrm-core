@@ -1,9 +1,9 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.4                                                |
+ | CiviCRM version 4.5                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2013                                |
+ | Copyright CiviCRM LLC (c) 2004-2014                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2013
+ * @copyright CiviCRM LLC (c) 2004-2014
  * $Id$
  *
  */
@@ -441,7 +441,9 @@ class CRM_Member_Import_Parser_Membership extends CRM_Member_Import_Parser {
               $endDate,
               $joinDate,
               'today',
-              $excludeIsAdmin
+              $excludeIsAdmin,
+              $formatted['membership_type_id'],
+              $formatted
             );
 
             if (empty($formatted['status_id'])) {
@@ -529,7 +531,9 @@ class CRM_Member_Import_Parser_Membership extends CRM_Member_Import_Parser {
           $endDate,
           $joinDate,
           'today',
-          $excludeIsAdmin
+          $excludeIsAdmin,
+          $formatted['membership_type_id'],
+          $formatted
         );
         if (empty($formatted['status_id'])) {
           $formatted['status_id'] = CRM_Utils_Array::value('id', $calcStatus);

@@ -1,9 +1,9 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.4                                                |
+ | CiviCRM version 4.5                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2013                                |
+ | Copyright CiviCRM LLC (c) 2004-2014                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2013
+ * @copyright CiviCRM LLC (c) 2004-2014
  * $Id$
  *
  */
@@ -49,7 +49,7 @@ class CRM_Contact_Page_DashBoard extends CRM_Core_Page {
     // Add dashboard js and css
     $resources = CRM_Core_Resources::singleton();
     $resources->addScriptFile('civicrm', 'js/jquery/jquery.dashboard.js', 0, 'html-header', FALSE);
-    $resources->addStyleFile('civicrm', 'packages/jquery/css/dashboard.css');
+    $resources->addStyleFile('civicrm', 'css/dashboard.css');
 
     $config = CRM_Core_Config::singleton();
 

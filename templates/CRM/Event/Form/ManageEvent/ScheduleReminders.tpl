@@ -1,6 +1,6 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.4                                                |
+ | CiviCRM version 4.5                                                |
  +--------------------------------------------------------------------+
  | Copyright (C) 2011 Marty Wright                                    |
  | Licensed to CiviCRM under the Academic Free License version 3.0.   |
@@ -50,7 +50,6 @@
     {* added onload javascript for source contact*}
     {literal}
       <script type="text/javascript">
-        cj().crmAccordions();
       var recipient_manual = '';
       var recipient_manual_id = null;
       var toDataUrl = "{/literal}{crmURL p='civicrm/ajax/checkemail' q='id=1&noemail=1' h=0 }{literal}"; {/literal}
@@ -180,7 +179,7 @@
 
   {literal}
     <script type='text/javascript'>
-      cj(function() {
+      CRM.$(function($) {
         populateRecipient();
         cj('#recipient').click( function( ) {
           populateRecipient();

@@ -1,9 +1,9 @@
 <?php
 /*
   +--------------------------------------------------------------------+
-  | CiviCRM version 4.4                                                |
+  | CiviCRM version 4.5                                                |
   +--------------------------------------------------------------------+
-  | Copyright CiviCRM LLC (c) 2004-2013                                |
+  | Copyright CiviCRM LLC (c) 2004-2014                                |
   +--------------------------------------------------------------------+
   | This file is a part of CiviCRM.                                    |
   |                                                                    |
@@ -31,7 +31,7 @@
  * @package CiviCRM_APIv3
  * @subpackage API_utils
  *
- * @copyright CiviCRM LLC (c) 2004-2013
+ * @copyright CiviCRM LLC (c) 2004-2014
  * @version $Id: utils.php 30879 2010-11-22 15:45:55Z shot $
  *
  */
@@ -131,17 +131,12 @@ function civicrm_api3_verify_mandatory($params, $daoName = NULL, $keys = array()
  *
  * @param <type> $data
  * @param array $data
- * @param object $dao DAO / BAO object to be freed here
+ * @param array $dao (misnomer) apiRequest which led to this error (with keys "entity", "action", etc)
  *
  * @throws API_Exception
  * @return array <type>
  */
 function civicrm_api3_create_error($msg, $data = array(), &$dao = NULL) {
-  //fix me - $dao should be param 4 & 3 should be $apiRequest
-  if (is_object($dao)) {
-    $dao->free();
-  }
-
   if (is_array($dao)) {
     if ($msg == 'DB Error: constraint violation' || substr($msg, 0,9)  == 'DB Error:' || $msg == 'DB Error: already exists') {
       try {
@@ -158,7 +153,9 @@ function civicrm_api3_create_error($msg, $data = array(), &$dao = NULL) {
   // we will show sql to privelledged user only (not sure of a specific
   // security hole here but seems sensible - perhaps should apply to the trace as well?
   if(isset($data['sql']) && CRM_Core_Permission::check('Administer CiviCRM')) {
-    $data['debug_information'] = $data['sql'];
+    $data['debug_information'] = $data['sql']; // Isn't this redundant?
+  } else {
+    unset($data['sql']);
   }
   if (is_array($dao) && isset($dao['params']) && is_array($dao['params']) && !empty($dao['params']['api.has_parent'])) {
     $errorCode = empty($data['error_code']) ? 'chained_api_failed' : $data['error_code'];
@@ -318,7 +315,21 @@ function _civicrm_api3_get_DAO($name) {
   if ($name == 'Im' || $name == 'Acl') {
     $name = strtoupper($name);
   }
-  return CRM_Core_DAO_AllCoreTables::getFullName($name);
+  $dao = CRM_Core_DAO_AllCoreTables::getFullName($name);
+  if ($dao || !$name) {
+    return $dao;
+  }
+
+  // Really weird apis can declare their own DAO name. Not sure if this is a good idea...
+  if(file_exists("api/v3/$name.php")) {
+    include_once "api/v3/$name.php";
+  }
+  $daoFn = "_civicrm_api3_" . _civicrm_api_get_entity_name_from_camel($name) . "_DAO";
+  if (function_exists($daoFn)) {
+    return $daoFn();
+  }
+
+  return NULL;
 }
 
 /**
@@ -409,6 +420,8 @@ function _civicrm_api3_store_values(&$fields, &$params, &$values) {
  *  others that use the query object. Note that this function passes permission information in.
  *  The others don't
  *
+ * * Ideally this would be merged with _civicrm_get_query_object but we need to resolve differences in what the
+ * 2 variants call
  * @param $entity
  * @param array $params as passed into api get or getcount function
  * @param array $additional_options
@@ -497,6 +510,45 @@ function _civicrm_api3_get_using_query_object($entity, $params, $additional_opti
   }
 
   return $entities;
+}
+
+/**
+ * get dao query object based on input params
+ * Ideally this would be merged with _civicrm_get_using_query_object but we need to resolve differences in what the
+ * 2 variants call
+ *
+ * @param array $params
+ * @param string $mode
+ * @param string $entity
+ * @return CRM_Core_DAO query object
+ */
+function _civicrm_api3_get_query_object($params, $mode, $entity) {
+  $options          = _civicrm_api3_get_options_from_params($params, TRUE, $entity, 'get');
+  $sort             = CRM_Utils_Array::value('sort', $options, NULL);
+  $offset           = CRM_Utils_Array::value('offset', $options);
+  $rowCount         = CRM_Utils_Array::value('limit', $options);
+  $inputParams      = CRM_Utils_Array::value('input_params', $options, array());
+  $returnProperties = CRM_Utils_Array::value('return', $options, NULL);
+  if (empty($returnProperties)) {
+    $returnProperties = CRM_Contribute_BAO_Query::defaultReturnProperties($mode);
+  }
+
+  $newParams = CRM_Contact_BAO_Query::convertFormValues($inputParams);
+  $query = new CRM_Contact_BAO_Query($newParams, $returnProperties, NULL,
+    FALSE, FALSE, $mode
+  );
+  list($select, $from, $where, $having) = $query->query();
+
+  $sql = "$select $from $where $having";
+
+  if (!empty($sort)) {
+    $sql .= " ORDER BY $sort ";
+  }
+  if(!empty($rowCount)) {
+    $sql .= " LIMIT $offset, $rowCount ";
+  }
+  $dao = CRM_Core_DAO::executeQuery($sql);
+  return array($dao, $query);
 }
 
 /**
@@ -725,7 +777,9 @@ function _civicrm_api3_apply_options_to_dao(&$params, &$dao, $entity) {
 
   $options = _civicrm_api3_get_options_from_params($params,FALSE,$entity);
   if(!$options['is_count']) {
-    $dao->limit((int)$options['offset'], (int)$options['limit']);
+    if(!empty($options['limit'])) {
+      $dao->limit((int)$options['offset'], (int)$options['limit']);
+    }
     if (!empty($options['sort'])) {
       $dao->orderBy($options['sort']);
     }

@@ -1,9 +1,9 @@
 <?php
 /*
   +--------------------------------------------------------------------+
-  | CiviCRM version 4.4                                                |
+  | CiviCRM version 4.5                                                |
   +--------------------------------------------------------------------+
-  | Copyright CiviCRM LLC (c) 2004-2013                                |
+  | Copyright CiviCRM LLC (c) 2004-2014                                |
   +--------------------------------------------------------------------+
   | This file is a part of CiviCRM.                                    |
   |                                                                    |
@@ -29,7 +29,7 @@
  * Our base DAO class. All DAO classes should inherit from this class.
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2013
+ * @copyright CiviCRM LLC (c) 2004-2014
  * $Id$
  *
  */
@@ -902,14 +902,10 @@ FROM   civicrm_domain
     }
 
     if ($trapException) {
-      CRM_Core_Error::ignoreException();
+      $errorScope = CRM_Core_TemporaryErrorScope::ignoreException();
     }
 
     $result = $dao->query($queryStr, $i18nRewrite);
-
-    if ($trapException) {
-      CRM_Core_Error::setCallback();
-    }
 
     if (is_a($result, 'DB_Error')) {
       return $result;
@@ -1268,6 +1264,11 @@ SELECT contact_id
     $numObjects = 1,
     $createOnly = FALSE
   ) {
+    //this is a test function  also backtrace is set for the test suite it sometimes unsets itself
+    // so we re-set here in case
+    $config = CRM_Core_Config::singleton();
+    $config->backtrace = TRUE;
+
     static $counter = 0;
     CRM_Core_DAO::$_testEntitiesToSkip = array(
       'CRM_Core_DAO_Worldregion',
@@ -1388,10 +1389,29 @@ SELECT contact_id
             case CRM_Utils_Type::T_LONGTEXT:
             case CRM_Utils_Type::T_EMAIL:
             default:
-              $object->$dbName = $dbName . '_' . $counter;
-              $maxlength = CRM_Utils_Array::value('maxlength', $value);
-              if ($maxlength > 0 && strlen($object->$dbName) > $maxlength) {
-                $object->$dbName = substr($object->$dbName, 0, $value['maxlength']);
+              // WAS: if (isset($value['enumValues'])) {
+              // TODO: see if this works with all pseudoconstants
+              if (isset($value['pseudoconstant'], $value['pseudoconstant']['callback'])) {
+                if (isset($value['default'])) {
+                  $object->$dbName = $value['default'];
+                }
+                else {
+                  $options = CRM_Core_PseudoConstant::get($daoName, $name);
+                  if (is_array($options)) {
+                    $object->$dbName = $options[0];
+                  }
+                  else {
+                    $defaultValues = explode(',', $options);
+                    $object->$dbName = $defaultValues[0];
+                  }
+                }
+              }
+              else {
+                $object->$dbName = $dbName . '_' . $counter;
+                $maxlength = CRM_Utils_Array::value('maxlength', $value);
+                if ($maxlength > 0 && strlen($object->$dbName) > $maxlength) {
+                  $object->$dbName = substr($object->$dbName, 0, $value['maxlength']);
+                }
               }
           }
         }
@@ -1420,8 +1440,12 @@ SELECT contact_id
 
   static function deleteTestObjects($daoName, $params = array(
     )) {
+    //this is a test function  also backtrace is set for the test suite it sometimes unsets itself
+    // so we re-set here in case
+    $config = CRM_Core_Config::singleton();
+    $config->backtrace = TRUE;
 
-    $object = new $daoName ( );
+    $object = new $daoName();
     $object->id = CRM_Utils_Array::value('id', $params);
 
     $deletions = array(); // array(array(0 => $daoName, 1 => $daoParams))
@@ -1468,12 +1492,11 @@ SELECT contact_id
     // test for create view and trigger permissions and if allowed, add the option to go multilingual
     // and logging
     // I'm not sure why we use the getStaticProperty for an error, rather than checking for DB_Error
-    CRM_Core_Error::ignoreException();
+    $errorScope = CRM_Core_TemporaryErrorScope::ignoreException();
     $dao = new CRM_Core_DAO();
     if ($view) {
       $dao->query('CREATE OR REPLACE VIEW civicrm_domain_view AS SELECT * FROM civicrm_domain');
       if (PEAR::getStaticProperty('DB_DataObject', 'lastError')) {
-        CRM_Core_Error::setCallback();
         return FALSE;
       }
     }
@@ -1481,7 +1504,6 @@ SELECT contact_id
     if ($trigger) {
       $result = $dao->query('CREATE TRIGGER civicrm_domain_trigger BEFORE INSERT ON civicrm_domain FOR EACH ROW BEGIN END');
       if (PEAR::getStaticProperty('DB_DataObject', 'lastError') || is_a($result, 'DB_Error')) {
-        CRM_Core_Error::setCallback();
         if ($view) {
           $dao->query('DROP VIEW IF EXISTS civicrm_domain_view');
         }
@@ -1490,7 +1512,6 @@ SELECT contact_id
 
       $dao->query('DROP TRIGGER IF EXISTS civicrm_domain_trigger');
       if (PEAR::getStaticProperty('DB_DataObject', 'lastError')) {
-        CRM_Core_Error::setCallback();
         if ($view) {
           $dao->query('DROP VIEW IF EXISTS civicrm_domain_view');
         }
@@ -1501,11 +1522,9 @@ SELECT contact_id
     if ($view) {
       $dao->query('DROP VIEW IF EXISTS civicrm_domain_view');
       if (PEAR::getStaticProperty('DB_DataObject', 'lastError')) {
-        CRM_Core_Error::setCallback();
         return FALSE;
       }
     }
-    CRM_Core_Error::setCallback();
 
     return TRUE;
   }

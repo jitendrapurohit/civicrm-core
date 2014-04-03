@@ -1,9 +1,9 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.4                                                |
+ | CiviCRM version 4.5                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2013                                |
+ | Copyright CiviCRM LLC (c) 2004-2014                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2013
+ * @copyright CiviCRM LLC (c) 2004-2014
  * $Id$
  *
  */
@@ -646,7 +646,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       $customFields = CRM_Core_BAO_CustomField::getFieldsForImport($ctype, FALSE, FALSE, FALSE, TRUE, TRUE);
 
       // hack to add custom data for components
-      $components = array('Contribution', 'Participant', 'Membership', 'Activity');
+      $components = array('Contribution', 'Participant', 'Membership', 'Activity', 'Case');
       foreach ($components as $value) {
         $customFields = array_merge($customFields, CRM_Core_BAO_CustomField::getFieldsForImport($value));
       }
@@ -940,7 +940,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       }
 
       //handle the case to avoid re-write where the profile field labels are the same
-      if (!empty($values[$index])) {
+      if (array_key_exists($index, $values)) {
         $index .= $nullValueIndex;
         $nullValueIndex .= $nullValueIndex;
       }
@@ -950,8 +950,8 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       if (isset($details->$name) || $name == 'group' || $name == 'tag') {
         // to handle gender / suffix / prefix
         if (in_array(substr($name, 0, -3), array('gender', 'prefix', 'suffix'))) {
-          $values[$index] = CRM_Core_PseudoConstant::getLabel('CRM_Contact_DAO_Contact', $name, $details->$name);
           $params[$index] = $details->$name;
+          $values[$index] = $details->$name;
         }
         elseif (in_array($name, CRM_Contact_BAO_Contact::$_greetingTypes)) {
           $dname          = $name . '_display';
@@ -3003,7 +3003,7 @@ AND    ( entity_id IS NULL OR entity_id <= 0 )
       return CRM_Core_DAO::setFieldValue('CRM_Core_DAO_UFGroup', $gId, 'group_type', 'null');
     }
 
-    $componentGroupTypes = array('Contribution', 'Participant', 'Membership', 'Activity');
+    $componentGroupTypes = array('Contribution', 'Participant', 'Membership', 'Activity', 'Case');
     $validGroupTypes = array_merge(array('Contact', 'Individual', 'Organization', 'Household'), $componentGroupTypes, CRM_Contact_BAO_ContactType::subTypes());
 
     $gTypes = $gTypeValues = array();

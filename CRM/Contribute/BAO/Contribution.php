@@ -1,9 +1,9 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.4                                                |
+ | CiviCRM version 4.5                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2013                                |
+ | Copyright CiviCRM LLC (c) 2004-2014                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2013
+ * @copyright CiviCRM LLC (c) 2004-2014
  * $Id$
  *
  */
@@ -143,14 +143,16 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
     if (empty($ids['contribution']) && empty($params['contribution_status_id'])) {
       $params['contribution_status_id'] = CRM_Core_OptionGroup::getValue('contribution_status', 'Completed', 'name');
     }
-
+    $setPrevContribution = TRUE;
     // CRM-13964 partial payment
-    if (empty($contributionID)) {
-      if (!empty($params['partial_payment_total']) && !empty($params['partial_amount_pay'])) {
-        $partialAmtTotal = $params['partial_payment_total'];
-        $partialAmtPay = $params['partial_amount_pay'];
-        $params['total_amount'] = $partialAmtTotal;
+    if (!empty($params['partial_payment_total']) && !empty($params['partial_amount_pay'])) {
+      $partialAmtTotal = $params['partial_payment_total'];
+      $partialAmtPay = $params['partial_amount_pay'];
+      $params['total_amount'] = $partialAmtTotal;
+      if ($partialAmtPay < $partialAmtTotal) {
         $params['contribution_status_id'] = CRM_Core_OptionGroup::getValue('contribution_status', 'Partially paid', 'name');
+        $params['is_pay_later'] = 0;
+        $setPrevContribution = FALSE;
       }
     }
 
@@ -170,7 +172,7 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
       $contribution->currency = $config->defaultCurrency;
     }
 
-    if ($contributionID) {
+    if ($contributionID && $setPrevContribution) {
       $params['prevContribution'] = self::getValues(array('id' => $contributionID), CRM_Core_DAO::$_nullArray, CRM_Core_DAO::$_nullArray);
     }
 
@@ -316,10 +318,10 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
     }
 
     // Handle soft credit and / or link to personal campaign page
-    list($type, $softIDs) = CRM_Contribute_BAO_ContributionSoft::getSoftCreditType($contribution->id);
+    $softIDs = CRM_Contribute_BAO_ContributionSoft::getSoftCreditIds($contribution->id);
     if ($pcp = CRM_Utils_Array::value('pcp', $params)) {
-      if (!empty($type) && $type == 'soft') {
-        $deleteParams = array('contribution_id' => $contribution->id);
+      if ($pcpId = CRM_Contribute_BAO_ContributionSoft::getSoftCreditIds($contribution->id, TRUE)) {
+        $deleteParams = array('id' => $pcpId);
         CRM_Contribute_BAO_ContributionSoft::del($deleteParams);
       }
       $softParams = array();
@@ -336,7 +338,7 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
       $softParams['soft_credit_type_id'] = CRM_Core_OptionGroup::getValue('soft_credit_type', 'pcp', 'name');
       CRM_Contribute_BAO_ContributionSoft::add($softParams);
     }
-    elseif (isset($params['soft_credit'])) {
+    if (isset($params['soft_credit'])) {
       $softParams = $params['soft_credit'];
 
       if (!empty($softIDs)) {
@@ -1546,7 +1548,9 @@ LEFT JOIN  civicrm_contribution contribution ON ( componentPayment.contribution_
               $dates['end_date'],
               $dates['join_date'],
               'today',
-              TRUE
+              TRUE,
+              $membership->membership_type_id,
+              (array) $membership
             );
 
             $formattedParams = array(

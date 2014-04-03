@@ -4,7 +4,7 @@
  * Tabs with class 'ajaxForm' will use CRM.loadForm instead, suitable for most forms
  * Tabs with class 'livePage' will get popup action links, suitable for crud tables
  */
-cj(function($) {
+CRM.$(function($) {
   var tabSettings = CRM.tabSettings || {};
   tabSettings.active = tabSettings.active ? $('#tab_' + tabSettings.active).prevAll().length : 0;
   $("#mainTabContainer")
@@ -33,10 +33,7 @@ cj(function($) {
           ui.panel
             .off('click.crmLivePage')
             .on('click.crmLivePage', 'a.button, a.action-item', CRM.popup)
-            .on('crmPopupFormSuccess.crmLivePage', 'a.button, a.action-item', function() {
-              // Refresh panel when form completes
-              ui.panel.crmSnippet('refresh');
-            });
+            .on('crmPopupFormSuccess.crmLivePage', 'a.button, a.action-item', CRM.refreshParent);
         }
         ui.panel
           .off('.tabInfo')
@@ -111,4 +108,4 @@ cj(function($) {
       $panel.data("civiCrmSnippet") && $panel.crmSnippet('destroy');
     }
   };
-})(cj);
+})(CRM.$);

@@ -1,9 +1,9 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.4                                                |
+ | CiviCRM version 4.5                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2013                                |
+ | Copyright CiviCRM LLC (c) 2004-2014                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CiviCRM_Hook
- * @copyright CiviCRM LLC (c) 2004-2013
+ * @copyright CiviCRM LLC (c) 2004-2014
  * $Id: $
  *
  */
@@ -798,6 +798,26 @@ abstract class CRM_Utils_Hook {
     return self::singleton()->invoke(2, $params, $context,
       self::$_nullObject, self::$_nullObject, self::$_nullObject, self::$_nullObject,
       'civicrm_alterMailParams'
+    );
+  }
+
+  /**
+   * This hook is called when membership status is being calculated
+   *
+   * @param array $membershipStatus membership status details as determined - alter if required
+   * @param array $arguments arguments passed in to calculate date
+   * - 'start_date'
+   * - 'end_date'
+   * - 'status_date'
+   * - 'join_date'
+   * - 'exclude_is_admin'
+   * - 'membership_type_id'
+   * @param array $membership membership details from the calling function
+   */
+  static function alterCalculatedMembershipStatus(&$membershipStatus, $arguments, $membership) {
+    return self::singleton()->invoke(3, $membershipStatus, $arguments,
+      $membership, self::$_nullObject, self::$_nullObject, self::$_nullObject,
+      'civicrm_alterCalculatedMembershipStatus'
     );
   }
 
