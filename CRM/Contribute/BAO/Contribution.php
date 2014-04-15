@@ -319,11 +319,14 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
 
     // Handle soft credit and / or link to personal campaign page
     $softIDs = CRM_Contribute_BAO_ContributionSoft::getSoftCreditIds($contribution->id);
+
+    //Delete PCP against this contribution and create new on submitted PCP information
+    $pcpId = CRM_Contribute_BAO_ContributionSoft::getSoftCreditIds($contribution->id, TRUE);
+    if ($pcpId) {
+      $deleteParams = array('id' => $pcpId);
+      CRM_Contribute_BAO_ContributionSoft::del($deleteParams);
+    }
     if ($pcp = CRM_Utils_Array::value('pcp', $params)) {
-      if ($pcpId = CRM_Contribute_BAO_ContributionSoft::getSoftCreditIds($contribution->id, TRUE)) {
-        $deleteParams = array('id' => $pcpId);
-        CRM_Contribute_BAO_ContributionSoft::del($deleteParams);
-      }
       $softParams = array();
       $softParams['contribution_id'] = $contribution->id;
       $softParams['pcp_id'] = $pcp['pcp_made_through_id'];
@@ -866,30 +869,6 @@ INNER JOIN  civicrm_contact contact ON ( contact.id = civicrm_contribution.conta
    */
   static function getSpecialContributionFields() {
     $extraFields = array(
-      'honor_contact_name' => array(
-        'name' => 'honor_contact_name',
-        'title' => 'Honor Contact Name',
-        'headerPattern' => '/^honor_contact_name$/i',
-        'where' => 'civicrm_contact_c.display_name',
-      ),
-      'honor_contact_email' => array(
-        'name' => 'honor_contact_email',
-        'title' => 'Honor Contact Email',
-        'headerPattern' => '/^honor_contact_email$/i',
-        'where' => 'honor_email.email',
-      ),
-      'honor_contact_id' => array(
-        'name' => 'honor_contact_id',
-        'title' => 'Honor Contact ID',
-        'headerPattern' => '/^honor_contact_id$/i',
-        'where' => 'civicrm_contribution.honor_contact_id',
-      ),
-      'honor_type_label' => array(
-        'name' => 'honor_type_label',
-        'title' => 'Honor Type Label',
-        'headerPattern' => '/^honor_type_label$/i',
-        'where' => 'honor_type.label',
-      ),
       'contribution_soft_credit_name' => array(
         'name' => 'contribution_soft_credit_name',
         'title' => 'Soft Credit Name',
@@ -2875,7 +2854,8 @@ WHERE  contribution_id = %1 ";
           }
           else {
             $diff = 1;
-            if ($context == 'changeFinancialType' || $params['contribution']->contribution_status_id == array_search('Cancelled', $contributionStatus)) {
+            if ($context == 'changeFinancialType' || $params['contribution']->contribution_status_id == array_search('Cancelled', $contributionStatus)
+              || $params['contribution']->contribution_status_id == array_search('Refunded', $contributionStatus)) {
              $diff = -1;
             }
             $amount = $diff * $fieldValues['line_total'];
@@ -3102,17 +3082,18 @@ WHERE eft.financial_trxn_id IN ({$trxnId}, {$baseTrxnId['financialTrxnId']})
       $getLine['entity_id'] = $contributionDAO->id;
       $getLine['entity_table'] = 'civicrm_contribution';
       $lineItemId = CRM_Price_BAO_LineItem::retrieve($getLine, CRM_Core_DAO::$_nullArray);
-      $addFinancialEntry = array(
-        'transaction_date' => $financialTrxn->trxn_date,
-        'contact_id' => $contributionDAO->contact_id,
-        'amount' => $financialTrxn->total_amount,
-        'status_id' => array_search('Paid', $financialItemStatus),
-        'entity_id' => $lineItemId->id,
-        'entity_table' => 'civicrm_line_item'
-      );
-      $trxnIds['id'] =  $financialTrxn->id;
-      CRM_Financial_BAO_FinancialItem::create($addFinancialEntry, NULL, $trxnIds);
-
+      if (!empty($lineItemId->id)) {
+        $addFinancialEntry = array(
+          'transaction_date' => $financialTrxn->trxn_date,
+          'contact_id' => $contributionDAO->contact_id,
+          'amount' => $financialTrxn->total_amount,
+          'status_id' => array_search('Paid', $financialItemStatus),
+          'entity_id' => $lineItemId->id,
+          'entity_table' => 'civicrm_line_item'
+        );
+        $trxnIds['id'] =  $financialTrxn->id;
+        CRM_Financial_BAO_FinancialItem::create($addFinancialEntry, NULL, $trxnIds);
+      }
       if ($participantId) {
         // update participant status
         $participantUpdate['id'] = $participantId;

@@ -74,7 +74,7 @@ class CRM_Contribute_Form_SoftCredit {
    * @return void
    */
   static function buildQuickForm(&$form) {
-    if ($form->_mode == 'live' && $form->_honor_block_is_active) {
+    if ($form->_mode == 'live' && !empty($form->_honor_block_is_active)) {
       $ufJoinDAO = new CRM_Core_DAO_UFJoin();
       $ufJoinDAO->module = 'soft_credit';
       $ufJoinDAO->entity_id = $form->_id;
@@ -160,7 +160,10 @@ class CRM_Contribute_Form_SoftCredit {
    * Function used to set defaults for soft credit block
    */
   static function setDefaultValues(&$defaults, &$form) {
+    //Used to hide/unhide PCP and/or Soft-credit Panes
+    $noPCP = $noSoftCredit = TRUE;
     if (!empty($form->_softCreditInfo['soft_credit'])) {
+      $noSoftCredit = FALSE;
       foreach ($form->_softCreditInfo['soft_credit'] as $key => $value) {
         $defaults["soft_credit_amount[$key]"] = CRM_Utils_Money::format($value['amount'], NULL, '%a');
         $defaults["soft_credit_contact_id[$key]"] = $value['contact_id'];
@@ -168,6 +171,7 @@ class CRM_Contribute_Form_SoftCredit {
       }
     }
     if (!empty($form->_softCreditInfo['pcp_id'])) {
+      $noPCP = FALSE;
       $pcpInfo = $form->_softCreditInfo;
       $pcpId = CRM_Utils_Array::value('pcp_id', $pcpInfo);
       $pcpTitle = CRM_Core_DAO::getFieldValue('CRM_PCP_DAO_PCP', $pcpId, 'title');
@@ -178,6 +182,9 @@ class CRM_Contribute_Form_SoftCredit {
       $defaults['pcp_roll_nickname'] = CRM_Utils_Array::value('pcp_roll_nickname', $pcpInfo);
       $defaults['pcp_personal_note'] = CRM_Utils_Array::value('pcp_personal_note', $pcpInfo);
     }
+
+    $form->assign('noSoftCredit', $noSoftCredit);
+    $form->assign('noPCP', $noPCP);
   }
 
   /**

@@ -223,7 +223,7 @@ class CRM_Core_Page {
 
     // Version check and intermittent alert to admins
     CRM_Utils_VersionCheck::singleton()->versionAlert();
-    CRM_Utils_Check_Security::singleton()->showPeriodicAlerts();
+    CRM_Utils_Check::singleton()->showPeriodicAlerts();
 
     // Debug msg once per hour
     if ($config->debug && CRM_Core_Permission::check('administer CiviCRM') && CRM_Core_Session::singleton()->timer('debug_alert', 3600)) {
@@ -235,6 +235,7 @@ class CRM_Core_Page {
       CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'ajaxPopupsEnabled', NULL, TRUE))
     {
       CRM_Core_Resources::singleton()->addScriptFile('civicrm', 'js/crm.livePage.js');
+      $this->assign('includeWysiwygEditor', TRUE);
     }
 
     $content = self::$_template->fetch('CRM/common/' . strtolower($config->userFramework) . '.tpl');

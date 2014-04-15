@@ -437,9 +437,11 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
     }
     foreach ($expected as $label => $value) {
       if ($xpathPrefix) {
+        $this->waitForElementPresent("xpath=//table{$tableLocator}/tbody/tr/td{$xpathPrefix}[text()='{$label}']/../following-sibling::td");
         $this->verifyText("xpath=//table{$tableLocator}/tbody/tr/td{$xpathPrefix}[text()='{$label}']/../following-sibling::td", preg_quote($value), 'In line ' . __LINE__);
       }
       else {
+        $this->waitForElementPresent("xpath=//table{$tableLocator}/tbody/tr/td[text()='{$label}']/following-sibling::td");
         $this->verifyText("xpath=//table{$tableLocator}/tbody/tr/td[text()='{$label}']/following-sibling::td", preg_quote($value), 'In line ' . __LINE__);
       }
     }
@@ -639,6 +641,7 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
     }
     $this->open($this->sboxPath . 'civicrm/admin/paymentProcessor?action=add&reset=1&pp=' . $pid);
     $this->waitForPageToLoad($this->getTimeoutMsec());
+    $this->waitForElementPresent('name');
     $this->type('name', $processorName);
     $this->select('financial_account_id', "label={$financialAccount}");
 
@@ -650,7 +653,7 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
     // Is new processor created?
     $this->assertTrue($this->isTextPresent($processorName), 'Processor name not found in selector after adding payment processor (webTestAddPaymentProcessor).');
 
-    $paymentProcessorId = explode('&id=', $this->getAttribute("xpath=//table[@class='selector']//tbody//tr/td[text()='{$processorName}']/../td[7]/span/a[1]@href"));
+    $paymentProcessorId = explode('&id=', $this->getAttribute("xpath=//table[@class='selector row-highlight']//tbody//tr/td[text()='{$processorName}']/../td[7]/span/a[1]@href"));
     $paymentProcessorId = explode('&', $paymentProcessorId[1]);
     return $paymentProcessorId[0];
   }
@@ -868,7 +871,10 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
       $this->click('honor_block_is_active');
       $this->type('honor_block_title', "Honoree Section Title $hash");
       $this->type('honor_block_text', "Honoree Introductory Message $hash");
-      $this->select('crmasmSelect0', "label=Household");
+      $this->click("//*[@id='s2id_soft_credit_types']/ul");
+      $this->waitForElementPresent("//*[@id='select2-drop']/ul");
+      $this->waitForElementPresent("//*[@class='select2-result-label']");
+      $this->clickAt("//*[@class='select2-results']/li[1]");
     }
 
     // is confirm enabled? it starts out enabled, so uncheck it if false
@@ -925,7 +931,7 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
         $this->type('label_1', "Label $hash");
         $this->type('value_1', "$rand");
       }
-      $this->click('CIVICRM_QFID_1_2');
+      $this->click('CIVICRM_QFID_1_4');
     }
     else {
       $this->click('amount_block_is_active');
@@ -1210,7 +1216,7 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
     $this->type('duration_interval', $duration_interval);
     $this->select('duration_unit', "label={$duration_unit}");
 
-    $this->select('period_type', "label={$period_type}");
+    $this->select('period_type', "value={$period_type}");
 
     $this->click('_qf_MembershipType_upload-bottom');
     $this->waitForElementPresent('link=Add Membership Type');
@@ -1504,7 +1510,6 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
       $this->uncheck('is_default');
     }
     $this->click('_qf_FinancialAccount_next-botttom');
-    $this->waitForPageToLoad($this->getTimeoutMsec());
   }
 
   /**
@@ -1667,14 +1672,13 @@ class CiviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase {
     }
 
     $this->click('_qf_FinancialType_next');
-    $this->waitForPageToLoad($this->getTimeoutMsec());
     if ($option == 'new') {
       $text = "Your Financial '{$financialType['name']}' Type has been created, along with a corresponding income account '{$financialType['name']}'. That income account, along with standard financial accounts 'Accounts Receivable', 'Banking Fees' and 'Premiums' have been linked to the financial type. You may edit or replace those relationships here.";
     }
     else {
       $text = "The financial type '{$financialType['name']}' has been saved.";
     }
-    $this->assertTrue($this->isTextPresent($text), 'Missing text: ' . $text);
+    $this->waitForText('crm-notification-container', $text);
   }
 
   /**
