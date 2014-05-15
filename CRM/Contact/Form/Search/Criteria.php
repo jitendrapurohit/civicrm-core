@@ -41,7 +41,10 @@ class CRM_Contact_Form_Search_Criteria {
 
     if ($form->_searchOptions['contactType']) {
       // add checkboxes for contact type
-      $contactTypes = CRM_Contact_BAO_ContactType::getSelectElements();
+      //@todo FIXME - using the CRM_Core_DAO::VALUE_SEPARATOR creates invalid html - if you can find the form
+      // this is loaded onto then replace with something like '__' & test
+      $separator = CRM_Core_DAO::VALUE_SEPARATOR;
+      $contactTypes = CRM_Contact_BAO_ContactType::getSelectElements(FALSE, TRUE, $separator);
 
       if ($contactTypes) {
         $form->add('select', 'contact_type', ts('Contact Type(s)'), $contactTypes, FALSE,
@@ -78,7 +81,7 @@ class CRM_Contact_Form_Search_Criteria {
       }
 
       $parentNames = CRM_Core_BAO_Tag::getTagSet('civicrm_contact');
-      CRM_Core_Form_Tag::buildQuickForm($form, $parentNames, 'civicrm_contact', NULL, TRUE, FALSE, TRUE);
+      CRM_Core_Form_Tag::buildQuickForm($form, $parentNames, 'civicrm_contact', NULL, TRUE, FALSE);
 
       $used_for = CRM_Core_OptionGroup::values('tag_used_for');
       $tagsTypes = array();
@@ -516,6 +519,8 @@ class CRM_Contact_Form_Search_Criteria {
    * on the is_searchable
    *
    * @access private
+   *
+   * @param $form
    *
    * @return void
    */

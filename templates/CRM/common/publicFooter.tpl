@@ -23,21 +23,10 @@
  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
  +--------------------------------------------------------------------+
 *}
-{if $confirm}
-<div class="messages status no-popup">
-      <div class="icon inform-icon"></div>&nbsp;
-      <label>{$display_name} ({$email})</label> {ts}has been successfully opted out.{/ts}
-</div>
-{else}
-<div>
-<form action="{$confirmURL}" method="post">
-{ts 1=$display_name 2=$email}Are you sure you want to optout: %1 (%2){/ts}
-<br/>
-<center>
-<input type="submit" name="_qf_optout_next" value="{ts}Optout{/ts}" class="form-submit" />
-&nbsp;&nbsp;&nbsp;
-<input type="submit" name="_qf_optout_cancel" value="{ts}Cancel{/ts}" class="form-submit" />
-</center>
-</form>
-</div>
+
+{if $config->empoweredBy}
+  {capture assign=civilogo}<a href="http://civicrm.org/" title="{ts}CiviCRM.org - Growing and Sustaining Relationships{/ts}" target="_blank" class="empowered-by-link"><div class="empowered-by-logo"><span>CiviCRM</span></div></a>{/capture}
+  <div class="crm-public-footer" id="civicrm-footer">
+    {ts 1=$civilogo}empowered by %1{/ts}
+  </div>
 {/if}

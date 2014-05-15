@@ -42,7 +42,7 @@ class CRM_Contact_BAO_SavedSearch extends CRM_Contact_DAO_SavedSearch {
   /**
    * class constructor
    *
-   * @return object CRM_Contact_BAO_SavedSearch
+   * @return \CRM_Contact_BAO_SavedSearch CRM_Contact_BAO_SavedSearch
    */
   function __construct() {
     parent::__construct();
@@ -252,6 +252,8 @@ LEFT JOIN civicrm_email ON (contact_a.id = civicrm_email.contact_id AND civicrm_
    * given an id, get the name of the saved search
    *
    * @param int $id the id of the saved search
+   *
+   * @param string $value
    *
    * @return string the name of the saved search
    * @access public

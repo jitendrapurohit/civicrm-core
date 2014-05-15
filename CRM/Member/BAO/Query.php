@@ -42,6 +42,8 @@ class CRM_Member_BAO_Query {
   /**
    * if membership are involved, add the specific membership fields
    *
+   * @param $query
+   *
    * @return void
    * @access public
    */
@@ -295,7 +297,9 @@ class CRM_Member_BAO_Query {
         $names = array();
         $membershipTypes = CRM_Member_PseudoConstant::membershipType();
         foreach ($value as $id => $dontCare) {
-          $names[] = $membershipTypes[$id];
+          if(!empty($membershipTypes[$id])) {
+            $names[] = $membershipTypes[$id];
+          }
         }
         $query->_qill[$grouping][] = ts('Membership Type %1', array(1 => $op)) . ' ' . implode(' ' . ts('or') . ' ', $names);
         $query->_where[$grouping][] = CRM_Contact_BAO_Query::buildClause("civicrm_membership.membership_type_id",

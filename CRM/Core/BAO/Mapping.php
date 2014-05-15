@@ -119,6 +119,8 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
    *
    * @params string  $mappingTypeId  mapping type id
    *
+   * @param $mappingTypeId
+   *
    * @return array $mapping array of mapping name
    * @access public
    * @static
@@ -141,10 +143,11 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
    *
    * @params int $mappingId  mapping id
    *
+   * @param $mappingId
+   *
    * @return array $mappingFields array of mapping fields
    * @access public
    * @static
-   *
    */
   static function getMappingFields($mappingId) {
     //mapping is to be loaded from database
@@ -202,8 +205,10 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
    *
    * @params $mapTypeId string mapping Type
    *
-   * @return boolean
+   * @param $nameField
+   * @param $mapTypeId
    *
+   * @return boolean
    */
   static function checkMapping($nameField, $mapTypeId) {
     $mapping = new CRM_Core_DAO_Mapping();
@@ -222,9 +227,9 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
    *
    * @params int $smartGroupId smart group id
    *
-   * @return $returnFields  associated array of elements
+   * @param $smartGroupId
    *
-   * @static
+   * @return array $returnFields  associated array of elements@static
    * @public
    */
   static function getFormattedFields($smartGroupId) {
@@ -257,6 +262,13 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
    * @params int    $mappingId   mapping id
    * @params mixed  $columnCount column count is int for and array for search builder
    * @params int    $blockCount  block count (no of blocks shown)
+   *
+   * @param $form
+   * @param string $mappingType
+   * @param null $mappingId
+   * @param $columnNo
+   * @param int $blockCount
+   * @param null $exportMode
    *
    * @return void
    * @access public
@@ -941,9 +953,10 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
   /**
    * Function returns all  Custom group Names
    *
-   * @param customfieldId related custom field id
-   * @return $customGroupName all custom group names
-   * @static
+   * @param related $customfieldId
+   *
+   * @internal param \related $customfieldId custom field id
+   * @return null|string $customGroupName all custom group names@static
    */
   static function getCustomGroupName($customfieldId) {
     if ($customFieldId = CRM_Core_BAO_CustomField::getKeyID($customfieldId)) {
@@ -964,9 +977,10 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
    * @params array   $params associated array of submitted values
    * @params boolean $row    row no of the fields
    *
-   * @return $returnFields  formatted associated array of elements
+   * @param $params
+   * @param bool $row
    *
-   * @static
+   * @return array $returnFields  formatted associated array of elements@static
    * @public
    */
   static function &formattedFields(&$params, $row = FALSE) {
@@ -1017,6 +1031,29 @@ class CRM_Core_BAO_Mapping extends CRM_Core_DAO_Mapping {
             && substr($fldName, 0, 10) != 'financial_') {
             if (substr($fldName, 0, 13) != 'contribution_') {
               $fldName = 'contribution_' . $fldName;
+            }
+          }
+
+          // CRM-14563: we store checkbox, multi-select and adv-multi select custom field using separator, hence it
+          // needs special handling.
+          if ($cfID = CRM_Core_BAO_CustomField::getKeyID($v[1])) {
+            $customFieldType = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_CustomField', $cfID, 'html_type');
+            $specialHTMLType = array(
+              'CheckBox',
+              'Multi-Select',
+              'AdvMulti-Select',
+              'Multi-Select State/Province',
+              'Multi-Select Country'
+            );
+
+            // override the operator to handle separator ( note: this might have some performance issues )
+            if (in_array($customFieldType, $specialHTMLType)) {
+              // FIX ME: != and few other operators are not handled
+              $specialOperators = array('=', 'IN', 'LIKE');
+
+              if (in_array($params['operator'][$key][$k], $specialOperators)) {
+                $params['operator'][$key][$k] = 'RLIKE';
+              }
             }
           }
 

@@ -118,7 +118,7 @@
         {/if}
 
         {if $ppID}{ts}<a href='#' onclick='adjustPayment();'>adjust payment amount</a>{/ts}{help id="adjust-payment-amount"}{/if}
-        <br /><span class="description">{ts}Actual amount given by contributor.{/ts}{if $hasPriceSets} {ts}Alternatively, you can use a price set.{/ts}{/if}</span>
+        <br /><span class="description">{ts}Total amount of this contribution.{/ts}{if $hasPriceSets} {ts}Alternatively, you can use a price set.{/ts}{/if}</span>
       </td>
     </tr>
 
@@ -533,9 +533,6 @@
         }
     {/if}
   {/if} {* not delete mode if*}
-
-  {* include jscript to warn if unsaved form field changes *}
-  {include file="CRM/common/formNavigate.tpl"}
 
 {/if} {* closing of main custom data if *}
 

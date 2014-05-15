@@ -83,6 +83,11 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   static protected $_dbName;
 
   /**
+   * Track tables we have modified during a test
+   */
+  protected $_tablesToTruncate = array();
+
+  /**
    * @var array of temporary directory names
    */
   protected $tempDirs;
@@ -308,7 +313,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
     $GLOBALS['_PEAR_ERRORSTACK_OVERRIDE_CALLBACK'] = array();
 
     $env = new CRM_Utils_Check_Env();
-    CRM_Utils_Check::singleton()->assertValid($env->checkAll());
+    CRM_Utils_Check::singleton()->assertValid($env->checkMysqlTime());
   }
 
   /**
@@ -366,6 +371,33 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
     else {
       error_reporting(E_ALL & ~E_NOTICE);
     }
+  }
+
+  /**
+   * Read everything from the datasets directory and insert into the db
+   */
+  public function loadAllFixtures() {
+    $fixturesDir = __DIR__ . '/../../fixtures';
+
+    $this->getConnection()->getConnection()->query("SET FOREIGN_KEY_CHECKS = 0;");
+
+    $xmlFiles = glob($fixturesDir . '/*.xml');
+    foreach ($xmlFiles as $xmlFixture) {
+      $op = new PHPUnit_Extensions_Database_Operation_Insert();
+      $dataset = new PHPUnit_Extensions_Database_DataSet_XMLDataSet($xmlFixture);
+      $this->_tablesToTruncate = array_merge($this->_tablesToTruncate, $dataset->getTableNames());
+      $op->execute($this->_dbconn, $dataset);
+    }
+
+    $yamlFiles = glob($fixturesDir . '/*.yaml');
+    foreach ($yamlFiles as $yamlFixture) {
+      $op = new PHPUnit_Extensions_Database_Operation_Insert();
+      $dataset = new PHPUnit_Extensions_Database_DataSet_YamlDataSet($yamlFixture);
+      $this->_tablesToTruncate = array_merge($this->_tablesToTruncate, $dataset->getTableNames());
+      $op->execute($this->_dbconn, $dataset);
+    }
+
+    $this->getConnection()->getConnection()->query("SET FOREIGN_KEY_CHECKS = 1;");
   }
 
   /**
@@ -635,8 +667,10 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * check that api returned 'is_error' => 1
    * else provide full message
+   *
    * @param array $apiResult api result
    * @param string $prefix extra test to add to message
+   * @param null $expectedError
    */
   function assertAPIFailure($apiResult, $prefix = '', $expectedError = NULL) {
     if (!empty($prefix)) {
@@ -664,8 +698,11 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * check that api returned 'is_error' => 1
    * else provide full message
-   * @param array $apiResult api result
+   * @param $result
+   * @param $expected
+   * @param array $valuesToExclude
    * @param string $prefix extra test to add to message
+   * @internal param array $apiResult api result
    */
   function assertAPIArrayComparison($result, $expected, $valuesToExclude = array(), $prefix = '') {
     $valuesToExclude = array_merge($valuesToExclude, array('debug', 'xdebug', 'sequential'));
@@ -695,6 +732,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * This function exists to wrap api functions
    * so we can ensure they succeed & throw exceptions without litterering the test with checks
+   *
    * @param string $entity
    * @param string $action
    * @param array $params
@@ -702,6 +740,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    *   getcount, getsingle. Note that for getvalue the type is checked rather than the value
    *   for getsingle the array is compared against an array passed in - the id is not compared (for
    *   better or worse )
+   *
+   * @return array|int
    */
   function callAPISuccess($entity, $action, $params, $checkAgainst = NULL) {
     $params = array_merge(array(
@@ -727,6 +767,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * This function exists to wrap api getValue function & check the result
    * so we can ensure they succeed & throw exceptions without litterering the test with checks
    * There is a type check in this
+   *
    * @param string $entity
    * @param array $params
    * @param string $type - per http://php.net/manual/en/function.gettype.php possible types
@@ -736,6 +777,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * - string
    * - array
    * - object
+   *
+   * @return array|int
    */
   function callAPISuccessGetValue($entity, $params, $type = NULL) {
     $params += array(
@@ -758,6 +801,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * This function exists to wrap api getsingle function & check the result
    * so we can ensure they succeed & throw exceptions without litterering the test with checks
+   *
    * @param string $entity
    * @param array $params
    * @param array $checkAgainst - array to compare result against
@@ -767,6 +811,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * - string
    * - array
    * - object
+   *
+   * @return array|int
    */
   function callAPISuccessGetSingle($entity, $params, $checkAgainst = NULL) {
     $params += array(
@@ -783,13 +829,17 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
     }
     return $result;
   }
+
   /**
    * This function exists to wrap api getValue function & check the result
    * so we can ensure they succeed & throw exceptions without litterering the test with checks
    * There is a type check in this
    * @param string $entity
    * @param array $params
-   * @param string $type - per http://php.net/manual/en/function.gettype.php possible types
+   * @param null $count
+   * @throws Exception
+   * @return array|int
+   * @internal param string $type - per http://php.net/manual/en/function.gettype.php possible types
    * - boolean
    * - integer
    * - double
@@ -840,6 +890,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * @param string $action
    * @param array $params
    * @param string $expectedErrorMessage error
+   * @param null $extraOutput
+   * @return array|int
    */
   function callAPIFailure($entity, $action, $params, $expectedErrorMessage = NULL, $extraOutput = NULL) {
     if (is_array($params)) {
@@ -964,12 +1016,13 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   function membershipTypeCreate($params = array()) {
     CRM_Member_PseudoConstant::flush('membershipType');
     CRM_Core_Config::clearDBCache();
+    $memberOfOrganization = $this->organizationCreate();
     $params = array_merge(array(
       'name' => 'General',
       'duration_unit' => 'year',
       'duration_interval' => 1,
       'period_type' => 'rolling',
-      'member_of_contact_id' => 1,
+      'member_of_contact_id' => $memberOfOrganization,
       'domain_id' => 1,
       'financial_type_id' => 1,
       'is_active' => 1,
@@ -1006,7 +1059,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to delete Membership Type
    *
-   * @param int $membershipTypeID
+   * @param $params
+   * @internal param int $membershipTypeID
    */
   function membershipTypeDelete($params) {
     $result = $this->callAPISuccess('MembershipType', 'Delete', $params);
@@ -1139,6 +1193,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create contribution page
    *
+   * @param $params
    * @return object of contribution page
    */
   function contributionPageCreate($params) {
@@ -1160,6 +1215,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create Tag
    *
+   * @param array $params
    * @return array result of created tag
    */
   function tagCreate($params = array()) {
@@ -1190,7 +1246,9 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Add entity(s) to the tag
    *
-   * @param  array  $params
+   * @param  array $params
+   *
+   * @return bool
    */
   function entityTagAdd($params) {
     $result = $this->callAPISuccess('entity_tag', 'create', $params);
@@ -1200,8 +1258,9 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create contribution
    *
-   * @param int $cID      contact_id
-   * @param int $cTypeID  id of financial type
+   * @param int $cID contact_id
+   *
+   * @internal param int $cTypeID id of financial type
    *
    * @return int id of created contribution
    */
@@ -1228,7 +1287,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to delete contribution
    *
-   * @param int $contributionId
+   * @param $pledgeId
+   * @internal param int $contributionId
    */
   function pledgeDelete($pledgeId) {
     $params = array(
@@ -1240,9 +1300,13 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create contribution
    *
-   * @param int $cID      contact_id
-   * @param int $cTypeID  id of financial type
+   * @param int $cID contact_id
+   * @param int $cTypeID id of financial type
    *
+   * @param int $invoiceID
+   * @param int $trxnID
+   * @param int $paymentInstrumentID
+   * @param bool $isFee
    * @return int id of created contribution
    */
   function contributionCreate($cID, $cTypeID = 1, $invoiceID = 67890, $trxnID = 12345, $paymentInstrumentID = 1, $isFee = TRUE) {
@@ -1273,8 +1337,11 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create online contribution
    *
-   * @param int $financialType  id of financial type
+   * @param $params
+   * @param int $financialType id of financial type
    *
+   * @param int $invoiceID
+   * @param int $trxnID
    * @return int id of created contribution
    */
   function onlineContributionCreate($params, $financialType, $invoiceID = 67890, $trxnID = 12345) {
@@ -1298,6 +1365,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * Function to delete contribution
    *
    * @param int $contributionId
+   *
+   * @return array|int
    */
   function contributionDelete($contributionId) {
     $params = array(
@@ -1349,7 +1418,9 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to delete event
    *
-   * @param int $id  ID of the event
+   * @param int $id ID of the event
+   *
+   * @return array|int
    */
   function eventDelete($id) {
     $params = array(
@@ -1362,6 +1433,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * Function to delete participant
    *
    * @param int $participantID
+   *
+   * @return array|int
    */
   function participantDelete($participantID) {
     $params = array(
@@ -1373,6 +1446,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create participant payment
    *
+   * @param $participantID
+   * @param null $contributionID
    * @return int $id of created payment
    */
   function participantPaymentCreate($participantID, $contributionID = NULL) {
@@ -1401,6 +1476,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to add a Location
    *
+   * @param $contactID
    * @return int location id of created location
    */
   function locationAdd($contactID) {
@@ -1440,6 +1516,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to add a Location Type
    *
+   * @param null $params
    * @return int location id of created location
    */
   function locationTypeCreate($params = NULL) {
@@ -1477,8 +1554,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    *
    * @params array to add group
    *
+   * @param array $params
    * @return int groupId of created group
-   *
    */
   function groupCreate($params = array()) {
     $params = array_merge(array(
@@ -1501,7 +1578,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to delete a Group
    *
-   * @param int $id
+   * @param $gid
+   * @internal param int $id
    */
   function groupDelete($gid) {
 
@@ -1530,9 +1608,11 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
     ), $params);
     $this->callAPISuccess('uf_field', 'create', $params);
   }
+
   /**
    * Function to add a UF Join Entry
    *
+   * @param null $params
    * @return int $id of created UF Join
    */
   function ufjoinCreate($params = NULL) {
@@ -1587,7 +1667,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to delete Group for a contact
    *
-   * @param array $params
+   * @param $contactId
+   * @internal param array $params
    */
   function contactGroupDelete($contactId) {
     $params = array(
@@ -1600,7 +1681,9 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create Activity
    *
-   * @param int $contactId
+   * @param null $params
+   * @return array|int
+   * @internal param int $contactId
    */
   function activityCreate($params = NULL) {
 
@@ -1663,8 +1746,10 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create custom group
    *
-   * @param string $className
-   * @param string $title  name of custom group
+   * @param array $params
+   * @return array|int
+   * @internal param string $className
+   * @internal param string $title name of custom group
    */
   function customGroupCreate($params = array()) {
     $defaults = array(
@@ -1742,10 +1827,10 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * participant:testCreateWithCustom for how to use this
    *
    * @param string $function __FUNCTION__
-   * @param string $file __FILE__
+   * @param $filename
+   * @internal param string $file __FILE__
    *
    * @return array $ids ids of created objects
-   *
    */
   function entityCustomGroupWithSingleFieldCreate($function, $filename) {
     $params = array('title' => $function);
@@ -1761,7 +1846,9 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to delete custom group
    *
-   * @param int    $customGroupID
+   * @param int $customGroupID
+   *
+   * @return array|int
    */
   function customGroupDelete($customGroupID) {
     $params['id'] = $customGroupID;
@@ -1772,8 +1859,9 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * Function to create custom field
    *
    * @param array $params (custom_group_id) is required
-   * @param string $name  name of custom field
-   * @param int $apiversion API  version to use
+   * @return array|int
+   * @internal param string $name name of custom field
+   * @internal param int $apiversion API  version to use
    */
   function customFieldCreate($params) {
     $params = array_merge(array(
@@ -1799,6 +1887,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    * Function to delete custom field
    *
    * @param int $customFieldID
+   *
+   * @return array|int
    */
   function customFieldDelete($customFieldID) {
 
@@ -1811,6 +1901,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
    *
    * @params array $params  name-value pair for an event
    *
+   * @param $cId
    * @return array $note
    */
   function noteCreate($cId) {
@@ -1953,7 +2044,10 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Tidy up examples array so that fields that change often ..don't
    * and debug related fields are unset
-   * @param array $params
+   *
+   * @param $result
+   *
+   * @internal param array $params
    */
   function tidyExampleResult(&$result){
     if(!is_array($result)) {
@@ -2039,8 +2133,10 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
   /**
    * Function to create custom field with Option Values
    *
-   * @param array    $customGroup
-   * @param string $name  name of custom field
+   * @param array $customGroup
+   * @param string $name name of custom field
+   *
+   * @return array|int
    */
   function customFieldOptionValueCreate($customGroup, $name) {
     $fieldParams = array(
@@ -2091,6 +2187,8 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
       $tablesToTruncate[] = 'civicrm_custom_field';
     }
 
+    $tablesToTruncate = array_unique(array_merge($this->_tablesToTruncate, $tablesToTruncate));
+
     CRM_Core_DAO::executeQuery("SET FOREIGN_KEY_CHECKS = 0;");
     foreach ($tablesToTruncate as $table) {
       $sql = "TRUNCATE TABLE $table";
@@ -2115,6 +2213,29 @@ AND    ( TABLE_NAME LIKE 'civicrm_value_%' )
     }
   }
 
+  /**
+   * Clean up financial entities after financial tests (so we remember to get all the tables :-))
+   */
+  function quickCleanUpFinancialEntities() {
+    $tablesToTruncate = array(
+      'civicrm_contribution',
+      'civicrm_financial_trxn',
+      'civicrm_contribution_recur',
+      'civicrm_line_item',
+      'civicrm_contribution_page',
+      'civicrm_payment_processor',
+      'civicrm_entity_financial_trxn',
+      'civicrm_membership',
+      'civicrm_membership_type',
+      'civicrm_membership_payment',
+      'civicrm_membership_status',
+      'civicrm_event',
+      'civicrm_participant',
+      'civicrm_participant_payment',
+      'civicrm_pledge',
+    );
+    $this->quickCleanup($tablesToTruncate);
+  }
   /*
    * Function does a 'Get' on the entity & compares the fields in the Params with those returned
    * Default behaviour is to also delete the entity
@@ -2261,7 +2382,8 @@ AND    ( TABLE_NAME LIKE 'civicrm_value_%' )
   /**
    * Generate a temporary folder
    *
-   * @return $string
+   * @param string $prefix
+   * @return string $string
    */
   function createTempDir($prefix = 'test-') {
     $tempDir = CRM_Utils_File::tempdir($prefix);
@@ -2514,6 +2636,70 @@ AND    ( TABLE_NAME LIKE 'civicrm_value_%' )
         'HTML_QuickForm_advmultiselect'
       )
     );
+  }
+
+  /**
+   * Set up an acl allowing contact to see 2 specified groups
+   *  - $this->_permissionedGroup & $this->_permissionedDisbaledGroup
+   *
+   *  You need to have precreated these groups & created the user e.g
+   *  $this->createLoggedInUser();
+   *   $this->_permissionedDisabledGroup = $this->groupCreate(array('title' => 'pick-me-disabled', 'is_active' => 0, 'name' => 'pick-me-disabled'));
+   *   $this->_permissionedGroup = $this->groupCreate(array('title' => 'pick-me-active', 'is_active' => 1, 'name' => 'pick-me-active'));
+   *
+   */
+  function setupACL() {
+    global $_REQUEST;
+    $_REQUEST = $this->_params;
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = array('access CiviCRM');
+    $optionGroupID = $this->callAPISuccessGetValue('option_group', array('return' => 'id', 'name' => 'acl_role'));
+    $optionValue = $this->callAPISuccess('option_value', 'create', array('option_group_id' => $optionGroupID,
+      'label' => 'pick me',
+      'value' => 55,
+    ));
+
+
+    CRM_Core_DAO::executeQuery("
+      TRUNCATE civicrm_acl_cache
+    ");
+
+    CRM_Core_DAO::executeQuery("
+      TRUNCATE civicrm_acl_contact_cache
+    ");
+
+
+    CRM_Core_DAO::executeQuery("
+    INSERT INTO civicrm_acl_entity_role (
+    `acl_role_id`, `entity_table`, `entity_id`
+    ) VALUES (55, 'civicrm_group', {$this->_permissionedGroup});
+    ");
+
+    CRM_Core_DAO::executeQuery("
+    INSERT INTO civicrm_acl (
+    `name`, `entity_table`, `entity_id`, `operation`, `object_table`, `object_id`, `is_active`
+    )
+    VALUES (
+    'view picked', 'civicrm_group', $this->_permissionedGroup , 'Edit', 'civicrm_saved_search', {$this->_permissionedGroup}, 1
+    );
+    ");
+
+    CRM_Core_DAO::executeQuery("
+    INSERT INTO civicrm_acl (
+    `name`, `entity_table`, `entity_id`, `operation`, `object_table`, `object_id`, `is_active`
+    )
+    VALUES (
+    'view picked', 'civicrm_group',  $this->_permissionedGroup, 'Edit', 'civicrm_saved_search', {$this->_permissionedDisabledGroup}, 1
+    );
+    ");
+    $this->_loggedInUser = CRM_Core_Session::singleton()->get('userID');
+    $this->callAPISuccess('group_contact', 'create', array(
+      'group_id' => $this->_permissionedGroup,
+      'contact_id' => $this->_loggedInUser,
+    ));
+    //flush cache
+    CRM_ACL_BAO_Cache::resetCache();
+    CRM_Contact_BAO_Group::getPermissionClause(TRUE);
+    CRM_ACL_API::groupPermission('whatever', 9999, NULL, 'civicrm_saved_search', NULL, NULL, TRUE);
   }
 
 /**

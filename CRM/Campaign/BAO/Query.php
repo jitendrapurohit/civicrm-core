@@ -67,6 +67,8 @@ class CRM_Campaign_BAO_Query {
   /**
    * if survey, campaign are involved, add the specific fields.
    *
+   * @param $query
+   *
    * @return void
    * @access public
    */
@@ -86,7 +88,9 @@ class CRM_Campaign_BAO_Query {
       }
     }
     // CRM-13810 Translate campaign_id to label for search builder
-    if (is_array($query->_select)) {
+    // CRM-14238 Only translate when we are in contact mode
+    // Other modes need the untranslated data for export and other functions
+    if (is_array($query->_select)  && $query->_mode == CRM_Contact_BAO_Query::MODE_CONTACTS) {
       foreach($query->_select as $field => $queryString) {
         if (substr($field, -11) == 'campaign_id') {
           $query->_pseudoConstantsSelect[$field] = array(
@@ -324,7 +328,10 @@ civicrm_activity_assignment.record_type_id = $assigneeID ) ";
     $form->add('text', 'city', ts('City'), $attributes['city']);
     $form->add('text', 'postal_code', ts('Zip / Postal Code'), $attributes['postal_code']);
 
-    $contactTypes = CRM_Contact_BAO_ContactType::getSelectElements();
+    //@todo FIXME - using the CRM_Core_DAO::VALUE_SEPARATOR creates invalid html - if you can find the form
+    // this is loaded onto then replace with something like '__' & test
+    $separator = CRM_Core_DAO::VALUE_SEPARATOR;
+    $contactTypes = CRM_Contact_BAO_ContactType::getSelectElements(FALSE, TRUE, $separator);
     $form->add('select', 'contact_type', ts('Contact Type(s)'), $contactTypes, FALSE,
       array('id' => 'contact_type', 'multiple' => 'multiple', 'class' => 'crm-select2')
     );

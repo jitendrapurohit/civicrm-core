@@ -101,7 +101,10 @@ class CRM_Extension_Manager {
   public $statuses;
 
   /**
+   * @param CRM_Extension_Container_Interface $fullContainer
    * @param CRM_Extension_Container_Basic|FALSE $defaultContainer
+   * @param CRM_Extension_Mapper $mapper
+   * @param $typeManagers
    */
   function __construct(CRM_Extension_Container_Interface $fullContainer, $defaultContainer, CRM_Extension_Mapper $mapper, $typeManagers) {
     $this->fullContainer = $fullContainer;
@@ -358,6 +361,8 @@ class CRM_Extension_Manager {
   /**
    * Determine the status of an extension
    *
+   * @param $key
+   *
    * @return string constant (STATUS_INSTALLED, STATUS_DISABLED, STATUS_UNINSTALLED, STATUS_UNKNOWN)
    */
   public function getStatus($key) {
@@ -415,8 +420,10 @@ class CRM_Extension_Manager {
   /**
    * Find the $info and $typeManager for a $key
    *
-   * @return array (0 => CRM_Extension_Info, 1 => CRM_Extension_Manager_Interface)
+   * @param $key
+   *
    * @throws CRM_Extension_Exception
+   * @return array (0 => CRM_Extension_Info, 1 => CRM_Extension_Manager_Interface)
    */
   private function _getInfoTypeHandler($key) {
     $info = $this->mapper->keyToInfo($key); // throws Exception
@@ -430,8 +437,10 @@ class CRM_Extension_Manager {
   /**
    * Find the $info and $typeManager for a $key
    *
-   * @return array (0 => CRM_Extension_Info, 1 => CRM_Extension_Manager_Interface)
+   * @param $key
+   *
    * @throws CRM_Extension_Exception
+   * @return array (0 => CRM_Extension_Info, 1 => CRM_Extension_Manager_Interface)
    */
   private function _getMissingInfoTypeHandler($key) {
     $info = $this->createInfoFromDB($key);
@@ -496,6 +505,7 @@ class CRM_Extension_Manager {
    * Auto-generate a place-holder for a missing extension using info from
    * database.
    *
+   * @param $key
    * @return CRM_Extension_Info|NULL
    */
   public function createInfoFromDB($key) {

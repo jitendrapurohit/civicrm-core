@@ -40,12 +40,13 @@
 /**
  * Create or update a contact (note you should always call this via civicrm_api() & never directly)
  *
- * @param  array   $params   input parameters
+ * @param  array $params input parameters
  *
  * Allowed @params array keys are:
  * {@getfields contact_create}
  *
  *
+ * @throws API_Exception
  * @example ContactCreate.php Example of Create Call
  *
  * @return array  API Result Array
@@ -201,6 +202,10 @@ function _civicrm_api3_contact_get_spec(&$params) {
   $params['group_id']['title'] = 'Group Memberships (filter)';
   $params['group']['title'] = 'Group Memberships (filter, array)';
   $params['tag']['title'] = 'Assigned tags (filter, array)';
+  $params['birth_date_low'] = array('name' => 'birth_date_low', 'type' => CRM_Utils_Type::T_DATE, 'title' => ts('Birthdate is equal to or greater than'));
+  $params['birth_date_high'] = array('name' => 'birth_date_high', 'type' => CRM_Utils_Type::T_DATE, 'title' => ts('Birthdate is equal to or less than'));
+  $params['deceased_date_low'] = array('name' => 'deceased_date_low','type' => CRM_Utils_Type::T_DATE, 'title' => ts('Deceased Date is equal to or greater than'));
+  $params['deceased_date_high'] = array('name' => 'deceased_date_high', 'type' => CRM_Utils_Type::T_DATE, 'title' => ts('Deceased Date is equal to or less than'));
 }
 
 /**
@@ -325,7 +330,7 @@ function _civicrm_api3_contact_check_params( &$params, $dupeCheck = true, $dupeE
       $dedupeParams['check_permission'] = $params['check_permission'];
     }
 
-    $ids = CRM_Dedupe_Finder::dupesByParams($dedupeParams, $params['contact_type'], 'Strict', array());
+    $ids = CRM_Dedupe_Finder::dupesByParams($dedupeParams, $params['contact_type'], 'Unsupervised', array());
 
     if (count($ids) >0) {
       throw new API_Exception("Found matching contacts: ". implode(',',$ids),"duplicate",array("ids"=>$ids));
@@ -394,6 +399,7 @@ function _civicrm_api3_contact_update($params, $contactID = NULL) {
  * @param  $params                   Associative array of property name/value
  *                                   pairs to insert in new contact.
  *
+ * @throws API_Exception
  * @return array (reference )        null on success, error message otherwise
  *
  * @access public

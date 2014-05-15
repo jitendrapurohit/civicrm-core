@@ -83,6 +83,12 @@ class CRM_Core_Error extends PEAR_ErrorStack {
   /**
    * singleton function used to manage this object.
    *
+   * @param null $package
+   * @param bool $msgCallback
+   * @param bool $contextCallback
+   * @param bool $throwPEAR_Error
+   * @param string $stackClass
+   *
    * @return object
    * @static
    */
@@ -119,7 +125,12 @@ class CRM_Core_Error extends PEAR_ErrorStack {
     return NULL;
   }
 
-  function displaySessionError(&$error, $separator = '<br />') {
+  /**
+   * Status display function specific to payment processor errors
+   * @param $error
+   * @param string $separator
+   */
+  static function displaySessionError(&$error, $separator = '<br />') {
     $message = self::getMessages($error, $separator);
     if ($message) {
       $status = ts("Payment Processor Error message") . "{$separator} $message";
@@ -258,9 +269,14 @@ class CRM_Core_Error extends PEAR_ErrorStack {
   /**
    * display an error page with an error message describing what happened
    *
-   * @param string message  the error message
-   * @param string code     the error code if any
-   * @param string email    the email address to notify of this situation
+   * @param null $message
+   * @param null $code
+   * @param null $email
+   *
+   * @throws Exception
+   * @internal param \message $string the error message
+   * @internal param \code $string the error code if any
+   * @internal param \email $string the email address to notify of this situation
    *
    * @return void
    * @static
@@ -478,10 +494,15 @@ class CRM_Core_Error extends PEAR_ErrorStack {
    * Similar to the function debug. Only difference is
    * in the formatting of the output.
    *
-   * @param  string variable name
-   * @param  mixed  reference to variables that we need a trace of
-   * @param  bool   should we use print_r ? (else we use var_dump)
-   * @param  bool   should we log or return the output
+   * @param $variable_name
+   * @param $variable
+   * @param bool $print
+   * @param bool $log
+   * @param string $comp variable name
+   *
+   * @internal param \reference $mixed to variables that we need a trace of
+   * @internal param \should $bool we use print_r ? (else we use var_dump)
+   * @internal param \should $bool we log or return the output
    *
    * @return string the generated output
    *
@@ -526,9 +547,10 @@ class CRM_Core_Error extends PEAR_ErrorStack {
   /**
    * display the error message on terminal
    *
-   * @param  string message to be output
-   * @param  bool   should we log or return the output
+   * @param $message
+   * @param bool $out should we log or return the output
    *
+   * @param string $comp message to be output
    * @return string format of the backtrace
    *
    * @access public
@@ -570,6 +592,8 @@ class CRM_Core_Error extends PEAR_ErrorStack {
 
   /**
    * Obtain a reference to the error log
+   *
+   * @param string $comp
    *
    * @return Log
    */
@@ -760,8 +784,10 @@ class CRM_Core_Error extends PEAR_ErrorStack {
   /**
    * Set a status message in the session, then bounce back to the referrer.
    *
-   * @param string $status        The status message to set
+   * @param string $status The status message to set
    *
+   * @param null $redirect
+   * @param string $title
    * @return void
    * @access public
    * @static

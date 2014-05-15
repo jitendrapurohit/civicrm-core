@@ -83,6 +83,8 @@ class CRM_Activity_Page_AJAX {
     $sortOrder = isset($_REQUEST['sSortDir_0']) ? CRM_Utils_Type::escape($_REQUEST['sSortDir_0'], 'String') : 'asc';
 
     $params = $_POST;
+    //CRM-14466 initialize variable to avoid php notice
+    $sortSQL = "";
     if ($sort && $sortOrder) {
       $sortSQL = $sort .' '.$sortOrder;
     }
@@ -209,6 +211,7 @@ class CRM_Activity_Page_AJAX {
 
     // move/transform caseRoles array data to caseRelationships
     // for sorting and display
+    // CRM-14466 added cid to the non-client array to avoid php notice
     foreach($caseRoles as $id => $value) {
       if ($id != "client") {
         $rel = array();
@@ -252,7 +255,7 @@ class CRM_Activity_Page_AJAX {
       // Get rid of the "<br />(Case Manager)" from label
       list($typeLabel) = explode('<', $row['relation']);
       // view user links
-      if ($row['cid']) {
+      if (!empty($row['cid'])) {
         $row['name'] = '<a class="view-contact" title="'. ts('View Contact') .'" href='.CRM_Utils_System::url('civicrm/contact/view',
           'action=view&reset=1&cid='.$row['cid']).'>'.$row['name'].'</a>';
       }
@@ -261,6 +264,7 @@ class CRM_Activity_Page_AJAX {
         $row['email'] = '<a class="crm-hover-button crm-popup" href="'.CRM_Utils_System::url('civicrm/activity/email/add', 'reset=1&action=add&atype=3&cid='.$row['cid']).'&caseid='.$caseID.'" title="'. ts('Send an Email') . '"><span class="icon email-icon"></span></a>';
       }
       // edit links
+      $row['actions'] = '';
       if ($hasAccessToAllCases) {
         switch($row['source']){
         case 'caseRel':
@@ -280,14 +284,12 @@ class CRM_Activity_Page_AJAX {
             '</a>';
           break;
         }
-      } else {
-        $row['actions'] = '';
       }
       $idx++;
     }
     $iFilteredTotal = $iTotal = $params['total'] = count($allCaseRelationships);
     $selectorElements = array('relation', 'name', 'phone', 'email', 'actions');
-
+   
     echo CRM_Utils_JSON::encodeDataTableSelector($caseRelationships, $sEcho, $iTotal, $iFilteredTotal, $selectorElements);
     CRM_Utils_System::civiExit();
   }

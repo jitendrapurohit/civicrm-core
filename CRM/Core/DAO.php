@@ -75,8 +75,8 @@ class CRM_Core_DAO extends DB_DataObject {
   /**
    * Class constructor
    *
-   * @return object
-   * @access public
+   * @return \CRM_Core_DAO
+  @access public
    */
   function __construct() {
     $this->initialize();
@@ -175,6 +175,8 @@ class CRM_Core_DAO extends DB_DataObject {
 
   /**
    * Factory method to instantiate a new object from a table name.
+   *
+   * @param string $table
    *
    * @return void
    * @access public
@@ -519,6 +521,9 @@ LIKE %1
    *
    * @param string $tableName
    *
+   * @param int $maxTablesToCheck
+   * @param string $fieldName
+   *
    * @return array
    * @static
    */
@@ -597,7 +602,10 @@ LIKE %1
   /**
    * Checks if CONSTRAINT keyword exists for a specified table.
    *
-   * @param string $tableName
+   * @param array $tables
+   *
+   * @throws Exception
+   * @internal param string $tableName
    *
    * @return boolean true if CONSTRAINT keyword exists, false otherwise
    */
@@ -877,6 +885,13 @@ FROM   civicrm_domain
    * execute a query
    *
    * @param string $query query to be executed
+   *
+   * @param array $params
+   * @param bool $abort
+   * @param null $daoName
+   * @param bool $freeDAO
+   * @param bool $i18nRewrite
+   * @param bool $trapException
    *
    * @return Object CRM_Core_DAO object that holds the results of the query
    * @static
@@ -1162,11 +1177,14 @@ SELECT contact_id
    * of time. This is the inverse function of create. It also stores all the retrieved
    * values in the default array
    *
-   * @param string $daoName  name of the dao object
-   * @param array  $params   (reference ) an assoc array of name/value pairs
-   * @param array  $defaults (reference ) an assoc array to hold the flattened values
-   * @param array  $returnProperities     an assoc array of fields that need to be returned, eg array( 'first_name', 'last_name')
+   * @param string $daoName name of the dao object
+   * @param string $fieldIdName
+   * @param $fieldId
+   * @param $details
+   * @param array $returnProperities an assoc array of fields that need to be returned, eg array( 'first_name', 'last_name')
    *
+   * @internal param array $params (reference ) an assoc array of name/value pairs
+   * @internal param array $defaults (reference ) an assoc array to hold the flattened values
    * @return object an object of type referenced by daoName
    * @access public
    * @static
@@ -1255,9 +1273,11 @@ SELECT contact_id
     return self::escapeString($string);
   }
 
-  //Creates a test object, including any required objects it needs via recursion
-  //createOnly: only create in database, do not store or return the objects (useful for perf testing)
-  //ONLY USE FOR TESTING
+  /**
+   * Creates a test object, including any required objects it needs via recursion
+   *createOnly: only create in database, do not store or return the objects (useful for perf testing)
+   *ONLY USE FOR TESTING
+   */
   static function createTestObject(
     $daoName,
     $params = array(),
@@ -1435,9 +1455,10 @@ SELECT contact_id
     else return $objects;
   }
 
-  //deletes the this object plus any dependent objects that are associated with it
-  //ONLY USE FOR TESTING
-
+  /**
+   * deletes the this object plus any dependent objects that are associated with it
+   * ONLY USE FOR TESTING
+   */
   static function deleteTestObjects($daoName, $params = array(
     )) {
     //this is a test function  also backtrace is set for the test suite it sometimes unsets itself
@@ -1542,13 +1563,15 @@ SELECT contact_id
     }
   }
 
-   /**
-    * Build a list of triggers via hook and add them to (err, reconcile them
-    * with) the database.
-    *
-    * @param $tableName string the specific table requiring a rebuild; or NULL to rebuild all tables
-    * @see CRM-9716
-    */
+  /**
+   * Build a list of triggers via hook and add them to (err, reconcile them
+   * with) the database.
+   *
+   * @param $tableName string the specific table requiring a rebuild; or NULL to rebuild all tables
+   * @param bool $force
+   *
+   * @see CRM-9716
+   */
   static function triggerRebuild($tableName = NULL, $force = FALSE) {
     $info = array();
 
@@ -1801,8 +1824,10 @@ EOS;
    * The overriding function will generally call the lower-level CRM_Core_PseudoConstant::get
    *
    * @param string $fieldName
-   * @param string $context: @see CRM_Core_DAO::buildOptionsContext
-   * @param array  $props: whatever is known about this bao object
+   * @param string $context : @see CRM_Core_DAO::buildOptionsContext
+   * @param array $props : whatever is known about this bao object
+   *
+   * @return Array|bool
    */
   public static function buildOptions($fieldName, $context = NULL, $props = array()) {
     // If a given bao does not override this function
@@ -1837,6 +1862,9 @@ EOS;
    * Provides documentation and validation for the buildOptions $context param
    *
    * @param String $context
+   *
+   * @throws Exception
+   * @return array
    */
   public static function buildOptionsContext($context = NULL) {
     $contexts = array(
@@ -1879,28 +1907,30 @@ EOS;
    * $field => array('LIKE' => array('%me%))
    * etc
    *
-   * @param $fieldname string name of fields
+   * @param $fieldName
    * @param $filter array filter to be applied indexed by operator
    * @param $type String type of field (not actually used - nor in api @todo )
    * @param $alias String alternative field name ('as') @todo- not actually used
    * @param bool $returnSanitisedArray return a sanitised array instead of a clause
    *  this is primarily so we can add filters @ the api level to the Query object based fields
-   *  @todo a better solutution would be for the query object to apply these filters based on the
+   *
+   * @throws Exception
+   * @internal param string $fieldname name of fields
+   * @todo a better solutution would be for the query object to apply these filters based on the
    *  api supported format (but we don't want to risk breakage in alpha stage & query class is scary
-   *  @todo @time of writing only IN & NOT IN are supported for the array style syntax (as test is
+   * @todo @time of writing only IN & NOT IN are supported for the array style syntax (as test is
    *  required to extend further & it may be the comments per above should be implemented. It may be
    *  preferable to not double-banger the return context next refactor of this - but keeping the attention
    *  in one place has some advantages as we try to extend this format
    *
-   *  @return NULL|string|array a string is returned if $returnSanitisedArray is not set, otherwise and Array or NULL
+   * @return NULL|string|array a string is returned if $returnSanitisedArray is not set, otherwise and Array or NULL
    *   depending on whether it is supported as yet
-   **/
+   */
   public static function createSQLFilter($fieldName, $filter, $type, $alias = NULL, $returnSanitisedArray = FALSE) {
     // http://issues.civicrm.org/jira/browse/CRM-9150 - stick with 'simple' operators for now
     // support for other syntaxes is discussed in ticket but being put off for now
-    $acceptedSQLOperators = array('=', '<=', '>=', '>', '<', 'LIKE', "<>", "!=", "NOT LIKE", 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN');
     foreach ($filter as $operator => $criteria) {
-      if (in_array($operator, $acceptedSQLOperators)) {
+      if (in_array($operator, self::acceptedSQLOperators())) {
         switch ($operator) {
           // unary operators
           case 'IS NULL':
@@ -1958,6 +1988,15 @@ EOS;
   }
 
   /**
+   * @see http://issues.civicrm.org/jira/browse/CRM-9150
+   * support for other syntaxes is discussed in ticket but being put off for now
+   * @return array
+   */
+  public static function acceptedSQLOperators() {
+    return array('=', '<=', '>=', '>', '<', 'LIKE', "<>", "!=", "NOT LIKE", 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN');
+  }
+
+  /**
    * SQL has a limit of 64 characters on various names:
    * table name, trigger name, column name ...
    *
@@ -1966,7 +2005,11 @@ EOS;
    * strings that meet various criteria.
    *
    * @param string $string - the string to be shortened
-   * @param int    $length - the max length of the string
+   * @param int $length - the max length of the string
+   *
+   * @param bool $makeRandom
+   *
+   * @return string
    */
   public static function shortenSQLName($string, $length = 60, $makeRandom = FALSE) {
     // early return for strings that meet the requirements

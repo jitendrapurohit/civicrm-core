@@ -128,6 +128,8 @@ class CRM_Core_Resources {
    * Construct a resource manager
    *
    * @param CRM_Extension_Mapper $extMapper Map extension names to their base path or URLs.
+   * @param $cache
+   * @param null $cacheCodeKey
    */
   public function __construct($extMapper, $cache, $cacheCodeKey = NULL) {
     $this->extMapper = $extMapper;
@@ -384,7 +386,7 @@ class CRM_Core_Resources {
    * @param $ext string, extension name; use 'civicrm' for core
    * @param $file string, file path -- relative to the extension base dir
    *
-   * @return (string|bool), full file path or FALSE if not found
+   * @return bool|string (string|bool), full file path or FALSE if not found
    */
   public function getPath($ext, $file) {
     // TODO consider caching results
@@ -400,6 +402,8 @@ class CRM_Core_Resources {
    *
    * @param $ext string, extension name; use 'civicrm' for core
    * @param $file string, file path -- relative to the extension base dir
+   * @param bool $addCacheCode
+   *
    * @return string, URL
    */
   public function getUrl($ext, $file = NULL, $addCacheCode = FALSE) {
@@ -435,6 +439,7 @@ class CRM_Core_Resources {
    * TODO: Separate the functional code (like addStyle/addScript) from the policy code
    * (like addCoreResources/addCoreStyles).
    *
+   * @param string $region
    * @return CRM_Core_Resources
    * @access public
    */
@@ -545,7 +550,7 @@ class CRM_Core_Resources {
    */
   function addLocalization(&$js) {
     $config = CRM_Core_Config::singleton();
-    
+
     // Localize select2 strings
     $contactSearch = json_encode($config->includeEmailInName ? ts('Start typing a name or email...') : ts('Start typing a name...'));
     $otherSearch = json_encode(ts('Enter search term...'));
@@ -577,7 +582,6 @@ class CRM_Core_Resources {
     // FIXME: This is too long; list needs finer-grained segmentation
     $items = array(
       "packages/jquery/jquery-1.11.0$min.js",
-      "packages/jquery/jquery-migrate-1.2.1.js", // TODO: Remove before 4.5 release
       "packages/jquery/jquery-ui/js/jquery-ui-1.10.4.custom$min.js",
       "packages/jquery/jquery-ui/css/theme/jquery-ui-1.10.4.custom$min.css",
 
@@ -585,12 +589,8 @@ class CRM_Core_Resources {
 
       "packages/jquery/plugins/jquery.mousewheel$min.js",
 
-      "packages/jquery/plugins/select2/select2.js", // No mini until release of select2 3.4.6
+      "packages/jquery/plugins/select2/select2$min.js",
       "packages/jquery/plugins/select2/select2.css",
-
-      // TODO: Remove before 4.5 release
-      "packages/jquery/plugins/jquery.autocomplete.js",
-      "packages/jquery/css/jquery.autocomplete.css",
 
       "packages/jquery/plugins/jquery.tableHeader.js",
 
@@ -601,8 +601,6 @@ class CRM_Core_Resources {
       "packages/jquery/plugins/jquery.timeentry$min.js",
 
       "packages/jquery/plugins/DataTables/media/js/jquery.dataTables$min.js",
-
-      "packages/jquery/plugins/jquery.FormNavigate$min.js",
 
       "packages/jquery/plugins/jquery.validate$min.js",
       "packages/jquery/plugins/jquery.ui.datepicker.validation.pack.js",
@@ -619,10 +617,6 @@ class CRM_Core_Resources {
       $items[] = "packages/jquery/plugins/jquery.blockUI$min.js";
       $items[] = "packages/jquery/plugins/jquery.notify$min.js";
       $items[] = "js/jquery/jquery.crmeditable.js";
-
-      // TODO: tokeninput is deprecated in favor of select2 and will be removed soon
-      $items[] = "packages/jquery/plugins/jquery.tokeninput$min.js";
-      $items[] = "packages/jquery/css/token-input-facebook.css";
     }
 
     // Enable administrators to edit option lists in a dialog

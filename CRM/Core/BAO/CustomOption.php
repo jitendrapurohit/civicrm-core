@@ -66,9 +66,10 @@ class CRM_Core_BAO_CustomOption {
   /**
    * Returns all active options ordered by weight for a given field
    *
-   * @param  int      $fieldId         field whose options are needed
-   * @param  boolean  $inactiveNeeded  do we need inactive options ?
+   * @param $fieldID
+   * @param  boolean $inactiveNeeded do we need inactive options ?
    *
+   * @internal param int $fieldId field whose options are needed
    * @return array $customOption all active options for fieldId
    * @static
    */
@@ -113,6 +114,7 @@ class CRM_Core_BAO_CustomOption {
    *
    * @param $fieldId  int    the custom field ID
    * @pram  $value    string the value (typically from the DB) of this custom field
+   * @param $value
    * @param $htmlType string the html type of the field (optional)
    * @param $dataType string the data type of the field (optional)
    *

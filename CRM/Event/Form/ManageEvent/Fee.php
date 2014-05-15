@@ -789,7 +789,6 @@ class CRM_Event_Form_ManageEvent_Fee extends CRM_Event_Form_ManageEvent {
     $params['id'] = $this->_id;
     // skip update of financial type in price set
     $params['skipFinancialType'] = TRUE;
-    
     CRM_Event_BAO_Event::add($params);
 
     // Update tab "disabled" css class

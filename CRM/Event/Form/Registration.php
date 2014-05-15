@@ -567,6 +567,10 @@ class CRM_Event_Form_Registration extends CRM_Core_Form {
   /**
    * Function to add the custom fields
    *
+   * @param $id
+   * @param $name
+   * @param bool $viewOnly
+   *
    * @return void
    * @access public
    */
@@ -729,6 +733,10 @@ class CRM_Event_Form_Registration extends CRM_Core_Form {
   /**
    * Function to handle  process after the confirmation of payment by User
    *
+   * @param null $contactID
+   * @param null $contribution
+   * @param null $payment
+   *
    * @return void
    * @access public
    */
@@ -827,6 +835,9 @@ class CRM_Event_Form_Registration extends CRM_Core_Form {
 
   /**
    * Process the participant
+   *
+   * @param $params
+   * @param $contactID
    *
    * @return void
    * @access public

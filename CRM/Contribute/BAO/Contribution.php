@@ -239,7 +239,7 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
    * @access public
    * @static
    */
-  static function &create(&$params, $ids = array()) {
+  static function create(&$params, $ids = array()) {
     $dateFields = array('receive_date', 'cancel_date', 'receipt_date', 'thankyou_date');
     foreach ($dateFields as $df) {
       if (isset($params[$df])) {
@@ -491,6 +491,9 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
    * scheme. Adding weight is super important and should be done in the
    * next week or so, before this can be called complete.
    *
+   * @param string $contactType
+   * @param bool $status
+   *
    * @return array array of importable Fields
    * @access public
    * @static
@@ -690,8 +693,9 @@ INNER JOIN  civicrm_contact contact ON ( contact.id = civicrm_contribution.conta
   /**
    * Delete the indirect records associated with this contribution first
    *
-   * @return $results no of deleted Contribution on success, false otherwise
-   * @access public
+   * @param $id
+   *
+   * @return mixed|null $results no of deleted Contribution on success, false otherwise@access public
    * @static
    */
   static function deleteContribution($id) {
@@ -761,9 +765,12 @@ INNER JOIN  civicrm_contact contact ON ( contact.id = civicrm_contribution.conta
   /**
    * Check if there is a contribution with the same trxn_id or invoice_id
    *
-   * @param array  $params (reference ) an assoc array of name/value pairs
-   * @param array  $duplicates (reference ) store ids of duplicate contribs
+   * @param $input
+   * @param array $duplicates (reference ) store ids of duplicate contribs
    *
+   * @param null $id
+   *
+   * @internal param array $params (reference ) an assoc array of name/value pairs
    * @return boolean true if duplicate, false otherwise
    * @access public
    * static
@@ -1150,11 +1157,14 @@ LEFT JOIN civicrm_option_value contribution_status ON (civicrm_contribution.cont
 
   /**
    *  Function to create address associated with contribution record.
-   *  @param array $params an associated array
-   *  @param int   $billingID $billingLocationTypeID
    *
-   *  @return address id
-   *  @static
+   * @param array $params an associated array
+   * @param $billingLocationTypeID
+   *
+   * @internal param int $billingID $billingLocationTypeID
+   *
+   * @return address id
+   * @static
    */
   static function createAddress(&$params, $billingLocationTypeID) {
     $billingFields = array(
@@ -1187,8 +1197,11 @@ LEFT JOIN civicrm_option_value contribution_status ON (civicrm_contribution.cont
   /**
    * Delete billing address record related contribution
    *
-   * @param int $contact_id contact id
-   * @param int $contribution_id contributionId
+   * @param null $contributionId
+   * @param null $contactId
+   *
+   * @internal param int $contact_id contact id
+   * @internal param int $contribution_id contributionId
    * @access public
    * @static
    */
@@ -2412,6 +2425,8 @@ WHERE  contribution_id = %1 ";
    *
    * @param int $contributionId contribution id
    *
+   * @param bool $isNotCancelled
+   *
    * @return boolean
    * @access public
    * @static
@@ -2468,6 +2483,9 @@ WHERE  contribution_id = %1 ";
    * @param array $params contribution object, line item array and params for trxn
    *
    *
+   * @param null $financialTrxnVals
+   *
+   * @return null|object
    * @access public
    * @static
    */
@@ -2738,6 +2756,8 @@ WHERE  contribution_id = %1 ";
    *
    * @param string $context update scenarios
    *
+   * @param null $skipTrxn
+   *
    * @access public
    * @static
    */
@@ -2887,6 +2907,7 @@ WHERE  contribution_id = %1 ";
    *
    * @param array $errors list of errors
    *
+   * @return bool
    * @access public
    * @static
    */
@@ -2935,8 +2956,10 @@ WHERE  contribution_id = %1 ";
    * @see CRM_Core_DAO::buildOptions
    *
    * @param String $fieldName
-   * @param String $context: @see CRM_Core_DAO::buildOptionsContext
-   * @param Array $props: whatever is known about this dao object
+   * @param String $context : @see CRM_Core_DAO::buildOptionsContext
+   * @param Array $props : whatever is known about this dao object
+   *
+   * @return Array|bool
    */
   public static function buildOptions($fieldName, $context = NULL, $props = array()) {
     $className = __CLASS__;
@@ -2965,6 +2988,9 @@ WHERE  contribution_id = %1 ";
    *
    * @param integer $financialTypeId Financial Type id
    *
+   * @param string $relationName
+   *
+   * @return array|bool
    * @access public
    * @static
    */
@@ -3036,10 +3062,13 @@ WHERE eft.entity_table = 'civicrm_contribution'
 
         if ($participantId) {
           // update participant status
-          $participantUpdate['id'] = $participantId;
           $participantStatuses = CRM_Event_PseudoConstant::participantStatus();
-          $participantUpdate['status_id'] = array_search('Registered', $participantStatuses);
-          CRM_Event_BAO_Participant::add($participantUpdate);
+          $ids = CRM_Event_BAO_Participant::getParticipantIds($contributionId);
+          foreach ($ids as $val) {
+            $participantUpdate['id'] = $val;
+            $participantUpdate['status_id'] = array_search('Registered', $participantStatuses);
+            CRM_Event_BAO_Participant::add($participantUpdate);
+          }
         }
 
         // update financial item statuses
@@ -3096,10 +3125,13 @@ WHERE eft.financial_trxn_id IN ({$trxnId}, {$baseTrxnId['financialTrxnId']})
       }
       if ($participantId) {
         // update participant status
-        $participantUpdate['id'] = $participantId;
         $participantStatuses = CRM_Event_PseudoConstant::participantStatus();
-        $participantUpdate['status_id'] = array_search('Registered', $participantStatuses);
-        CRM_Event_BAO_Participant::add($participantUpdate);
+        $ids = CRM_Event_BAO_Participant::getParticipantIds($contributionId);
+        foreach ($ids as $val) {
+          $participantUpdate['id'] = $val;
+          $participantUpdate['status_id'] = array_search('Registered', $participantStatuses);
+          CRM_Event_BAO_Participant::add($participantUpdate);
+        }
       }
     }
 
@@ -3163,6 +3195,13 @@ WHERE eft.financial_trxn_id IN ({$trxnId}, {$baseTrxnId['financialTrxnId']})
       $entity = 'participant';
       $entityTable = 'civicrm_participant';
       $contributionId = CRM_Core_DAO::getFieldValue('CRM_Event_BAO_ParticipantPayment', $id, 'contribution_id', 'participant_id');
+
+      if (!$contributionId) {
+        if ($primaryParticipantId = CRM_Core_DAO::getFieldValue('CRM_Event_BAO_Participant', $id, 'registered_by_id')) {
+          $contributionId = CRM_Core_DAO::getFieldValue('CRM_Event_BAO_ParticipantPayment', $primaryParticipantId, 'contribution_id', 'participant_id');
+          $id = $primaryParticipantId;
+        }
+      }
     }
     $total = CRM_Core_BAO_FinancialTrxn::getBalanceTrxnAmt($contributionId);
     $baseTrxnId = !empty($total['trxn_id']) ? $total['trxn_id'] : NULL;
@@ -3176,7 +3215,17 @@ WHERE eft.financial_trxn_id IN ({$trxnId}, {$baseTrxnId['financialTrxnId']})
       $isBalance = FALSE;
     }
     if (empty($total) || $usingLineTotal) {
-      $total = CRM_Price_BAO_LineItem::getLineTotal($id, $entityTable);
+      // for additional participants
+      if ($entityTable == 'civicrm_participant') {
+       $ids = CRM_Event_BAO_Participant::getParticipantIds($contributionId);
+       $total = 0;
+       foreach ($ids as $val) {
+         $total += CRM_Price_BAO_LineItem::getLineTotal($val, $entityTable);
+       }
+      }
+      else {
+        $total = CRM_Price_BAO_LineItem::getLineTotal($id, $entityTable);
+      }
     }
     else {
       $baseTrxnId = $total['trxn_id'];
@@ -3184,11 +3233,17 @@ WHERE eft.financial_trxn_id IN ({$trxnId}, {$baseTrxnId['financialTrxnId']})
     }
 
     $paymentBalance = CRM_Core_BAO_FinancialTrxn::getPartialPaymentWithType($id, $entity, FALSE, $total);
+    $contributionIsPayLater = CRM_Core_DAO::getFieldValue('CRM_Contribute_DAO_Contribution', $contributionId, 'is_pay_later');
+    if ($paymentBalance == 0 && $contributionIsPayLater) {
+      $paymentBalance = $total;
+    }
+
     $info['total'] = $total;
     $info['paid'] = $total - $paymentBalance;
     $info['balance'] = $paymentBalance;
     $info['id'] = $id;
     $info['component'] = $component;
+    $info['payLater'] = $contributionIsPayLater;
     $rows = array();
     if ($getTrxnInfo && $baseTrxnId) {
       $sql = "

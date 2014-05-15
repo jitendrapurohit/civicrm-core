@@ -51,7 +51,9 @@ class CRM_Core_Payment_PaymentExpress extends CRM_Core_Payment {
    *
    * @param string $mode the mode of operation: live or test
    *
-   * @return void
+   * @param $paymentProcessor
+   *
+   * @return \CRM_Core_Payment_PaymentExpress
    */
   function __construct($mode, &$paymentProcessor) {
 
@@ -65,9 +67,12 @@ class CRM_Core_Payment_PaymentExpress extends CRM_Core_Payment {
    *
    * @param string $mode the mode of operation: live or test
    *
+   * @param object $paymentProcessor
+   * @param null $paymentForm
+   * @param bool $force
+   *
    * @return object
    * @static
-   *
    */
   static function &singleton($mode = 'test', &$paymentProcessor, &$paymentForm = NULL, $force = FALSE) {
     $processorName = $paymentProcessor['name'];
@@ -117,11 +122,12 @@ class CRM_Core_Payment_PaymentExpress extends CRM_Core_Payment {
   /**
    * Main transaction function
    *
-   * @param array $params  name value pair of contribution data
+   * @param array $params name value pair of contribution data
+   *
+   * @param $component
    *
    * @return void
    * @access public
-   *
    */
   function doTransferCheckout(&$params, $component) {
     $component = strtolower($component);

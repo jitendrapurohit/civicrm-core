@@ -155,9 +155,9 @@ class CRM_Contribute_Form_ContributionBase extends CRM_Core_Form {
   /**
    * The contact id of the person for whom membership is being added or renewed based on the cid in the url,
    * checksum, or session
-   * @var unknown_type
+   * @var int
    */
-  protected $_contactID;
+  public $_contactID;
 
   protected $_userID;
 
@@ -195,6 +195,17 @@ class CRM_Contribute_Form_ContributionBase extends CRM_Core_Form {
    */
   public $_honor_block_is_active = FALSE;
 
+  /**
+   * Contribution mode e.g express for payment express, notify for off-site + notification back to CiviCRM
+   * @var string
+   */
+  public $_contributeMode;
+
+  /**
+   * contribution page supports memberships
+   * @var boolean
+   */
+  public $_useForMember;
   /**
    * Function to set variables up before form is built
    *
@@ -653,6 +664,12 @@ class CRM_Contribute_Form_ContributionBase extends CRM_Core_Form {
   /**
    * Function to add the custom fields
    *
+   * @param $id
+   * @param $name
+   * @param bool $viewOnly
+   * @param null $profileContactType
+   * @param null $fieldTypes
+   *
    * @return void
    * @access public
    */
@@ -795,6 +812,12 @@ class CRM_Contribute_Form_ContributionBase extends CRM_Core_Form {
     }
   }
 
+  /**
+   * Check template file exists
+   * @param null $suffix
+   *
+   * @return null|string
+   */
   function checkTemplateFileExists($suffix = NULL) {
     if ($this->_id) {
       $templateFile = "CRM/Contribute/Form/Contribution/{$this->_id}/{$this->_name}.{$suffix}tpl";

@@ -65,6 +65,8 @@ class CRM_Case_Form_Activity_LinkCases {
    *
    * @access public
    *
+   * @param $form
+   *
    * @return void
    */
   static function setDefaultValues(&$form) {
@@ -79,6 +81,9 @@ class CRM_Case_Form_Activity_LinkCases {
    * global validation rules for the form
    *
    * @param array $values posted values of the form
+   *
+   * @param $files
+   * @param $form
    *
    * @return array list of errors to be posted back to the form
    * @static
@@ -106,6 +111,9 @@ class CRM_Case_Form_Activity_LinkCases {
    *
    * @access public
    *
+   * @param $form
+   * @param $params
+   *
    * @return void
    */
   static function beginPostProcess(&$form, &$params) {}
@@ -114,6 +122,10 @@ class CRM_Case_Form_Activity_LinkCases {
    * Function to process the form
    *
    * @access public
+   *
+   * @param $form
+   * @param $params
+   * @param $activity
    *
    * @return void
    */

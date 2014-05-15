@@ -113,13 +113,6 @@ class CRM_Case_Form_CaseView extends CRM_Core_Form {
     $returnProperties = array('case_type_id', 'subject', 'status_id', 'start_date');
     CRM_Core_DAO::commonRetrieve('CRM_Case_BAO_Case', $params, $values, $returnProperties);
 
-    $values['case_type_id'] = trim(CRM_Utils_Array::value('case_type_id', $values),
-      CRM_Core_DAO::VALUE_SEPARATOR
-    );
-    $values['case_type_id'] = explode(CRM_Core_DAO::VALUE_SEPARATOR,
-      CRM_Utils_Array::value('case_type_id', $values)
-    );
-
     $statuses     = CRM_Case_PseudoConstant::caseStatus('label', FALSE);
     $caseTypeName = CRM_Case_BAO_Case::getCaseType($this->_caseID, 'name');
     $caseType     = CRM_Case_BAO_Case::getCaseType($this->_caseID);
@@ -186,7 +179,7 @@ class CRM_Case_Form_CaseView extends CRM_Core_Form {
       )));
     }
 
-    $entitySubType = !empty($values['case_type_id']) ? $values['case_type_id'][0] : NULL;
+    $entitySubType = !empty($values['case_type_id']) ? $values['case_type_id'] : NULL;
     $this->assign('caseTypeID', $entitySubType);
     $groupTree = &CRM_Core_BAO_CustomGroup::getTree('Case',
       $this,
@@ -243,6 +236,7 @@ class CRM_Case_Form_CaseView extends CRM_Core_Form {
     $allActTypes = CRM_Core_PseudoConstant::activityType(TRUE, TRUE, FALSE, 'name');
 
     $emailActivityType = array_search('Email', $allActTypes);
+    $pdfActivityType = array_search('Print PDF Letter', $allActTypes);
 
     // remove Open Case activity type since we're inside an existing case
     if ($openActTypeId = array_search('Open Case', $allActTypes)) {
@@ -266,6 +260,11 @@ class CRM_Case_Form_CaseView extends CRM_Core_Form {
           "action=add&context=standalone&reset=1&caseid={$this->_caseID}&atype=$type",
           FALSE, NULL, FALSE
         );
+      }
+      else if ($type == $pdfActivityType ) {
+         $url = CRM_Utils_System::url('civicrm/activity/pdf/add',
+          "action=add&context=standalone&reset=1&cid={$this->_contactID}&caseid={$this->_caseID}&atype=$type",
+          FALSE, NULL, FALSE ); 
       }
       else {
         $url = CRM_Utils_System::url('civicrm/case/activity',
@@ -430,7 +429,7 @@ class CRM_Case_Form_CaseView extends CRM_Core_Form {
     else {
       $this->assign('showTagsets', FALSE);
     }
-    CRM_Core_Form_Tag::buildQuickForm($this, $parentNames, 'civicrm_case', $this->_caseID, TRUE, TRUE);
+    CRM_Core_Form_Tag::buildQuickForm($this, $parentNames, 'civicrm_case', $this->_caseID, FALSE, TRUE);
 
     $this->addButtons(array(
         array(
@@ -535,4 +534,3 @@ class CRM_Case_Form_CaseView extends CRM_Core_Form {
     }
   }
 }
-

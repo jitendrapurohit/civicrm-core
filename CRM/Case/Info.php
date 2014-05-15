@@ -64,10 +64,6 @@ class CRM_Case_Info extends CRM_Core_Component_Info {
     CRM_Utils_Hook::caseTypes($caseTypes);
 
     $proc = new CRM_Case_XMLProcessor();
-    $caseTypesGroupId = civicrm_api3('OptionGroup', 'getvalue', array('name' => 'case_type', 'return' => 'id'));
-    if (!is_numeric($caseTypesGroupId)) {
-      throw new CRM_Core_Exception("Found invalid ID for OptionGroup (case_type)");
-    }
     foreach ($caseTypes as $name => $caseType) {
       $xml = $proc->retrieve($name);
       if (!$xml) {
@@ -78,14 +74,15 @@ class CRM_Case_Info extends CRM_Core_Component_Info {
         $entities[] = array(
           'module' => $caseType['module'],
           'name' => $caseType['name'],
-          'entity' => 'OptionValue',
+          'entity' => 'CaseType',
           'params' => array(
             'version' => 3,
             'name' => $caseType['name'],
-            'label' => (string) $xml->name,
-            'description' => (string) $xml->description, // CRM_Utils_Array::value('description', $caseType, ''),
-            'option_group_id' => $caseTypesGroupId,
+            'title' => (string) $xml->name,
+            'description' => (string) $xml->description,
             'is_reserved' => 1,
+            'is_active' => 1,
+            'weight' => $xml->weight ? $xml->weight : 1,
           ),
         );
       }
@@ -171,7 +168,6 @@ class CRM_Case_Info extends CRM_Core_Component_Info {
     ) {
       $config = CRM_Core_Config::singleton();
       CRM_Admin_Form_Setting_Component::loadCaseSampleData($config->dsn, $config->sqlDir . 'case_sample.mysql');
-      CRM_Admin_Form_Setting_Component::loadCaseSampleData($config->dsn, $config->sqlDir . 'case_sample1.mysql');
       if (!CRM_Case_BAO_Case::createCaseViews()) {
         $msg = ts("Could not create the MySQL views for CiviCase. Your mysql user needs to have the 'CREATE VIEW' permission");
         CRM_Core_Error::fatal($msg);

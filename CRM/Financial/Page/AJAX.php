@@ -43,7 +43,7 @@ class CRM_Financial_Page_AJAX {
    * $financialAccountType array with key account relationship and value financial account type option groups
    *
    */
-  function jqFinancial($config) {
+  static function jqFinancial($config) {
     if (!isset($_GET['_value']) ||
       empty($_GET['_value'])) {
       CRM_Utils_System::civiExit();
@@ -91,7 +91,7 @@ class CRM_Financial_Page_AJAX {
     CRM_Utils_System::civiExit();
   }
 
-  function jqFinancialRelation($config) {
+  static function jqFinancialRelation($config) {
     if (!isset($_GET['_value']) ||
       empty($_GET['_value'])) {
       CRM_Utils_System::civiExit();
@@ -148,7 +148,7 @@ class CRM_Financial_Page_AJAX {
     CRM_Utils_System::civiExit();
   }
 
-  function jqFinancialType($config) {
+  static function jqFinancialType($config) {
     if (! isset($_GET['_value']) ||
       empty($_GET['_value'])) {
       CRM_Utils_System::civiExit();
@@ -214,9 +214,9 @@ class CRM_Financial_Page_AJAX {
             // Update totals when closing a batch
             $params = $totals[$recordID];
           case 'reopen':
-            $status = $op == 'close' ? 'Closed' : 'Open';
+            $status = $op == 'close' ? 'Closed' : 'Reopened';
             $ids['batchID'] = $recordID;
-            $batchStatus = CRM_Core_PseudoConstant::get('CRM_Batch_DAO_Batch', 'status_id');
+            $batchStatus = CRM_Core_PseudoConstant::get('CRM_Batch_DAO_Batch', 'status_id', array('labelColumn' => 'name'));
             $params['status_id'] = CRM_Utils_Array::key($status, $batchStatus);
             $session = CRM_Core_Session::singleton();
             $params['modified_date'] = date('YmdHis');

@@ -52,8 +52,10 @@ class CRM_Core_Payment_BaseIPN {
 
   /**
    * Store input array on the class
+   *
    * @param array $parameters
-   * @throws CRM_Core_Exceptions
+   *
+   * @throws CRM_Core_Exception
    */
   function setInputParameters($parameters) {
     if(!is_array($parameters)) {
@@ -110,11 +112,14 @@ class CRM_Core_Payment_BaseIPN {
    * Load objects related to contribution
    *
    * @input array information from Payment processor
+   *
+   * @param $input
    * @param array $ids
    * @param array $objects
    * @param boolean $required
    * @param integer $paymentProcessorID
    * @param array $error_handling
+   *
    * @return multitype:number NULL |boolean
    */
   function loadObjects(&$input, &$ids, &$objects, $required, $paymentProcessorID, $error_handling = NULL) {

@@ -275,14 +275,17 @@ class CRM_Core_BAO_ActionSchedule extends CRM_Core_DAO_ActionSchedule {
   /**
    * Retrieve list of Scheduled Reminders
    *
-   * @param bool    $namesOnly    return simple list of names
+   * @param bool $namesOnly return simple list of names
+   *
+   * @param null $entityValue
+   * @param null $id
    *
    * @return array  (reference)   reminder list
    * @static
    * @access public
    */
   static function &getList($namesOnly = FALSE, $entityValue = NULL, $id = NULL) {
-    $activity_type = CRM_Core_PseudoConstant::activityType(FALSE) + CRM_Core_PseudoConstant::activityType(FALSE, TRUE);
+    $activity_type = CRM_Core_PseudoConstant::activityType(TRUE, TRUE);
     $activity_status = CRM_Core_PseudoConstant::activityStatus();
 
     $event_type = CRM_Event_PseudoConstant::eventType();
@@ -293,7 +296,6 @@ class CRM_Core_BAO_ActionSchedule extends CRM_Core_DAO_ActionSchedule {
     $auto_renew_options = CRM_Core_OptionGroup::values('auto_renew_options');
     $civicrm_membership_type = CRM_Member_PseudoConstant::membershipType();
 
-    asort($activity_type);
     $entity = array(
       'civicrm_activity' => 'Activity',
       'civicrm_participant' => 'Event',
@@ -1093,12 +1095,12 @@ LEFT JOIN {$reminderJoinClause}
         $insertAdditionalSql ="
 INSERT INTO civicrm_action_log (contact_id, entity_id, entity_table, action_schedule_id)
 {$addSelect}
-FROM ({$contactTable}, {$table})
+FROM ({$contactTable})
 LEFT JOIN {$additionReminderClause}
 {$addGroup}
-{$additionWhere} c.is_deleted = 0 AND c.is_deceased = 0
+WHERE c.is_deleted = 0 AND c.is_deceased = 0
 {$addWhereClause}
-AND {$dateClause}
+
 AND c.id NOT IN (
      SELECT rem.contact_id
      FROM civicrm_action_log rem INNER JOIN {$mapping->entity} e ON rem.entity_id = e.id
@@ -1239,6 +1241,12 @@ WHERE     m.owner_membership_id IS NOT NULL AND
     return $result;
   }
 
+  /**
+   * @param $id
+   * @param $mappingID
+   *
+   * @return null|string
+   */
   static function isConfigured($id, $mappingID) {
     $queryString = "SELECT count(id) FROM civicrm_action_schedule
                         WHERE  mapping_id = %1 AND

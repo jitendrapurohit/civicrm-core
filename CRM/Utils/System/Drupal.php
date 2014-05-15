@@ -122,6 +122,10 @@ class CRM_Utils_System_Drupal extends CRM_Utils_System_DrupalBase {
    * @params $errors    array   array of errors
    * @params $emailName string  field label for the 'email'
    *
+   * @param $params
+   * @param $errors
+   * @param string $emailName
+   *
    * @return void
    */
   static function checkUserNameEmailExists(&$params, &$errors, $emailName = 'email') {
@@ -232,6 +236,8 @@ class CRM_Utils_System_Drupal extends CRM_Utils_System_DrupalBase {
    * sets the title of the page
    *
    * @param string $title
+   * @param null $pageTitle
+   *
    * @paqram string $pageTitle
    *
    * @return void
@@ -250,8 +256,10 @@ class CRM_Utils_System_Drupal extends CRM_Utils_System_DrupalBase {
   /**
    * Append an additional breadcrumb tag to the existing breadcrumb
    *
-   * @param string $title
-   * @param string $url
+   * @param $breadCrumbs
+   *
+   * @internal param string $title
+   * @internal param string $url
    *
    * @return void
    * @access public
@@ -643,6 +651,8 @@ AND    u.status = 1
    * @param boolean $loadUser boolean Require CMS user load.
    * @param boolean $throwError If true, print error on failure and exit.
    * @param boolean|string $realPath path to script
+   *
+   * @return bool
    */
   function loadBootStrap($params = array(), $loadUser = TRUE, $throwError = TRUE, $realPath = NULL) {
     //take the cms root path.
@@ -827,6 +837,9 @@ AND    u.status = 1
    *
    * @param string $url
    *
+   * @param bool $addLanguagePart
+   * @param bool $removeLanguagePart
+   *
    * @return string $url, formatted url.
    * @static
    */
@@ -863,7 +876,12 @@ AND    u.status = 1
         if ($urlType == LOCALE_LANGUAGE_NEGOTIATION_URL_DOMAIN) {
           if (isset($language->domain) && $language->domain) {
             if ($addLanguagePart) {
-              $url = (CRM_Utils_System::isSSL() ? 'https' : 'http') . '://' . $language->domain . base_path();
+              $cleanedUrl = preg_replace('#^https?://#', '', $language->domain);
+              // drupal function base_path() adds a "/" to the beginning and end of the returned path
+              if (substr($cleanedUrl, -1) == '/') {
+                $cleanedUrl = substr($cleanedUrl, 0, -1);
+              }
+              $url = (CRM_Utils_System::isSSL() ? 'https' : 'http') . '://' . $cleanedUrl . base_path();
             }
             if ($removeLanguagePart && defined('CIVICRM_UF_BASEURL')) {
               $url = str_replace('\\', '/', $url);

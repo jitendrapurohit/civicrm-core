@@ -48,8 +48,9 @@ class CRM_Price_BAO_PriceField extends CRM_Price_DAO_PriceField {
    * price field object. the params array could contain additional unused name/value
    * pairs
    *
-   * @param array  $params    (reference ) an assoc array of name/value pairs
-   * @param array  $ids       the array that holds all the db ids
+   * @param array $params (reference ) an assoc array of name/value pairs
+   *
+   * @internal param array $ids the array that holds all the db ids
    *
    * @return object CRM_Price_BAO_PriceField object
    * @access public
@@ -215,13 +216,18 @@ class CRM_Price_BAO_PriceField extends CRM_Price_DAO_PriceField {
   /**
    * This function for building custom fields
    *
-   * @param object  $qf             form object (reference)
-   * @param string  $elementName    name of the custom field
+   * @param object $qf form object (reference)
+   * @param string $elementName name of the custom field
+   * @param $fieldId
    * @param boolean $inactiveNeeded
-   * @param boolean $useRequired    true if required else false
-   * @param boolean $search         true if used for search else false
-   * @param string  $label          label for custom field
+   * @param boolean $useRequired true if required else false
+   * @param string $label label for custom field
    *
+   * @param null $fieldOptions
+   * @param array $feezeOptions
+   *
+   * @return null
+   * @internal param bool $search true if used for search else false
    * @access public
    * @static
    */
@@ -295,9 +301,7 @@ class CRM_Price_BAO_PriceField extends CRM_Price_DAO_PriceField {
           $extra = array('onclick' => 'useAmountOther();');
         }
 
-        // if seperate membership payment is used with quick config priceset then change the other amount label
         if (!empty($qf->_membershipBlock) && !empty($qf->_quickConfig) && $field->name == 'other_amount' && empty($qf->_contributionAmount)) {
-          $label = ts('Additional Contribution');
           $useRequired = 0;
         }
         elseif (!empty($fieldOptions[$optionKey]['label'])) {      //check for label.
@@ -579,13 +583,16 @@ WHERE
   /**
    * Validate the priceset
    *
-   * @param int $priceSetId, array $fields
+   * @param int $priceSetId , array $fields
    *
    * retrun the error string
    *
+   * @param $fields
+   * @param $error
+   * @param bool $allowNoneSelection
+   *
    * @access public
    * @static
-   *
    */
 
   public static function priceSetValidation($priceSetId, $fields, &$error, $allowNoneSelection = FALSE) {

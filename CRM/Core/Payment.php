@@ -125,6 +125,24 @@ abstract class CRM_Core_Payment {
   }
 
   /**
+   * @param $params
+   *
+   * @return mixed
+   */
+  public static function logPaymentNotification($params) {
+    $message = 'payment_notification ';
+    if (!empty($params['processor_name'])) {
+      $message .= 'processor_name=' . $params['processor_name'];
+    }
+    if (!empty($params['processor_id'])) {
+      $message .= 'processor_id=' . $params['processor_id'];
+    }
+
+    $log = new CRM_Utils_SystemLogger();
+    $log->alert($message, $_REQUEST);
+  }
+
+  /**
    * Setter for the payment form that wants to use the processor
    *
    * @param obj $paymentForm
@@ -165,7 +183,7 @@ abstract class CRM_Core_Payment {
   /**
    * This function checks to see if we have the right config values
    *
-   * @param  string $mode the mode we are operating in (live or test)
+   * @internal param string $mode the mode we are operating in (live or test)
    *
    * @return string the error message if any
    * @public
@@ -215,6 +233,7 @@ abstract class CRM_Core_Payment {
     if (!isset($params['processor_id']) && !isset($params['processor_name'])) {
       CRM_Core_Error::fatal("Either 'processor_id' or 'processor_name' param is required for payment callback");
     }
+    self::logPaymentNotification($params);
 
     // Query db for processor ..
     $mode = @$params['mode'];
@@ -255,13 +274,12 @@ abstract class CRM_Core_Payment {
       // Check pp is extension
       $ext = CRM_Extension_System::singleton()->getMapper();
       if ($ext->isExtensionKey($dao->class_name)) {
-        $extension_instance_found = TRUE;
         $paymentClass = $ext->keyToClass($dao->class_name, 'payment');
         require_once $ext->classToPath($paymentClass);
       }
       else {
         // Legacy or extension as module instance
-        if(empty($paymentClass)) {
+        if (empty($paymentClass)) {
           $paymentClass = 'CRM_Core_' . $dao->class_name;
 
         }
@@ -288,6 +306,7 @@ abstract class CRM_Core_Payment {
 
       // Everything, it seems, is ok - execute pp callback handler
       $processorInstance->$method();
+      $extension_instance_found = TRUE;
     }
 
     if (!$extension_instance_found) CRM_Core_Error::fatal(
@@ -376,8 +395,9 @@ INNER JOIN civicrm_contribution con ON ( con.contribution_recur_id = rec.id )
    */
   static function allowBackofficeCreditCard($template = NULL, $variableName = 'newCredit') {
     $newCredit = FALSE;
+    // restrict to type=1 (credit card) payment processor payment_types and only include billing mode types 1 and 3
     $processors = CRM_Core_PseudoConstant::paymentProcessor(FALSE, FALSE,
-      "billing_mode IN ( 1, 3 )"
+      "billing_mode IN ( 1, 3 ) AND payment_type = 1"
     );
     if (count($processors) > 0) {
       $newCredit = TRUE;

@@ -188,14 +188,13 @@ class CRM_Core_Permission {
    * Get all groups from database, filtered by permissions
    * for this user
    *
-   * @param string $groupType     type of group(Access/Mailing)
-   * @param boolen $excludeHidden exclude hidden groups.
+   * @param string $groupType type of group(Access/Mailing)
+   * @param bool|\boolen $excludeHidden exclude hidden groups.
    *
    * @access public
    * @static
    *
    * @return array - array reference of all groups.
-   *
    */
   public static function group($groupType, $excludeHidden = TRUE) {
     $config = CRM_Core_Config::singleton();
@@ -374,7 +373,9 @@ class CRM_Core_Permission {
    * @param string $module component name.
    * @param $action action to be check across component
    *
-   **/
+   *
+   * @return bool
+   */
   static function checkActionPermission($module, $action) {
     //check delete related permissions.
     if ($action & CRM_Core_Action::DELETE) {
@@ -471,14 +472,13 @@ class CRM_Core_Permission {
     static $permissions = NULL;
 
     if (!$permissions) {
+      $config = CRM_Core_Config::singleton();
       $prefix = ts('CiviCRM') . ': ';
       $permissions = self::getCorePermissions();
 
       if (self::isMultisiteEnabled()) {
         $permissions['administer Multiple Organizations'] = $prefix . ts('administer Multiple Organizations');
       }
-
-      $config = CRM_Core_Config::singleton();
 
       if (!$all) {
         $components = CRM_Core_Component::getEnabledComponents();
@@ -498,12 +498,32 @@ class CRM_Core_Permission {
       }
 
       // Add any permissions defined in hook_civicrm_permission implementations.
-      $config = CRM_Core_Config::singleton();
       $module_permissions = $config->userPermissionClass->getAllModulePermissions();
       $permissions = array_merge($permissions, $module_permissions);
     }
 
     return $permissions;
+  }
+
+  static function getAnonymousPermissionsWarnings() {
+    static $permissions = array();
+    if (empty($permissions)) {
+      $permissions = array(
+        'administer CiviCRM'
+      );
+      $components = CRM_Core_Component::getComponents();
+      foreach ($components as $comp) {
+        if (!method_exists($comp, 'getAnonymousPermissionWarnings')) {
+          continue;
+        }
+        $permissions = array_merge($permissions, $comp->getAnonymousPermissionWarnings());
+      }
+    }
+    return $permissions;
+  }
+
+  static function validateForPermissionWarnings($anonymous_perms) {
+    return array_intersect($anonymous_perms, self::getAnonymousPermissionsWarnings());
   }
 
   static function getCorePermissions() {
@@ -600,6 +620,8 @@ class CRM_Core_Permission {
    * @param string $permission
    *
    * return string $componentName the name of component.
+   *
+   * @return int|null|string
    * @static
    */
   static function getComponentName($permission) {

@@ -1,4 +1,5 @@
-{*
+<?php
+/*
  +--------------------------------------------------------------------+
  | CiviCRM version 4.5                                                |
  +--------------------------------------------------------------------+
@@ -22,13 +23,32 @@
  | GNU Affero General Public License or the licensing of CiviCRM,     |
  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
  +--------------------------------------------------------------------+
-*}
-{* Include this file in any form where we want to alert user if they've added or change form data, and then navigate away. *}
-{literal}
-<script type="text/javascript">
-     CRM.$(function($) {
-         cj("#{/literal}{$form.formName}{literal}").FormNavigate("{/literal}{ts escape='js'}You have unsaved changes.{/ts}{literal}"); 
-     });
-</script>
-{/literal}
+*/
 
+
+require_once 'CiviTest/CiviUnitTestCase.php';
+
+class CRM_Core_PaymentTest extends CiviUnitTestCase {
+  function get_info() {
+    return array(
+      'name' => 'Payment Test',
+      'description' => 'Test Payment methods.',
+      'group' => 'Payment Processor Tests',
+    );
+  }
+
+  /**
+   * test the payment method is adequately logged - we don't expect the processing to succeed
+   */
+  function testHandlePaymentMethodLogging() {
+    $params = array('processor_name' => 'Paypal', 'data' => 'blah');
+    try {
+      CRM_Core_Payment::handlePaymentMethod('method', $params);
+    }
+    catch (Exception $e) {
+
+    }
+    $log = $this->callAPISuccess('SystemLog', 'get', array());
+    $this->assertEquals('payment_notification processor_name=Paypal', $log['values'][$log['id']]['message']);
+  }
+}

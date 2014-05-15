@@ -237,9 +237,11 @@ class CRM_PCP_Form_PCPAccount extends CRM_Core_Form {
   /**
    * global form rule
    *
-   * @param array $fields  the input form values
-   * @param array $files   the uploaded files if any
-   * @param array $options additional user data
+   * @param array $fields the input form values
+   * @param array $files the uploaded files if any
+   * @param $self
+   *
+   * @internal param array $options additional user data
    *
    * @return true if no errors, else array of errors
    * @access public
@@ -291,6 +293,7 @@ class CRM_PCP_Form_PCPAccount extends CRM_Core_Form {
     }
 
     $dedupeParams = CRM_Dedupe_Finder::formatParams($params, 'Individual');
+    $dedupeParams['check_permission'] = FALSE;
     $ids = CRM_Dedupe_Finder::dupesByParams($dedupeParams, 'Individual', 'Unsupervised');
     if ($ids) {
       $this->_contactID = $ids['0'];

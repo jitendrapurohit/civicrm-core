@@ -104,10 +104,12 @@ class CRM_Contribute_BAO_ContributionPage extends CRM_Contribute_DAO_Contributio
   /**
    * Function to send the emails
    *
-   * @param int     $contactID         contact id
-   * @param array   $values            associated array of fields
-   * @param boolean $isTest            if in test mode
+   * @param int $contactID contact id
+   * @param array $values associated array of fields
+   * @param boolean $isTest if in test mode
    * @param boolean $returnMessageText return the message text instead of sending the mail
+   *
+   * @param null $fieldTypes
    *
    * @return void
    * @access public
@@ -269,6 +271,7 @@ class CRM_Contribute_BAO_ContributionPage extends CRM_Contribute_DAO_Contributio
       if ($preID = CRM_Utils_Array::value('custom_pre_id', $values)) {
         if (!empty($values['related_contact'])) {
           $preProfileTypes = CRM_Core_BAO_UFGroup::profileGroups($preID);
+          //@todo - following line should not refer to undefined $postProfileTypes? figure out way to test
           if (in_array('Individual', $preProfileTypes) || in_array('Contact', $postProfileTypes)) {
             //Take Individual contact ID
             $userID = CRM_Utils_Array::value('related_contact', $values);
@@ -434,11 +437,11 @@ class CRM_Contribute_BAO_ContributionPage extends CRM_Contribute_DAO_Contributio
   /**
    * Function to send the emails for Recurring Contribution Notication
    *
-   * @param string  $type         txnType
-   * @param int     $contactID    contact id for contributor
-   * @param int     $pageID       contribution page id
-   * @param object  $recur        object of recurring contribution table
-   * @param object  $autoRenewMembership   is it a auto renew membership.
+   * @param string $type txnType
+   * @param int $contactID contact id for contributor
+   * @param int $pageID contribution page id
+   * @param object $recur object of recurring contribution table
+   * @param bool|object $autoRenewMembership is it a auto renew membership.
    *
    * @return void
    * @access public
@@ -532,10 +535,13 @@ class CRM_Contribute_BAO_ContributionPage extends CRM_Contribute_DAO_Contributio
   /**
    * Function to add the custom fields for contribution page (ie profile)
    *
-   * @param int    $gid            uf group id
+   * @param int $gid uf group id
    * @param string $name
-   * @param int    $cid            contact id
-   * @param array  $params         params to build component whereclause
+   * @param int $cid contact id
+   * @param $template
+   * @param array $params params to build component whereclause
+   *
+   * @param null $fieldTypes
    *
    * @return void
    * @access public
@@ -704,6 +710,7 @@ WHERE entity_table = 'civicrm_contribution_page'
   /**
    * Function to get info for all sections enable/disable.
    *
+   * @param array $contribPageIds
    * @return array $info info regarding all sections.
    * @access public
    * @static

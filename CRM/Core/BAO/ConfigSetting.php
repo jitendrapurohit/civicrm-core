@@ -46,6 +46,8 @@ class CRM_Core_BAO_ConfigSetting {
    *
    * @params array $params associated array of civicrm variables
    *
+   * @param $params
+   *
    * @return null
    * @static
    */
@@ -61,6 +63,8 @@ class CRM_Core_BAO_ConfigSetting {
    * Function to add civicrm settings
    *
    * @params array $params associated array of civicrm variables
+   *
+   * @param $params
    *
    * @return null
    * @static
@@ -143,6 +147,8 @@ class CRM_Core_BAO_ConfigSetting {
    *
    * @params array $params associated array of civicrm variables
    *
+   * @param $params
+   *
    * @return null
    * @static
    */
@@ -197,6 +203,8 @@ class CRM_Core_BAO_ConfigSetting {
 
   /**
    * Function to retrieve the settings values from db
+   *
+   * @param $defaults
    *
    * @return array $defaults
    * @static

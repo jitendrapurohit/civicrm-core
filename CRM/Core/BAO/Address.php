@@ -41,15 +41,17 @@ class CRM_Core_BAO_Address extends CRM_Core_DAO_Address {
   /**
    * takes an associative array and creates a address
    *
-   * @param array  $params (reference ) an assoc array of name/value pairs
-   * @param boolean  $fixAddress   true if you need to fix (format) address values
+   * @param array $params (reference ) an assoc array of name/value pairs
+   * @param boolean $fixAddress true if you need to fix (format) address values
    *                               before inserting in db
+   *
+   * @param null $entity
    *
    * @return array $blocks array of created address
    * @access public
    * @static
    */
-  static function create(&$params, $fixAddress, $entity = NULL) {
+  static function create(&$params, $fixAddress = TRUE, $entity = NULL) {
     if (!isset($params['address']) || !is_array($params['address'])) {
       return;
     }
@@ -453,9 +455,9 @@ class CRM_Core_BAO_Address extends CRM_Core_DAO_Address {
    * Given the list of params in the params array, fetch the object
    * and store the values in the values array
    *
-   * @param array   $entityBlock   associated array of fields
-   * @param boolean $microformat   if microformat output is required
-   * @param int     $fieldName     conditional field name
+   * @param array $entityBlock associated array of fields
+   * @param boolean $microformat if microformat output is required
+   * @param int|string $fieldName conditional field name
    *
    * @return array  $addresses     array with address fields
    * @access public
@@ -541,12 +543,13 @@ class CRM_Core_BAO_Address extends CRM_Core_DAO_Address {
   /**
    * Add the formatted address to $this-> display
    *
-   * @param NULL
+   * @param bool $microformat
+   *
+   * @internal param $NULL
    *
    * @return void
    *
    * @access public
-   *
    */
   function addDisplay($microformat = FALSE) {
     $fields = array(
@@ -581,6 +584,8 @@ class CRM_Core_BAO_Address extends CRM_Core_DAO_Address {
    * Get all the addresses for a specified contact_id, with the primary address being first
    *
    * @param int $id the contact id
+   *
+   * @param bool $updateBlankLocInfo
    *
    * @return array  the array of adrress data
    * @access public
@@ -1158,8 +1163,10 @@ SELECT is_primary,
    * TODO: In context of chainselect, what to return if e.g. a country has no states?
    *
    * @param String $fieldName
-   * @param String $context: @see CRM_Core_DAO::buildOptionsContext
-   * @param Array  $props: whatever is known about this dao object
+   * @param String $context : @see CRM_Core_DAO::buildOptionsContext
+   * @param Array $props : whatever is known about this dao object
+   *
+   * @return Array|bool
    */
   public static function buildOptions($fieldName, $context = NULL, $props = array()) {
     $params = array();

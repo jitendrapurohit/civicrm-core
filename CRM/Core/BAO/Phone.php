@@ -103,6 +103,10 @@ class CRM_Core_BAO_Phone extends CRM_Core_DAO_Phone {
    *
    * @param int $id the contact id
    *
+   * @param bool $updateBlankLocInfo
+   * @param null $type
+   * @param array $filters
+   *
    * @return array  the array of phone ids which are potential numbers
    * @access public
    * @static
@@ -173,6 +177,8 @@ ORDER BY civicrm_phone.is_primary DESC,  phone_id ASC ";
    *
    * @param array $entityElements the array containing entity_id and
    * entity_table name
+   *
+   * @param null $type
    *
    * @return array  the array of phone ids which are potential numbers
    * @access public

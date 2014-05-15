@@ -38,11 +38,11 @@ require_once 'api/v3/utils.php';
  * take the input parameter list as specified in the data model and
  * convert it into the same format that we use in QF and BAO object
  *
- * @param array  $params       Associative array of property name/value
+ * @param array $params Associative array of property name/value
  *                             pairs to insert in new contact.
- * @param array  $values       The reformatted properties that we can use internally
+ * @param array $values The reformatted properties that we can use internally
  *
- * @param array  $create       Is the formatted Values array going to
+ * @param array|bool $create Is the formatted Values array going to
  *                             be used for CRM_vent_BAO_Participant:create()
  *
  * @return array|CRM_Error
@@ -209,10 +209,13 @@ function _civicrm_api3_deprecated_participant_formatted_param($params, &$values,
  * take the input parameter list as specified in the data model and
  * convert it into the same format that we use in QF and BAO object
  *
- * @param array  $params       Associative array of property name/value
+ * @param array $params Associative array of property name/value
  *                             pairs to insert in new contact.
- * @param array  $values       The reformatted properties that we can use internally
+ * @param array $values The reformatted properties that we can use internally
  *                            '
+ *
+ * @param bool $create
+ * @param null $onDuplicate
  *
  * @return array|CRM_Error
  * @access public
@@ -311,17 +314,17 @@ function _civicrm_api3_deprecated_formatted_param($params, &$values, $create = F
             }
           }
         }
-        elseif ($params['contribution_id'] || $params['trxn_id'] || $params['invoice_id']) {
+        elseif (!empty($params['contribution_id']) || !empty($params['trxn_id']) || !empty($params['invoice_id'])) {
           //when update mode check contribution id or trxn id or
           //invoice id
           $contactId = new CRM_Contribute_DAO_Contribution();
-          if ($params['contribution_id']) {
+          if (!empty($params['contribution_id'])) {
             $contactId->id = $params['contribution_id'];
           }
-          elseif ($params['trxn_id']) {
+          elseif (!empty($params['trxn_id'])) {
             $contactId->trxn_id = $params['trxn_id'];
           }
-          elseif ($params['invoice_id']) {
+          elseif (!empty($params['invoice_id'])) {
             $contactId->invoice_id = $params['invoice_id'];
           }
           if ($contactId->find(TRUE)) {
@@ -331,6 +334,14 @@ function _civicrm_api3_deprecated_formatted_param($params, &$values, $create = F
                 return civicrm_api3_create_error("Contact Type is wrong: $contactType->contact_type");
               }
             }
+          }
+        }
+        else {
+          if ($onDuplicate == CRM_Import_Parser::DUPLICATE_UPDATE) {
+            return civicrm_api3_create_error("Empty Contribution and Invoice and Transaction ID. Row was skipped.");
+          }
+          else {
+            return civicrm_api3_create_error("Empty Contact and External ID. Row was skipped.");
           }
         }
         break;
@@ -392,14 +403,6 @@ function _civicrm_api3_deprecated_formatted_param($params, &$values, $create = F
         //import contribution record according to select contact type
         // validate contact id and external identifier.
         $value[$key] = $mismatchContactType = $softCreditContactIds = '';
-        if (!isset($params['contribution_id']) && empty($params['contribution_id']) && $onDuplicate == CRM_Import_Parser::DUPLICATE_UPDATE) {
-          $errorMsg = ts("Empty Contribution Id. Row was skipped.");
-          return civicrm_api3_create_error($errorMsg, $value[$key]);
-        }
-        elseif (!isset($params['contribution_contact_id']) && empty($params['contribution_contact_id']) && $onDuplicate != CRM_Import_Parser::DUPLICATE_UPDATE) {
-          $errorMsg = ts("Empty Contact Id. Row was skipped.");
-          return civicrm_api3_create_error($errorMsg, $value[$key]);
-        }
         if (isset($params[$key]) && is_array($params[$key])) {
           foreach ($params[$key] as $softKey => $softParam) {
             $contactId = CRM_Utils_Array::value('contact_id', $softParam);
@@ -663,11 +666,11 @@ function _civicrm_api3_deprecated_check_contact_dedupe($params) {
  * take the input parameter list as specified in the data model and
  * convert it into the same format that we use in QF and BAO object
  *
- * @param array  $params       Associative array of property name/value
+ * @param array $params Associative array of property name/value
  *                             pairs to insert in new contact.
- * @param array  $values       The reformatted properties that we can use internally
+ * @param array $values The reformatted properties that we can use internally
  *
- * @param array  $create       Is the formatted Values array going to
+ * @param array|bool $create Is the formatted Values array going to
  *                             be used for CRM_Activity_BAO_Activity::create()
  *
  * @return array|CRM_Error
@@ -1107,7 +1110,7 @@ function _civicrm_api3_deprecated_add_formatted_location_blocks(&$values, &$para
  *
  * @param <type> $params
  *
- * @return <type>
+ * @return array <type>
  */
 function _civicrm_api3_deprecated_duplicate_formatted_contact($params) {
   $id = CRM_Utils_Array::value('id', $params);
@@ -1202,14 +1205,16 @@ function _civicrm_api3_deprecated_validate_formatted_contact(&$params) {
 }
 
 
-
 /**
  * @deprecated - this is part of the import parser not the API & needs to be moved on out
  *
- * @param <type> $params
- * @param <type> $onDuplicate
+ * @param $params
+ * @param $onDuplicate
  *
- * @return <type>
+ * @internal param $ <type> $params
+ * @internal param $ <type> $onDuplicate
+ *
+ * @return array|bool <type>
  */
 function _civicrm_api3_deprecated_create_participant_formatted($params, $onDuplicate) {
   require_once 'CRM/Event/Import/Parser.php';
@@ -1228,7 +1233,9 @@ function _civicrm_api3_deprecated_create_participant_formatted($params, $onDupli
  *
  * @param <type> $params
  *
- * @return <type>
+ * @param bool $checkDuplicate
+ *
+ * @return array|bool <type>
  */
 function _civicrm_api3_deprecated_participant_check_params($params, $checkDuplicate = FALSE) {
 
@@ -1447,10 +1454,13 @@ function _civicrm_api3_deprecated_contact_check_params(
 
 /**
  *
- * @param <type> $result
- * @param <type> $activityTypeID
+ * @param $result
+ * @param $activityTypeID
  *
- * @return <type> $params
+ * @internal param $ <type> $result
+ * @internal param $ <type> $activityTypeID
+ *
+ * @return array <type> $params
  */
 function _civicrm_api3_deprecated_activity_buildmailparams($result, $activityTypeID) {
   // get ready for collecting data about activity to be created

@@ -41,6 +41,8 @@ class CRM_Contribute_Form_SoftCredit {
   /**
    * Function to set variables up before form is built
    *
+   * @param $form
+   *
    * @return void
    * @access static
    */
@@ -86,13 +88,12 @@ class CRM_Contribute_Form_SoftCredit {
           }
 
           $softCreditTypes = CRM_Core_OptionGroup::values("soft_credit_type", FALSE);
-          $extraOption = array('onclick' => "enableHonorType();");
 
           // radio button for Honor Type
           foreach ($jsonData['soft_credit_types'] as $value) {
-            $honorTypes[$value] = $form->createElement('radio', NULL, NULL, $softCreditTypes[$value], $value, $extraOption);
+            $honorTypes[$value] = $form->createElement('radio', NULL, NULL, $softCreditTypes[$value], $value);
           }
-          $form->addGroup($honorTypes, 'soft_credit_type_id', NULL);
+          $form->addGroup($honorTypes, 'soft_credit_type_id', NULL)->setAttribute('allowClear', TRUE);
         }
       }
         return $form;
@@ -190,7 +191,10 @@ class CRM_Contribute_Form_SoftCredit {
   /**
    * global form rule
    *
-   * @param array $fields  the input form values
+   * @param array $fields the input form values
+   *
+   * @param $errors
+   * @param $self
    *
    * @return true if no errors, else array of errors
    * @access public

@@ -179,8 +179,8 @@
   </tr>
   {/if}
 
-  {if $tagsetInfo_activity}
-  <tr class="crm-activity-form-block-tag_set"><td colspan="2">{include file="CRM/common/Tag.tpl" tagsetType='activity'}</td></tr>
+  {if $tagsetInfo.activity}
+  <tr class="crm-activity-form-block-tag_set">{include file="CRM/common/Tagset.tpl" tagsetType='activity' tableLayout=true}</tr>
   {/if}
 
   {if $action neq 4 OR $viewCustomData}
@@ -302,9 +302,6 @@
     });
     </script>
     {/literal}
-  {/if}
-  {if ! $form.case_select}
-  {include file="CRM/common/formNavigate.tpl"}
   {/if}
   </div>{* end of form block*}
 {/if} {* end of snippet if*}

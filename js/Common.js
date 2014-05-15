@@ -226,7 +226,7 @@ CRM.validate = CRM.validate || {
         $elect = $(this),
         val = $elect.val() || [],
         opts = removePlaceholder ? '' : '[value!=""]';
-      if (typeof(val) !== 'array') {
+      if (!$.isArray(val)) {
         val = [val];
       }
       $elect.find('option' + opts).remove();
@@ -237,6 +237,22 @@ CRM.validate = CRM.validate || {
       $elect.trigger('crmOptionsUpdated', $.extend({}, options)).trigger('change');
     });
   };
+
+/**
+ * Compare Form Input values against cached initial value.
+ *
+ * @return {Boolean} true if changes have been made.
+ */
+  CRM.utils.initialValueChanged = function(el) {
+    var isDirty = false;
+    $(':input:visible, :input.select2-offscreen', el).each(function () {
+      var initialValue = $(this).data('crm-initial-value');
+      if (initialValue !== undefined && initialValue != $(this).val()) {
+        isDirty = true;
+      }
+    });
+    return isDirty;
+  }
 
   /**
    * Wrapper for select2 initialization function; supplies defaults
@@ -276,7 +292,7 @@ CRM.validate = CRM.validate || {
     options.select = options.select || {};
     return $(this).each(function() {
       var
-        $el = $(this),
+        $el = $(this).off('.crmEntity'),
         entity = options.entity || $el.data('api-entity') || 'contact',
         selectParams = {};
       $el.data('api-entity', entity);
@@ -327,7 +343,7 @@ CRM.validate = CRM.validate || {
           }
         }
       };
-      if ($el.data('create-links')) {
+      if ($el.data('create-links') && entity.toLowerCase() === 'contact') {
         selectParams.formatInputTooShort = function() {
           var txt = $el.data('select-params').formatInputTooShort || $.fn.select2.defaults.formatInputTooShort.call(this);
           if ($el.data('create-links')) {
@@ -339,7 +355,7 @@ CRM.validate = CRM.validate || {
           var txt = $el.data('select-params').formatNoMatches || $.fn.select2.defaults.formatNoMatches;
           return txt + '<br />' + formatSelect2CreateLinks($el);
         };
-        $el.off('.createLinks').on('select2-open.createLinks', function() {
+        $el.on('select2-open.crmEntity', function() {
           var $el = $(this);
           $('#select2-drop').off('.crmEntity').on('click.crmEntity', 'a.crm-add-entity', function(e) {
             $el.select2('close');
@@ -361,7 +377,38 @@ CRM.validate = CRM.validate || {
           });
         });
       }
-      $el.crmSelect2($.extend(settings, $el.data('select-params'), selectParams));
+      // Create new items inline - works for tags
+      else if ($el.data('create-links')) {
+        selectParams.createSearchChoice = function(term, data) {
+          if (!_.findKey(data, {label: term})) {
+            return {id: "0", term: term, label: term + ' (' + ts('new tag') + ')'};
+          }
+        };
+        selectParams.tokenSeparators = [','];
+        selectParams.createSearchChoicePosition = 'bottom';
+      }
+      $el.crmSelect2($.extend(settings, $el.data('select-params'), selectParams))
+        .on('select2-selecting.crmEntity', function(e) {
+          if (e.val === "0") {
+            e.object.label = e.object.term;
+            CRM.api3(entity, 'create', $.extend({name: e.object.term}, $el.data('api-params').params || {}))
+              .done(function(created) {
+                var
+                  multiple = !!$el.data('select-params').multiple,
+                  val = $el.select2('val'),
+                  data = $el.select2('data'),
+                  item = {id: created.id, label: e.object.term};
+                if (val === "0") {
+                  $el.select2('data', item, true);
+                }
+                else if ($.isArray(val) && $.inArray("0", val) > -1) {
+                  _.remove(data, {id: "0"});
+                  data.push(item);
+                  $el.select2('data', data, true);
+                }
+              });
+          }
+        });
     });
   };
 
@@ -422,6 +469,10 @@ CRM.validate = CRM.validate || {
         .find('input.select-row:checked').parents('tr').addClass('crm-row-selected');
       $('.crm-select2:not(.select2-offscreen, .select2-container)', e.target).crmSelect2();
       $('.crm-form-entityref:not(.select2-offscreen, .select2-container)', e.target).crmEntityRef();
+      // Cache Form Input initial values
+      $('form[data-warn-changes] :input', e.target).each(function() {
+        $(this).data('crm-initial-value', $(this).val());
+      });
     })
     .on('dialogopen', function(e) {
       var $el = $(e.target);
@@ -456,7 +507,18 @@ CRM.validate = CRM.validate || {
       if ($('.ui-dialog .modal-dialog').not(e.target).length < 1) {
         $('body').css({overflow: ''});
       }
-    });
+    })
+    .on('submit', function(e) {
+      // CRM-14353 - disable changes warn when submitting the form
+      $('[data-warn-changes]').removeAttr('data-warn-changes');
+    })
+    ;
+    
+    window.onbeforeunload = function() {
+      if (CRM.utils.initialValueChanged($('form[data-warn-changes=true]'))) {
+        return ts('You have unsaved changes.');
+       }
+    };
 
   /**
    * Function to make multiselect boxes behave as fields in small screens
@@ -700,6 +762,16 @@ CRM.validate = CRM.validate || {
     return dialog.dialog(settings).trigger('crmLoad');
   };
 
+  /** provides a local copy of ts for a domain */
+  CRM.ts = function(domain) {
+    return function(message, options) {
+      if (domain) {
+        options = $.extend(options || {}, {domain: domain});
+      }
+      return ts(message, options);
+    };
+  };
+
   /**
    * @see https://wiki.civicrm.org/confluence/display/CRMDOC/Notification+Reference
    */
@@ -787,12 +859,6 @@ CRM.validate = CRM.validate || {
     // Suppress errors
     catch (e) {}
   });
-
-  /**
-   * Temporary stub to get around name conflict with legacy jQuery.autocomplete plugin
-   * FIXME: Remove this before 4.5 release
-   */
-  $.widget('civi.crmAutocomplete', $.ui.autocomplete, {});
 
   $(function () {
     // Trigger crmLoad on initial content for consistency. It will also be triggered for ajax-loaded content.

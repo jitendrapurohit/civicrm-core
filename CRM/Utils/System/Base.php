@@ -82,6 +82,9 @@ abstract class CRM_Utils_System_Base {
    *
    * @param string $url
    *
+   * @param bool $addLanguagePart
+   * @param bool $removeLanguagePart
+   *
    * @return string $url, formatted url.
    * @static
    */
@@ -116,6 +119,8 @@ abstract class CRM_Utils_System_Base {
    * Determine the native ID of the CMS user
    *
    * @param $username
+   *
+   * @throws CRM_Core_Exception
    * @return int|NULL
    */
   function getUfId($username) {
@@ -147,6 +152,9 @@ abstract class CRM_Utils_System_Base {
 
   /**
    * Return default Site Settings
+   *
+   * @param $dir
+   *
    * @return array array
    * - $url, (Joomla - non admin url)
    * - $siteName,

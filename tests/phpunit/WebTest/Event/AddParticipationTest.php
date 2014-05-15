@@ -51,7 +51,7 @@ class WebTest_Event_AddParticipationTest extends CiviSeleniumTestCase {
     $this->select2('event_id', "Rain-forest Cup Youth Soccer Tournament");
 
     // Select role
-    $this->click('role_id[2]');
+    $this->multiselect2('role_id', array('Volunteer'));
 
     // Choose Registration Date.
     // Using helper webtestFillDate function.
@@ -243,13 +243,12 @@ class WebTest_Event_AddParticipationTest extends CiviSeleniumTestCase {
     $this->select2('event_id', "Rain-forest Cup Youth Soccer Tournament");
 
     // Select roles
-    $this->click('role_id[2]');
-    $this->click('role_id[3]');
+    $this->multiselect2('role_id', array('Volunteer', 'Host'));
 
-    $this->waitForElementPresent("xpath=//*[@id='2_chk']//div[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper collapsed']");
-    $this->click("xpath=//*[@id='2_chk']/div[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper collapsed']//div[1]");
-    $this->click("xpath=//*[@id='2_chk']/div[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper']//div[2]//table//tbody//tr[2]//td[2]//table//tbody//tr[1]//td[1]//label");
-    $this->click("xpath=//*[@id='2_chk']/div[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper']//div[2]//table//tbody//tr[4]//td[2]//table//tbody//tr[1]//td[1]//label");
+    $this->waitForElementPresent("xpath=//div[@class='crm-customData-block']//div[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper collapsed']");
+    $this->click("xpath=//div[@class='crm-customData-block']//div[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper collapsed']//div[1]");
+    $this->click("xpath=//div[@class='crm-customData-block']//div[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper']//div[2]//table//tbody//tr[2]//td[2]//table//tbody//tr[1]//td[1]//label");
+    $this->click("xpath=//div[@class='crm-customData-block']//sdiv[@class='custom-group custom-group-$customGroupTitle crm-accordion-wrapper']//div[2]//table//tbody//tr[4]//td[2]//table//tbody//tr[1]//td[1]//label");
 
     // Choose Registration Date.
     // Using helper webtestFillDate function.
@@ -352,10 +351,7 @@ class WebTest_Event_AddParticipationTest extends CiviSeleniumTestCase {
     $this->openCiviPage("event/search", "reset=1");
     $this->type('sort_name', $firstName);
     $eventName = "Rain-forest Cup Youth Soccer Tournament";
-    $this->type("event_name", $eventName);
-    $this->click("event_name");
-    $this->waitForElementPresent("css=div.ac_results-inner li");
-    $this->click("css=div.ac_results-inner li");
+    $this->select2("event_id", $eventName, FALSE, FALSE);
     $this->check('participant_test');
     $this->click("_qf_Search_refresh");
     $this->waitForElementPresent("participantSearch");
@@ -408,13 +404,13 @@ class WebTest_Event_AddParticipationTest extends CiviSeleniumTestCase {
     $this->select2('event_id', "Rain-forest Cup Youth Soccer Tournament");
 
     // Select role.
-    $this->click('role_id[2]');
+    $this->multiselect2('role_id', array('Volunteer'));
 
     foreach($return as $values) {
       foreach ($values as $entityType => $customData) {
         //checking for duplicate custom data present or not
-        $this->assertElementPresent("xpath=//*[@id='customData']/div[@class='custom-group custom-group-{$customData['cgtitle']} crm-accordion-wrapper ']");
-        $this->assertEquals(1, $this->getXpathCount("//*[@id='customData']/div[@class='custom-group custom-group-{$customData['cgtitle']} crm-accordion-wrapper ']"));
+        $this->assertElementPresent("xpath=//*[@class='crm-customData-block']/div[@class='custom-group custom-group-{$customData['cgtitle']} crm-accordion-wrapper ']");
+        $this->assertEquals(1, $this->getXpathCount("//*[@class='crm-customData-block']/div[@class='custom-group custom-group-{$customData['cgtitle']} crm-accordion-wrapper ']"));
       }
     }
   }
@@ -423,8 +419,10 @@ class WebTest_Event_AddParticipationTest extends CiviSeleniumTestCase {
     $this->webtestNewDialogContact($firstName, $lastName);
 
     $this->select('payment_processor_id', "value={$processorId}");
-    $this->verifySelectedValue("event_id", "3");
-    $this->check("role_id[1]");
+    $event_id = $this->getAttribute("xpath=//*[@id='event_id']@value");
+    //check if it is the selected event
+    $this->assertEquals($event_id, 3);
+    $this->select("role_id", "value=1");
     $this->webtestAddCreditCardDetails();
     $this->webtestAddBillingDetails();
   }

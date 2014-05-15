@@ -120,7 +120,9 @@ class CRM_Extension_Mapper {
    *
    * @access public
    *
-   * @param string $key extension key
+   * @param $clazz
+   *
+   * @internal param string $key extension key
    *
    * @return string full path the extension .php file
    */
@@ -163,6 +165,10 @@ class CRM_Extension_Mapper {
 
   /**
    * @param string $key extension fully-qualified-name
+   * @param bool $fresh
+   *
+   * @throws CRM_Extension_Exception
+   * @throws Exception
    * @return object CRM_Extension_Info
    */
   public function keyToInfo($key, $fresh = FALSE) {

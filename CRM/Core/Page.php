@@ -225,12 +225,6 @@ class CRM_Core_Page {
     CRM_Utils_VersionCheck::singleton()->versionAlert();
     CRM_Utils_Check::singleton()->showPeriodicAlerts();
 
-    // Debug msg once per hour
-    if ($config->debug && CRM_Core_Permission::check('administer CiviCRM') && CRM_Core_Session::singleton()->timer('debug_alert', 3600)) {
-      $msg = ts('Warning: Debug is enabled in <a href="%1">system settings</a>. This should not be enabled on production servers.', array(1 => CRM_Utils_System::url('civicrm/admin/setting/debug', 'reset=1')));
-      CRM_Core_Session::setStatus($msg, ts('Debug Mode'));
-    }
-
     if ($this->useLivePageJS &&
       CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'ajaxPopupsEnabled', NULL, TRUE))
     {
@@ -285,9 +279,10 @@ class CRM_Core_Page {
   /**
    * assign value to name in template
    *
-   * @param array|string $name  name  of variable
+   * @param $var
    * @param mixed $value value of varaible
    *
+   * @internal param array|string $name name  of variable
    * @return void
    * @access public
    */
@@ -298,9 +293,10 @@ class CRM_Core_Page {
   /**
    * assign value to name in template by reference
    *
-   * @param array|string $name  name  of variable
+   * @param $var
    * @param mixed $value (reference) value of varaible
    *
+   * @internal param array|string $name name  of variable
    * @return void
    * @access public
    */
@@ -323,7 +319,8 @@ class CRM_Core_Page {
    * Returns an array containing template variables
    *
    * @param string $name
-   * @param string $type
+   *
+   * @internal param string $type
    * @return array
    */
   function get_template_vars($name=null) {

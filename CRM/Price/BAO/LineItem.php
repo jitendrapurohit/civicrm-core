@@ -95,9 +95,9 @@ class CRM_Price_BAO_LineItem extends CRM_Price_DAO_LineItem {
   static function getLineTotal($entityId, $entityTable) {
     $sqlLineItemTotal = "SELECT SUM(li.line_total)
 FROM civicrm_line_item li
-INNER JOIN civicrm_participant_payment pp ON ( li.entity_id = pp.participant_id
-AND li.entity_table = '{$entityTable}'
-AND li.entity_id = {$entityId})";
+WHERE li.entity_table = '{$entityTable}'
+AND li.entity_id = {$entityId}
+";
     $lineItemTotal = CRM_Core_DAO::singleValueQuery($sqlLineItemTotal);
     return $lineItemTotal;
   }
@@ -108,6 +108,9 @@ AND li.entity_id = {$entityId})";
    *
    * @param $entityId  int    participant/contribution id
    * @param $entity    string participant/contribution.
+   *
+   * @param null $isQuick
+   * @param bool $isQtyZero
    *
    * @return array of line items
    */
@@ -257,6 +260,7 @@ AND li.entity_id = {$entityId})";
    * @param int $entityId
    * @param int $entityTable
    *
+   * @return bool
    * @access public
    * @static
    */
@@ -276,12 +280,16 @@ AND li.entity_id = {$entityId})";
 
   /**
    * Function to process price set and line items.
-   * @param int $contributionId contribution id
+   *
+   * @param $entityId
    * @param array $lineItem line item array
    * @param object $contributionDetails
-   * @param decimal $initAmount amount
    * @param string $entityTable entity table
    *
+   * @param bool $update
+   *
+   * @internal param int $contributionId contribution id
+   * @internal param \decimal $initAmount amount
    * @access public
    * @return void
    * @static

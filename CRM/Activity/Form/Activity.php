@@ -121,6 +121,8 @@ class CRM_Activity_Form_Activity extends CRM_Contact_Form_Task {
 
   protected $_values = array();
 
+  protected $unsavedWarn = TRUE;
+
   /**
    * The _fields var can be used by sub class to set/unset/edit the
    * form fields based on their requirement
@@ -726,7 +728,7 @@ class CRM_Activity_Form_Activity extends CRM_Contact_Form_Task {
     if (!in_array($this->_activityTypeName, $specialActivities)) {
       // build tag widget
       $parentNames = CRM_Core_BAO_Tag::getTagSet('civicrm_activity');
-      CRM_Core_Form_Tag::buildQuickForm($this, $parentNames, 'civicrm_activity', $this->_activityId, TRUE, TRUE);
+      CRM_Core_Form_Tag::buildQuickForm($this, $parentNames, 'civicrm_activity', $this->_activityId);
     }
 
     // if we're viewing, we're assigning different buttons than for adding/editing
@@ -799,9 +801,11 @@ class CRM_Activity_Form_Activity extends CRM_Contact_Form_Task {
   /**
    * global form rule
    *
-   * @param array $fields  the input form values
-   * @param array $files   the uploaded files if any
-   * @param array $options additional user data
+   * @param array $fields the input form values
+   * @param array $files the uploaded files if any
+   * @param $self
+   *
+   * @internal param array $options additional user data
    *
    * @return true if no errors, else array of errors
    * @access public
@@ -848,6 +852,7 @@ class CRM_Activity_Form_Activity extends CRM_Contact_Form_Task {
    *
    * @access public
    *
+   * @param null $params
    * @return void
    */
   public function postProcess($params = NULL) {
@@ -953,6 +958,8 @@ class CRM_Activity_Form_Activity extends CRM_Contact_Form_Task {
    * Process activity creation
    *
    * @param array $params associated array of submitted values
+   *
+   * @return $this|null|object
    * @access protected
    */
   protected function processActivity(&$params) {
@@ -1048,7 +1055,7 @@ class CRM_Activity_Form_Activity extends CRM_Contact_Form_Task {
           $mailStatus .= ts("A copy of the activity has also been sent to assignee contacts(s).");
         }
       }
-      
+
       // Also send email to follow-up activity assignees if set
       if ($followupActivity) {
         $mailToFollowupContacts = array();

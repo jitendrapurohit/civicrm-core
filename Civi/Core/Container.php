@@ -35,6 +35,7 @@ class Container {
 
   /**
    * @var ContainerBuilder
+   * @return \Symfony\Component\DependencyInjection\ContainerBuilder
    */
   public function createContainer() {
     $civicrm_base_path = dirname(dirname(__DIR__));
@@ -88,6 +89,8 @@ class Container {
 
   /**
    * @param \Symfony\Component\EventDispatcher\EventDispatcher $dispatcher
+   * @param $magicFunctionProvider
+   *
    * @return \Civi\API\Kernel
    */
   public function createApiKernel($dispatcher, $magicFunctionProvider) {

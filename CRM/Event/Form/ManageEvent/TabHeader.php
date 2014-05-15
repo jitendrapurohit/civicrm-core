@@ -50,6 +50,15 @@ class CRM_Event_Form_ManageEvent_TabHeader {
       ->addSetting(array('tabSettings' => array(
         'active' => self::getCurrentTab($tabs),
       )));
+
+    // Preload libraries required by Online Registration Include Profiles
+    $schemas = array('IndividualModel', 'ParticipantModel');
+    if (in_array('CiviMember', CRM_Core_Config::singleton()->enableComponents)) {
+      $schemas[] = 'MembershipModel';
+    }
+    CRM_UF_Page_ProfileEditor::registerProfileScripts();
+    CRM_UF_Page_ProfileEditor::registerSchemas($schemas);
+
     return $tabs;
   }
 
@@ -66,16 +75,18 @@ class CRM_Event_Form_ManageEvent_TabHeader {
       'class' => 'ajaxForm',
     );
 
-    $tabs = array(
-      'settings' => array('title' => ts('Info and Settings'), 'class' => 'ajaxForm livePage') + $default,
-      'location' => array('title' => ts('Event Location')) + $default,
-      'fee' => array('title' => ts('Fees')) + $default,
-      'registration' => array('title' => ts('Online Registration')) + $default,
-      'reminder' => array('title' => ts('Schedule Reminders'), 'class' => 'livePage') + $default,
-      'conference' => array('title' => ts('Conference Slots')) + $default,
-      'friend' => array('title' => ts('Tell a Friend')) + $default,
-      'pcp' => array('title' => ts('Personal Campaigns')) + $default,
-    );
+    $tabs = array();
+    $tabs['settings'] = array('title' => ts('Info and Settings'), 'class' => 'ajaxForm livePage') + $default;
+    $tabs['location'] = array('title' => ts('Event Location')) + $default;
+    $tabs['fee'] = array('title' => ts('Fees')) + $default;
+    $tabs['registration'] = array('title' => ts('Online Registration')) + $default;
+    if (CRM_Core_Permission::check('administer CiviCRM')) {
+      $tabs['reminder'] = array('title' => ts('Schedule Reminders'), 'class' => 'livePage') + $default;
+    }
+    $tabs['conference'] = array('title' => ts('Conference Slots')) + $default;
+    $tabs['friend'] = array('title' => ts('Tell a Friend')) + $default;
+    $tabs['pcp'] = array('title' => ts('Personal Campaigns')) + $default;
+
 
     // check if we're in shopping cart mode for events
     $enableCart = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::EVENT_PREFERENCES_NAME,

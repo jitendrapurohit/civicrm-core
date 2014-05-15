@@ -89,6 +89,13 @@ class CRM_UF_Page_Group extends CRM_Core_Page {
           'title' => ts('Use Profile-Create Mode'),
           'fe' => true,
         ),
+        CRM_Core_Action::BASIC => array(
+          'name' => ts('Use Profile-Listings Mode'),
+          'url' => 'civicrm/profile',
+          'qs' => 'gid=%%id%%&reset=1',
+          'title' => ts('Use Profile-Listings Mode'),
+          'fe' => true,
+        ),
         CRM_Core_Action::DISABLE => array(
           'name' => ts('Disable'),
           'ref' => 'crm-enable-disable',
@@ -379,6 +386,8 @@ class CRM_UF_Page_Group extends CRM_Core_Page {
    * this function is for preview mode for ufoup
    *
    * @param int $id uf group id
+   *
+   * @param $action
    *
    * @return void
    * @access public

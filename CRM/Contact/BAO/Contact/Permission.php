@@ -37,8 +37,8 @@ class CRM_Contact_BAO_Contact_Permission {
   /**
    * check if the logged in user has permissions for the operation type
    *
-   * @param int    $id   contact id
-   * @param string $type the type of operation (view|edit)
+   * @param int $id contact id
+   * @param int|string $type the type of operation (view|edit)
    *
    * @return boolean true if the user has permission, false otherwise
    * @access public
@@ -83,10 +83,11 @@ WHERE contact_a.id = %1 AND $permission";
   /**
    * fill the acl contact cache for this contact id if empty
    *
-   * @param int     $id     contact id
-   * @param string  $type   the type of operation (view|edit)
-   * @param boolean $force  should we force a recompute
+   * @param $userID
+   * @param int|string $type the type of operation (view|edit)
+   * @param boolean $force should we force a recompute
    *
+   * @internal param int $id contact id
    * @return void
    * @access public
    * @static
@@ -151,8 +152,8 @@ ON DUPLICATE KEY UPDATE
   /**
    * Function to check if there are any contacts in cache table
    *
-   * @param string  $type      the type of operation (view|edit)
-   * @param int     $contactID contact id
+   * @param int|string $type the type of operation (view|edit)
+   * @param int $contactID contact id
    *
    * @return boolean
    * @access public
@@ -236,8 +237,11 @@ AND    $operationClause LIMIT 1";
   /**
    * Function to get the permission base on its relationship
    *
-   * @param int $selectedContactId contact id of selected contact
-   * @param int $contactId contact id of the current contact
+   * @param $selectedContactID
+   * @param null $contactID
+   *
+   * @internal param int $selectedContactId contact id of selected contact
+   * @internal param int $contactId contact id of the current contact
    *
    * @return booleab true if logged in user has permission to view
    * selected contact record else false
@@ -351,7 +355,7 @@ WHERE  (( contact_id_a = %1 AND contact_id_b = %2 AND is_permission_a_b = 1 ) OR
     CRM_Core_DAO::executeQuery('SET @civicrm_user_id = %1',
       array(1 => array($contactID, 'Integer'))
     );
-    
+
     return TRUE;
   }
 
@@ -361,7 +365,7 @@ WHERE  (( contact_id_a = %1 AND contact_id_b = %2 AND is_permission_a_b = 1 ) OR
       // if result is already validated, and url has cs, set the flag.
       $session->set('authSrc', CRM_Core_Permission::AUTH_SRC_CHECKSUM);
     } else if (($session->get('authSrc') & CRM_Core_Permission::AUTH_SRC_CHECKSUM) == CRM_Core_Permission::AUTH_SRC_CHECKSUM) {
-      // if checksum wasn't present in REQUEST OR checksum result validated as FALSE, 
+      // if checksum wasn't present in REQUEST OR checksum result validated as FALSE,
       // and flag was already set exactly as AUTH_SRC_CHECKSUM, unset it.
       $session->set('authSrc', CRM_Core_Permission::AUTH_SRC_UNKNOWN);
     }

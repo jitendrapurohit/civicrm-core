@@ -23,38 +23,30 @@
  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
  +--------------------------------------------------------------------+
 *}
-{if $confirm}
-    <div class="messages status no-popup">
-          <div class="icon inform-icon"></div>&nbsp;
-          <label>{$display_name} ({$email})</label> {ts}has been successfully removed from the specified mailing list(s).{/ts}
-    </div>
+{* This template is used for adding/editing a case type. *}
+<h3>{if $action eq 1}{ts}New Case Type{/ts}{elseif $action eq 2}{ts}Edit Case Type{/ts}{else}{ts}Delete Case Type{/ts}{/if}</h3>
+<div class="crm-block crm-form-block crm-case-type-form-block">
+<div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
+{if $action eq 8}
+  <div class="messages status no-popup">
+     <div class="icon inform-icon"></div>
+        {ts}WARNING: Deleting this option will result in loss of type information for all case records which use the option.{/ts} {ts}This may mean the loss of a substantial amount of data, and the action cannot be undone.{/ts} {ts}Do you want to continue?{/ts}
+      </div>
 {else}
-    <div>
-    <form action="{$confirmURL}" method="post">
-      {if $groupExist}
-        <div class="messages status no-popup">
-          {ts 1=$display_name 2=$email} %1 (%2){/ts}<br/>
-          {ts}Are you sure you want to be removed from the mailing list(s) shown below:{/ts}<br/>
-        </div>
-        <table class="selector" style="width: auto; margin-top: 20px;">
-            {counter start=0 skip=1 print=false}
-            {foreach from=$groups item=group}
-            <tr class="{cycle values="odd-row,even-row"}">
-             <td><strong>{$group.title}</strong></td>
-             <td>&nbsp;&nbsp;{$group.description}&nbsp;</td>
-            </tr>
-            {/foreach}  
-        </table>
-        <div class="crm-submit-buttons">
-            <span class="crm-button crm-button-type-save"><input type="submit" name="_qf_unsubscribe_next" value="{ts}Unsubscribe{/ts}" class="form-submit" /></span> &nbsp;&nbsp;&nbsp;
-            <span class="crm-button crm-button-type-cancel"><input type="submit" name="_qf_unsubscribe_cancel" value="{ts}Cancel{/ts}" class="form-submit" /></span>
-        </div>
-      {else}
-        <div class="messages status no-popup">
-          {ts 1=$display_name 2=$email} %1 (%2){/ts}<br/>
-          {ts}Sorry you are not currently on this mailing list. Perhaps you have already unsubscribed.{/ts}<br/>
-        </div>
-      {/if}
-    </form>
-    </div>
+  <table class="form-layout-compressed">
+      <tr class="crm-case-type-form-block-title">
+          <td class="label">{$form.title.label}</td>
+          <td>{$form.title.html}</td>
+      </tr>
+      <tr class="crm-case-type-form-block-description">
+          <td class="label">{$form.description.label}</td>
+          <td>{$form.description.html}</td>
+      </tr>
+      <tr class="crm-case-type-form-block-is_active">
+          <td class="label">{$form.is_active.label}</td>
+          <td>{$form.is_active.html}</td>
+      </tr>
+  </table>
 {/if}
+    <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="bottom"}</div>
+</div>

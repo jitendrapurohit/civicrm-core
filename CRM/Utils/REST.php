@@ -49,7 +49,7 @@ class CRM_Utils_REST {
    * Class constructor.  This caches the real user framework class locally,
    * so we can use it for authentication and validation.
    *
-   * @param  string $uf       The userframework class
+   * @internal param string $uf The userframework class
    */
   public function __construct() {
     // any external program which call Rest Server is responsible for
@@ -127,7 +127,7 @@ class CRM_Utils_REST {
     if (CRM_Utils_Array::value('json', $requestParams)) {
       header('Content-Type: text/javascript');
       $json = json_encode(array_merge($result));
-      if (CRM_Utils_Array::value('debug', $requestParams)) {
+      if (CRM_Utils_Array::value('prettyprint', $requestParams)) {
         return self::jsonFormated($json);
       }
       return $json;
@@ -491,7 +491,7 @@ class CRM_Utils_REST {
     if (!$config->debug && (!array_key_exists('HTTP_X_REQUESTED_WITH', $_SERVER) ||
         $_SERVER['HTTP_X_REQUESTED_WITH'] != "XMLHttpRequest"
       )) {
-      $error = civicrm_api3_create_error("SECURITY ALERT: Ajax requests can only be issued by javascript clients, eg. CRM.api().",
+      $error = civicrm_api3_create_error("SECURITY ALERT: Ajax requests can only be issued by javascript clients, eg. CRM.api3().",
         array(
           'IP' => $_SERVER['REMOTE_ADDR'],
           'level' => 'security',

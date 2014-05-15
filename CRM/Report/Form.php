@@ -277,6 +277,12 @@ class CRM_Report_Form extends CRM_Core_Form {
   public $_havingClauses = array();
 
   /**
+   * dashBoardRowCount Dashboard row count
+   * @var Integer
+   */
+  public $_dashBoardRowCount;
+
+  /**
    * Is this being called without a form controller (ie. the report is being render outside the normal form
    * - e.g the api is retrieving the rows
    * @var boolean
@@ -343,6 +349,13 @@ class CRM_Report_Form extends CRM_Core_Form {
       CRM_Utils_Request::retrieve(
         'force',
         'Boolean',
+        CRM_Core_DAO::$_nullObject
+      );
+
+    $this->_dashBoardRowCount =
+      CRM_Utils_Request::retrieve(
+        'rowCount',
+        'Integer',
         CRM_Core_DAO::$_nullObject
       );
 
@@ -769,7 +782,10 @@ class CRM_Report_Form extends CRM_Core_Form {
 
   /**
    * Setter for $_id
-   * @param integer $id
+   *
+   * @param $instanceid
+   *
+   * @internal param int $id
    */
   function setID($instanceid) {
     $this->_id = $instanceid;
@@ -777,8 +793,9 @@ class CRM_Report_Form extends CRM_Core_Form {
 
   /**
    * Setter for $_force
-   * @param boolean $force
-   */
+   * @param $isForce
+   * @internal param bool $force
+*/
   function setForce($isForce) {
     $this->_force = $isForce;
   }
@@ -1378,7 +1395,7 @@ class CRM_Report_Form extends CRM_Core_Form {
           $clause = "{$field['dbAlias']} REGEXP '[[:<:]]" . implode('|', $value) . "[[:>:]]'";
         }
         break;
-        
+
       case 'mnot':
         // mnot == multiple is not one of
         if ($value !== NULL && count($value) > 0) {
@@ -2578,8 +2595,7 @@ WHERE cg.extends IN ('" . implode("','", $this->_customGroupExtends) . "') AND
         else {
           CRM_Core_Session::setStatus(ts("Report mail could not be sent."), ts('Mail Error'), 'error');
         }
-
-        CRM_Utils_System::redirect(CRM_Utils_System::url(CRM_Utils_System::currentPath(), 'reset=1'));
+        return TRUE;
       }
       elseif ($this->_outputMode == 'print') {
         echo $content;
@@ -2681,6 +2697,11 @@ WHERE cg.extends IN ('" . implode("','", $this->_customGroupExtends) . "') AND
   function limit($rowCount = self::ROW_COUNT_LIMIT) {
     // lets do the pager if in html mode
     $this->_limit = NULL;
+
+    // CRM-14115, over-ride row count if rowCount is specified in URL
+    if ($this->_dashBoardRowCount) {
+      $rowCount = $this->_dashBoardRowCount;
+    }
     if ($this->_outputMode == 'html' || $this->_outputMode == 'group') {
       $this->_select = str_ireplace('SELECT ', 'SELECT SQL_CALC_FOUND_ROWS ', $this->_select);
 
@@ -2717,6 +2738,12 @@ WHERE cg.extends IN ('" . implode("','", $this->_customGroupExtends) . "') AND
   }
 
   function setPager($rowCount = self::ROW_COUNT_LIMIT) {
+
+    // CRM-14115, over-ride row count if rowCount is specified in URL
+    if ($this->_dashBoardRowCount) {
+      $rowCount = $this->_dashBoardRowCount;
+    }
+
     if ($this->_limit && ($this->_limit != '')) {
       $sql              = "SELECT FOUND_ROWS();";
       $this->_rowsFound = CRM_Core_DAO::singleValueQuery($sql);
@@ -3165,8 +3192,12 @@ LEFT JOIN civicrm_contact {$field['alias']} ON {$field['alias']}.id = {$this->_a
    * and also accepts an array of options rather than a long list
    *
    * function for adding address fields to construct function in reports
+   *
    * @param bool $groupBy Add GroupBy? Not appropriate for detail report
    * @param bool $orderBy Add GroupBy? Not appropriate for detail report
+   * @param bool $filters
+   * @param array $defaults
+   *
    * @return array address fields for construct clause
    */
   function addAddressFields($groupBy = TRUE, $orderBy = FALSE, $filters = TRUE, $defaults = array(

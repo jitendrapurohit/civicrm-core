@@ -58,9 +58,9 @@ class CRM_Utils_System {
    *   (optional) Whether to include the reset GET string (if present).
    * @param bool $includeForce
    *   (optional) Whether to include the force GET string (if present).
-   * @param string $path 
+   * @param string $path
    *   (optional) The path to use for the new url.
-   * @param string $absolute 
+   * @param bool|string $absolute
    *   (optional) Whether to return an absolute URL.
    *
    * @return string
@@ -178,7 +178,7 @@ class CRM_Utils_System {
    *
    * @param string $content
    *   The content that will be themed.
-   * @param bool $print 
+   * @param bool $print
    *   (optional) Are we displaying to the screen or bypassing theming?
    * @param bool $maintenance
    *   (optional) For maintenance mode.
@@ -391,6 +391,15 @@ class CRM_Utils_System {
     // replace the &amp; characters with &
     // this is kinda hackish but not sure how to do it right
     $url = str_replace('&amp;', '&', $url);
+
+    // If we are in a json context, respond appropriately
+    if (CRM_Utils_Array::value('snippet', $_GET) === 'json') {
+      CRM_Core_Page_AJAX::returnJsonResponse(array(
+        'status' => 'redirect',
+        'userContext' => $url,
+      ));
+    }
+
     header('Location: ' . $url);
     self::civiExit();
   }
@@ -535,6 +544,8 @@ class CRM_Utils_System {
   /**
    * @param bool $abort
    *   (optional) Whether to exit; defaults to true.
+   *
+   * @return bool
    */
   static function authenticateKey($abort = TRUE) {
     // also make sure the key is sent and is valid
@@ -576,6 +587,13 @@ class CRM_Utils_System {
   }
 
   /**
+   * @param bool $abort
+   * @param null $name
+   * @param null $pass
+   * @param bool $storeInSession
+   * @param bool $loadCMSBootstrap
+   * @param bool $requireKey
+   *
    * @return bool
    */
   static function authenticateScript($abort = TRUE, $name = NULL, $pass = NULL, $storeInSession = TRUE, $loadCMSBootstrap = TRUE, $requireKey = TRUE) {
@@ -711,7 +729,7 @@ class CRM_Utils_System {
     return substr_replace($number, $replace, 0, -$keep);
   }
 
-  /** 
+  /**
    * Determine which PHP modules are loaded.
    *
    * @return array
@@ -760,6 +778,8 @@ class CRM_Utils_System {
   /**
    * @param $title
    *   (optional)
+   *
+   * @return mixed|string
    */
   static function memory($title = NULL) {
     static $pid = NULL;
@@ -781,10 +801,12 @@ class CRM_Utils_System {
    * @param $buffer
    * @param string $ext
    * @param bool $output
+   * @param string $disposition
    */
   static function download($name, $mimeType, &$buffer,
     $ext = NULL,
-    $output = TRUE
+    $output = TRUE,
+    $disposition = 'attachment'
   ) {
     $now = gmdate('D, d M Y H:i:s') . ' GMT';
 
@@ -805,7 +827,7 @@ class CRM_Utils_System {
       header('Pragma: public');
     }
     else {
-      header("Content-Disposition: attachment; $fileString");
+      header("Content-Disposition: $disposition; $fileString");
       header('Pragma: no-cache');
     }
 
@@ -924,6 +946,8 @@ class CRM_Utils_System {
    *   The URL to check.
    * @param bool $addCookie
    *   (optional)
+   *
+   * @return mixed
    */
   static function checkURL($url, $addCookie = FALSE) {
     // make a GET request to $url
@@ -946,7 +970,7 @@ class CRM_Utils_System {
    * @param int $ver
    *   The major version of PHP that is required.
    * @param bool $abort
-   *   (optional) Whether to fatally abort if the version requirement is not 
+   *   (optional) Whether to fatally abort if the version requirement is not
    *   met. Defaults to TRUE.
    * @return bool
    *   Returns TRUE if the requirement is met, FALSE if the requirement is not
@@ -968,6 +992,9 @@ class CRM_Utils_System {
   }
 
   /**
+   * @param $string
+   * @param bool $encode
+   *
    * @return string
    */
   static function formatWikiURL($string, $encode = FALSE) {
@@ -986,6 +1013,8 @@ class CRM_Utils_System {
 
   /**
    * @param string $url
+   *
+   * @return null|string
    */
   static function urlEncode($url) {
     $items = parse_url($url);
@@ -1163,9 +1192,10 @@ class CRM_Utils_System {
     $address = CRM_Utils_Array::value('REMOTE_ADDR', $_SERVER);
 
     $config = CRM_Core_Config::singleton();
-    if ($config->userSystem->is_drupal) {
-      //drupal function handles the server being behind a proxy securely
-      $address = ip_address();
+    if ($config->userSystem->is_drupal && function_exists('ip_address')) {
+      //drupal function handles the server being behind a proxy securely. We still have legacy ipn methods
+      // that reach this point without bootstrapping hence the check that the fn exists
+        $address = ip_address();
     }
 
     // hack for safari
@@ -1236,6 +1266,8 @@ class CRM_Utils_System {
    *   (optional) Tooltip text for HTML link (no effect if $URLonly = false)
    * @param string $style
    *   (optional) Style attribute value for HTML link (no effect if $URLonly = false)
+   *
+   * @param null $resource
    *
    * @return string
    *   URL or link to documentation page, based on provided parameters.
@@ -1562,7 +1594,9 @@ class CRM_Utils_System {
    * Produce an absolute URL from a possibly-relative URL.
    *
    * @param string $url
-   * @param bool $remoteLanguagePart
+   * @param bool $removeLanguagePart
+   *
+   * @internal param bool $remoteLanguagePart
    * @return string
    */
   static function absoluteURL($url, $removeLanguagePart = FALSE) {
@@ -1606,6 +1640,9 @@ class CRM_Utils_System {
    * Format the url as per language Negotiation.
    *
    * @param string $url
+   *
+   * @param bool $addLanguagePart
+   * @param bool $removeLanguagePart
    *
    * @return string $url, formatted url.
    */
@@ -1721,7 +1758,7 @@ class CRM_Utils_System {
   // getPluginList()
 
   /**
-   * 
+   *
    */
   static function executeScheduledJobs() {
     $facility = new CRM_Core_JobManager();
@@ -1778,5 +1815,15 @@ class CRM_Utils_System {
     }
     return $cache;
   }
-}
 
+  static function isInUpgradeMode() {
+    $args = explode('/', $_GET['q']);
+    $upgradeInProcess = CRM_Core_Session::singleton()->get('isUpgradePending');
+    if ((isset($args[1]) && $args[1] == 'upgrade') || $upgradeInProcess) {
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
+  }
+}

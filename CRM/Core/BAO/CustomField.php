@@ -585,11 +585,13 @@ class CRM_Core_BAO_CustomField extends CRM_Core_DAO_CustomField {
   /**
    * Return the field ids and names (with groups) for import purpose.
    *
-   * @param int      $contactType     Contact type
-   * @param boolean  $showAll         If true returns all fields (includes disabled fields)
-   * @param boolean  $onlyParent      return fields ONLY related to basic types
-   * @param boolean  $search          when called from search and multiple records need to be returned
-   * @param boolean  $checkPermission if false, do not include permissioning clause
+   * @param int|string $contactType Contact type
+   * @param boolean $showAll If true returns all fields (includes disabled fields)
+   * @param boolean $onlyParent return fields ONLY related to basic types
+   * @param boolean $search when called from search and multiple records need to be returned
+   * @param boolean $checkPermission if false, do not include permissioning clause
+   *
+   * @param bool $withMultiple
    *
    * @return array   $fields -
    *
@@ -654,8 +656,9 @@ class CRM_Core_BAO_CustomField extends CRM_Core_DAO_CustomField {
   /**
    * Get the field id from an import key
    *
-   * @param string $key       The key to parse
+   * @param string $key The key to parse
    *
+   * @param bool $all
    * @return int|null         The id (if exists)
    * @access public
    * @static
@@ -714,13 +717,15 @@ class CRM_Core_BAO_CustomField extends CRM_Core_DAO_CustomField {
   /**
    * This function for building custom fields
    *
-   * @param CRM_Core_Form  $qf             form object (reference)
-   * @param string  $elementName    name of the custom field
+   * @param CRM_Core_Form $qf form object (reference)
+   * @param string $elementName name of the custom field
+   * @param $fieldId
    * @param boolean $inactiveNeeded
-   * @param boolean $userRequired   true if required else false
-   * @param boolean $search         true if used for search else false
-   * @param string  $label          label for custom field
+   * @param bool $useRequired
+   * @param boolean $search true if used for search else false
+   * @param string $label label for custom field
    *
+   * @internal param bool $userRequired true if required else false
    * @access public
    * @static
    */
@@ -1015,18 +1020,23 @@ class CRM_Core_BAO_CustomField extends CRM_Core_DAO_CustomField {
 
       case 'Autocomplete-Select':
         static $customUrls = array();
+        // Fixme: why is this a string in the first place??
+        $attributes = array();
+        if ($field->attributes) {
+          foreach(explode(' ', $field->attributes) as $at) {
+            if (strpos($at, '=')) {
+              list($k, $v) = explode('=', $at);
+              $attributes[$k] = trim($v, ' "');
+            }
+          }
+        }
         if ($field->data_type == 'ContactReference') {
-          $qf->add('text', $elementName, $label, $field->attributes,
+          $attributes['class'] = (isset($attributes['class']) ? $attributes['class'] . ' ' : '') . 'crm-form-contact-reference huge';
+          $attributes['data-api-entity'] = 'contact';
+          $qf->add('text', $elementName, $label, $attributes,
             $useRequired && !$search
           );
 
-          $hiddenEleName = $elementName . '_id';
-          if (substr($elementName, -1) == ']') {
-            $hiddenEleName = substr($elementName, 0, -1) . '_id]';
-          }
-          $qf->addElement('hidden', $hiddenEleName, '', array('id' => str_replace(array(']', '['), array('', '_'), $hiddenEleName)));
-
-          //$urlParams = "className=CRM_Contact_Page_AJAX&fnName=getContactList&json=1&reset=1&context=customfield&id={$field->id}";
           $urlParams = "context=customfield&id={$field->id}";
 
           $customUrls[$elementName] = CRM_Utils_System::url('civicrm/ajax/contactref',
@@ -1034,21 +1044,9 @@ class CRM_Core_BAO_CustomField extends CRM_Core_DAO_CustomField {
             FALSE, NULL, FALSE
           );
 
-          $actualElementValue = $qf->getSubmitValue($hiddenEleName);
-          $qf->addRule($elementName, ts('Select a valid contact for %1.', array(1 => $label)), 'validContact', $actualElementValue);
         }
         else {
           // FIXME: This won't work with customFieldOptions hook
-          $attributes = array();
-          // Fixme: why is this a string in the first place???
-          if ($field->attributes) {
-            foreach(explode(' ', $field->attributes) as $at) {
-              if (strpos($at, '=')) {
-                list($k, $v) = explode('=', $at);
-                $attributes[$k] = trim($v, ' "');
-              }
-            }
-          }
           $attributes += array(
             'entity' => 'option_value',
             'placeholder' => $placeholder,
@@ -1150,9 +1148,12 @@ class CRM_Core_BAO_CustomField extends CRM_Core_DAO_CustomField {
    * Given a custom field value, its id and the set of options
    * find the display value for this field
    *
-   * @param mixed  $value     the custom field value
-   * @param int    $id        the custom field id
-   * @param int    $options   the assoc array of option name/value pairs
+   * @param mixed $value the custom field value
+   * @param int $id the custom field id
+   * @param int $options the assoc array of option name/value pairs
+   *
+   * @param null $contactID
+   * @param null $fieldID
    *
    * @return  string   the display value
    *
@@ -1381,9 +1382,14 @@ class CRM_Core_BAO_CustomField extends CRM_Core_DAO_CustomField {
    * @params string $elementName   custom field name
    * @params array  $defaults      associated array of fields
    * @params int    $contactId     contact id
-   * @param  int    $mode          profile mode
-   * @param  mixed  $value         if passed - dont fetch value from db,
+   * @param $customFieldId
+   * @param $elementName
+   * @param $defaults
+   * @param null $contactId
+   * @param  int $mode profile mode
+   * @param  mixed $value if passed - dont fetch value from db,
    *                               just format the given value
+   *
    * @static
    * @access public
    */
@@ -1738,7 +1744,6 @@ SELECT id
       // rename this file to go into the secure directory
       if (!rename($fName, $config->customFileUploadDir . $filename)) {
         CRM_Core_Error::statusBounce(ts('Could not move custom file to custom upload directory'));
-        break;
       }
 
       if ($customValueId) {
@@ -2067,8 +2072,9 @@ AND    cf.id = %1";
    *
    * @access public
    *
-   * @return $customOptionGroup
-   * @static
+   * @param null $includeFieldIds
+   *
+   * @return mixed $customOptionGroup@static
    */
   public static function &customOptionGroup($includeFieldIds = NULL) {
     static $customOptionGroup = NULL;
@@ -2112,6 +2118,9 @@ INNER JOIN  civicrm_custom_field f ON ( g.id = f.option_group_id )
    *
    * @access public
    *
+   * @param $customFieldId
+   * @param $optionGroupId
+   *
    * @return void
    * @static
    */
@@ -2138,8 +2147,10 @@ INNER JOIN  civicrm_custom_field f ON ( g.id = f.option_group_id )
    *
    * @params int $optionGroupId option group id
    *
-   * @return
-   * @static
+   * @param $optionGroupId
+   *
+   * @return void
+  @static
    */
   static function checkOptionGroup($optionGroupId) {
     $query = "

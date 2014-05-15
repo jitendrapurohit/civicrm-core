@@ -55,9 +55,11 @@ class CRM_Contribute_Page_Tab extends CRM_Core_Page {
    * - Edit
    * - Cancel
    *
+   * @param bool $recurID
+   * @param string $context
+   *
    * @return array
    * @access public
-   *
    */
   static function &recurLinks($recurID = FALSE, $context = 'contribution') {
     if (!(self::$_links)) {
@@ -177,7 +179,7 @@ class CRM_Contribute_Page_Tab extends CRM_Core_Page {
     }
     $this->assign('isTest', $isTest);
 
-    $softCreditList = CRM_Contribute_BAO_ContributionSoft::getSoftContributionList($this->_contactId, $isTest);
+    $softCreditList = CRM_Contribute_BAO_ContributionSoft::getSoftContributionList($this->_contactId, NULL, $isTest);
 
     if (!empty($softCreditList)) {
       $softCreditTotals = array();
@@ -305,6 +307,8 @@ class CRM_Contribute_Page_Tab extends CRM_Core_Page {
     );
     $compContext = CRM_Utils_Request::retrieve('compContext', 'String', $this);
 
+    $searchContext = CRM_Utils_Request::retrieve('searchContext', 'String', $this);
+
     //swap the context.
     if ($context == 'search' && $compContext) {
       $context = $compContext;
@@ -354,6 +358,9 @@ class CRM_Contribute_Page_Tab extends CRM_Core_Page {
         $this->assign('searchKey', $qfKey);
         if ($context == 'advanced') {
           $url = CRM_Utils_System::url('civicrm/contact/search/advanced', $extraParams);
+        }
+        else if ($searchContext) {
+          $url = CRM_Utils_System::url("civicrm/$searchContext/search", $extraParams);
         }
         else {
           $url = CRM_Utils_System::url('civicrm/contribute/search', $extraParams);

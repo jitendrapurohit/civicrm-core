@@ -341,6 +341,12 @@ class CRM_Contact_BAO_Query {
   public static $_openedPanes = array();
 
   /**
+   * For search builder - which custom fields are location-dependent
+   * @var array
+   */
+  public $_locationSpecificCustomFields = array();
+
+  /**
    * The tables which have a dependency on location and/or address
    *
    * @var array
@@ -400,15 +406,21 @@ class CRM_Contact_BAO_Query {
   /**
    * class constructor which also does all the work
    *
-   * @param array   $params
-   * @param array   $returnProperties
-   * @param array   $fields
+   * @param array $params
+   * @param array $returnProperties
+   * @param array $fields
    * @param boolean $includeContactIds
    * @param boolean $strict
-   * @param boolean $mode - mode the search is operating on
+   * @param bool|int $mode - mode the search is operating on
    *
-   * @return Object
-   * @access public
+   * @param bool $skipPermission
+   * @param bool $searchDescendentGroups
+   * @param bool $smartGroupCache
+   * @param null $displayRelationshipType
+   * @param string $operator
+   *
+   * @return \CRM_Contact_BAO_Query
+  @access public
    */
   function __construct(
     $params = NULL, $returnProperties = NULL, $fields = NULL,
@@ -605,14 +617,17 @@ class CRM_Contact_BAO_Query {
       }
 
       // redirect to activity select clause
-      if (substr($name, 0, 9) == 'activity_') {
+      if (
+        (substr($name, 0, 9) == 'activity_') || 
+        ($name == 'parent_id')
+      ) {
         CRM_Activity_BAO_Query::select($this);
         continue;
       }
 
       // if this is a hierarchical name, we ignore it
       $names = explode('-', $name);
-      if (count($names > 1) && isset($names[1]) && is_numeric($names[1])) {
+      if (count($names) > 1 && isset($names[1]) && is_numeric($names[1])) {
         continue;
       }
 
@@ -875,7 +890,7 @@ class CRM_Contact_BAO_Query {
     CRM_Contact_BAO_Query_Hook::singleton()->alterSearchQuery($this, 'select');
 
     if (!empty($this->_cfIDs)) {
-      $this->_customQuery = new CRM_Core_BAO_CustomQuery($this->_cfIDs, TRUE);
+      $this->_customQuery = new CRM_Core_BAO_CustomQuery($this->_cfIDs, TRUE, $this->_locationSpecificCustomFields);
       $this->_customQuery->query();
       $this->_select = array_merge($this->_select, $this->_customQuery->_select);
       $this->_element = array_merge($this->_element, $this->_customQuery->_element);
@@ -1067,7 +1082,7 @@ class CRM_Contact_BAO_Query {
 
               if (substr_count($a, 'state_province_name') > 0) {
                 $this->_pseudoConstantsSelect["{$name}-{$elementFullName}"] =
-                  array('pseudoField' => '{$pf}_id', 'idCol' => "{$tName}_id", 'bao' => 'CRM_Core_BAO_Address');
+                  array('pseudoField' => "{$pf}_id", 'idCol' => "{$tName}_id", 'bao' => 'CRM_Core_BAO_Address');
                 $this->_pseudoConstantsSelect["{$name}-{$elementFullName}"]['select'] = "`$tName`.name as `{$name}-{$elementFullName}`";
               }
               else {
@@ -1185,10 +1200,10 @@ class CRM_Contact_BAO_Query {
     }
 
     if (!empty($addressCustomFieldIds)) {
-      $cfIDs = $addressCustomFieldIds;
-      $customQuery = new CRM_Core_BAO_CustomQuery($cfIDs);
+      $customQuery = new CRM_Core_BAO_CustomQuery($addressCustomFieldIds);
       foreach ($addressCustomFieldIds as $cfID => $locTypeName) {
         foreach ($locTypeName as $name => $dnc) {
+          $this->_locationSpecificCustomFields[$cfID] = array($name, array_search($name, $locationTypes));
           $fieldName = "$name-custom_{$cfID}";
           $tName = "$name-address-custom-{$cfID}";
           $aName = "`$name-address-custom-{$cfID}`";
@@ -1228,7 +1243,7 @@ class CRM_Contact_BAO_Query {
         $type = "website-{$key}-website_type_id";
         $this->_select[$type] = "`$tName`.website_type_id as `{$type}`";
         $this->_element[$type] = 1;
-        $this->_tables[$tName] = "\nLEFT JOIN civicrm_website `$tName` ON (`$tName`.contact_id = contact_a.id )";
+        $this->_tables[$tName] = "\nLEFT JOIN civicrm_website `$tName` ON (`$tName`.contact_id = contact_a.id AND `$tName`.website_type_id = $key )";
       }
     }
   }
@@ -1629,6 +1644,8 @@ class CRM_Contact_BAO_Query {
       case 'activity_date_high':
       case 'activity_role':
       case 'activity_status':
+      case 'followup_parent_id':
+      case 'parent_id':
       case 'activity_subject':
       case 'test_activities':
       case 'activity_type_id':
@@ -2225,6 +2242,7 @@ class CRM_Contact_BAO_Query {
    * @param array $params
    * @param array $fields
    * @param array $tables
+   * @param $whereTables
    * @param boolean $strict
    *
    * @return string
@@ -2247,8 +2265,11 @@ class CRM_Contact_BAO_Query {
    *
    * @param array $tables tables that need to be included in this from clause
    *                      if null, return mimimal from clause (i.e. civicrm_contact)
-   * @param array $inner  tables that should be inner-joined
-   * @param array $right  tables that should be right-joined
+   * @param array $inner tables that should be inner-joined
+   * @param array $right tables that should be right-joined
+   *
+   * @param bool $primaryLocation
+   * @param int $mode
    *
    * @return string the from clause
    * @access public
@@ -2402,6 +2423,7 @@ class CRM_Contact_BAO_Query {
         case 'civicrm_activity_tag':
         case 'activity_type':
         case 'activity_status':
+        case 'parent_id':
         case 'civicrm_activity_contact':
         case 'source_contact':
           $from .= CRM_Activity_BAO_Query::from($name, $mode, $side);
@@ -2476,6 +2498,8 @@ class CRM_Contact_BAO_Query {
   /**
    * WHERE / QILL clause for deleted_contacts
    *
+   * @param $values
+   *
    * @return void
    */
   function deletedContacts($values) {
@@ -2488,6 +2512,8 @@ class CRM_Contact_BAO_Query {
 
   /**
    * where / qill clause for contact_type
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -2555,6 +2581,8 @@ class CRM_Contact_BAO_Query {
   /**
    * where / qill clause for contact_sub_type
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -2587,6 +2615,8 @@ class CRM_Contact_BAO_Query {
 
   /**
    * where / qill clause for groups
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -2695,6 +2725,8 @@ class CRM_Contact_BAO_Query {
   /**
    * where / qill clause for smart groups
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -2759,6 +2791,8 @@ WHERE  id IN ( $groupIDs )
   /**
    * where / qill clause for cms users
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -2780,6 +2814,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * all tag search specific
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -2846,6 +2882,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for tag
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -2932,6 +2970,8 @@ WHERE  id IN ( $groupIDs )
   /**
    * where/qill clause for notes
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -3000,6 +3040,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for sort_name
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -3158,6 +3200,8 @@ WHERE  id IN ( $groupIDs )
   /**
    * where / qill clause for email
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -3199,6 +3243,8 @@ WHERE  id IN ( $groupIDs )
   /**
    * where / qill clause for phone number
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -3220,6 +3266,8 @@ WHERE  id IN ( $groupIDs )
   /**
    * where / qill clause for phone type/location
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -3235,6 +3283,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for street_address
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -3269,6 +3319,8 @@ WHERE  id IN ( $groupIDs )
   /**
    * where / qill clause for street_unit
    *
+   * @param $values
+   *
    * @return void
    * @access public
    */
@@ -3301,6 +3353,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for sorting by character
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -3338,6 +3392,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for postal code
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -3378,6 +3434,9 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for location type
+   *
+   * @param $values
+   * @param null $status
    *
    * @return void
    * @access public
@@ -3490,6 +3549,9 @@ WHERE  id IN ( $groupIDs )
   /**
    * where / qill clause for county (if present)
    *
+   * @param $values
+   * @param null $status
+   *
    * @return void
    * @access public
    */
@@ -3555,6 +3617,9 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for state/province AND country (if present)
+   *
+   * @param $values
+   * @param null $status
    *
    * @return void
    * @access public
@@ -3648,6 +3713,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for change log
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -3812,6 +3879,8 @@ WHERE  id IN ( $groupIDs )
 
   /**
    * where / qill clause for relationship
+   *
+   * @param $values
    *
    * @return void
    * @access public
@@ -4008,8 +4077,11 @@ civicrm_relationship.is_permission_a_b = 0
       }
     }
   }
+
   /**
    * default set of return properties
+   *
+   * @param int $mode
    *
    * @return void
    * @access public
@@ -4225,16 +4297,19 @@ civicrm_relationship.is_permission_a_b = 0
   /**
    * create and query the db for an contact search
    *
-   * @param int      $offset   the offset for the query
-   * @param int      $rowCount the number of rows to return
-   * @param string   $sort     the order by string
-   * @param boolean  $count    is this a count only query ?
-   * @param boolean  $includeContactIds should we include contact ids?
-   * @param boolean  $sortByChar if true returns the distinct array of first characters for search results
-   * @param boolean  $groupContacts if true, return only the contact ids
-   * @param boolean  $returnQuery   should we return the query as a string
-   * @param string   $additionalWhereClause if the caller wants to further restrict the search (used for components)
-   * @param string   $additionalFromClause should be clause with proper joins, effective to reduce where clause load.
+   * @param int $offset the offset for the query
+   * @param int $rowCount the number of rows to return
+   * @param string $sort the order by string
+   * @param boolean $count is this a count only query ?
+   * @param boolean $includeContactIds should we include contact ids?
+   * @param boolean $sortByChar if true returns the distinct array of first characters for search results
+   * @param boolean $groupContacts if true, return only the contact ids
+   * @param boolean $returnQuery should we return the query as a string
+   * @param string $additionalWhereClause if the caller wants to further restrict the search (used for components)
+   * @param null $sortOrder
+   * @param string $additionalFromClause should be clause with proper joins, effective to reduce where clause load.
+   *
+   * @param bool $skipOrderAndLimit
    *
    * @return CRM_Contact_DAO_Contact
    * @access public
@@ -4351,6 +4426,14 @@ civicrm_relationship.is_permission_a_b = 0
               $this->_whereTables["civicrm_email"] = 1;
               $order = str_replace($field, "civicrm_email.{$field}", $order);
               break;
+
+            default:
+              //CRM-12565 add "`" around $field if it is a pseudo constant
+              foreach ($this->_pseudoConstantsSelect as $key => $value) {
+                if (!empty($value['element']) && $value['element'] == $field) {
+                  $order = str_replace($field, "`{$field}`", $order);
+                }
+              }
           }
           $this->_fromClause = self::fromClause($this->_tables, NULL, NULL, $this->_primaryLocation, $this->_mode);
           $this->_simpleFromClause = self::fromClause($this->_whereTables, NULL, NULL, $this->_primaryLocation, $this->_mode);
@@ -4403,7 +4486,6 @@ civicrm_relationship.is_permission_a_b = 0
     if ($returnQuery) {
       return $query;
     }
-
     if ($count) {
       return CRM_Core_DAO::singleValueQuery($query);
     }
@@ -5245,6 +5327,15 @@ AND   displayRelType.is_active = 1
         }
         elseif ($value['pseudoField'] == 'state_province_abbreviation') {
           $dao->$key = CRM_Core_PseudoConstant::stateProvinceAbbreviation($val);
+        }
+        // FIX ME: we should potentially move this to component Query and write a wrapper function that
+        // handles pseudoconstant fixes for all component
+        elseif ($value['pseudoField'] == 'participant_role') {
+          $viewRoles = array();
+          foreach (explode(CRM_Core_DAO::VALUE_SEPARATOR, $val) as $k => $v) {
+            $viewRoles[] = CRM_Event_PseudoConstant::participantRole($v);
+          }
+          $dao->$key = implode(', ', $viewRoles);
         }
         else {
           $labels = CRM_Core_OptionGroup::values($value['pseudoField']);

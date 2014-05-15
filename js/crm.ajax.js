@@ -71,7 +71,8 @@
         entity: 'api3',
         action: 'call',
         json: JSON.stringify(entity)
-      }
+      };
+      status = action;
     }
     var ajax = $.ajax({
       url: CRM.url('civicrm/ajax/rest'),
@@ -291,7 +292,9 @@
       }
       $('<div id="'+ settings.target.substring(1) +'"><div class="crm-loading-element">' + ts('Loading') + '...</div></div>').dialog(settings.dialog);
       $(settings.target).on('dialogclose', function() {
-        $(this).crmSnippet('destroy').dialog('destroy').remove();
+        if ($(this).attr('data-unsaved-changes') !== 'true') {
+          $(this).crmSnippet('destroy').dialog('destroy').remove();
+        }
       });
     }
     if (settings.dialog && !settings.dialog.title) {
@@ -337,21 +340,40 @@
 
     var widget = CRM.loadPage(url, settings).off('.crmForm');
 
+    function cancelAction() {
+      var dirty = CRM.utils.initialValueChanged(widget),
+        title = widget.dialog('option', 'title');
+      widget.attr('data-unsaved-changes', dirty ? 'true' : 'false').dialog('close');
+      if (dirty) {
+        var id = widget.attr('id') + '-unsaved-alert',
+          alert = CRM.alert('<p>' + ts('%1 has not been saved.', {1: title}) + '</p><p><a href="#" id="' + id + '">' + ts('Restore') + '</a></p>', ts('Unsaved Changes'), 'alert unsaved-dialog', {expires: 60000});
+        $('#' + id).button({icons: {primary: 'ui-icon-arrowreturnthick-1-w'}}).click(function(e) {
+          widget.attr('data-unsaved-changes', 'false').dialog('open');
+          e.preventDefault();
+        });
+      }
+    }
+    if (widget.data('uiDialog')) {
+      // This is a bit harsh but we are removing jQuery UI's event handler from the close button and adding our own
+      $('.ui-dialog-titlebar-close').first().off().click(cancelAction);
+    }
+
     widget.on('crmFormLoad.crmForm', function(event, data) {
-      var $el = $(this);
+      var $el = $(this)
+        .attr('data-unsaved-changes', 'false');
       var settings = $el.crmSnippet('option', 'crmForm');
-      settings.cancelButton && $(settings.cancelButton, this).click(function(event) {
-        var returnVal = settings.onCancel.call($el, event);
+      settings.cancelButton && $(settings.cancelButton, this).click(function(e) {
+        e.preventDefault();
+        var returnVal = settings.onCancel.call($el, e);
         if (returnVal !== false) {
-          $el.trigger('crmFormCancel', event);
+          $el.trigger('crmFormCancel', e);
           if ($el.data('uiDialog') && settings.autoClose) {
-            $el.dialog('close');
+            cancelAction();
           }
           else if (!settings.autoClose) {
             $el.crmSnippet('resetUrl').crmSnippet('refresh');
           }
         }
-        return returnVal === false;
       });
       if (settings.validate) {
         $("form", this).validate(typeof(settings.validate) == 'object' ? settings.validate : CRM.validate.params);
@@ -364,7 +386,7 @@
             $el.crmSnippet('option', 'block') && $el.unblock();
             $el.trigger('crmFormSuccess', response);
             // Reset form for e.g. "save and new"
-            if (response.userContext && settings.refreshAction && $.inArray(response.buttonName, settings.refreshAction) >= 0) {
+            if (response.userContext && (response.status === 'redirect' || (settings.refreshAction && $.inArray(response.buttonName, settings.refreshAction) >= 0))) {
               // Force reset of original url
               $el.data('civiCrmSnippet')._originalUrl = response.userContext;
               $el.crmSnippet('resetUrl').crmSnippet('refresh');
@@ -467,7 +489,16 @@
   };
 
   $(function($) {
-    $('body').on('click', 'a.crm-popup', CRM.popup);
+    $('body')
+      .on('click', 'a.crm-popup', CRM.popup)
+      // Close unsaved dialog messages
+      .on('dialogopen', function(e) {
+        $('.alert.unsaved-dialog .ui-notify-cross', '#crm-notification-container').click();
+      })
+      // Destroy old unsaved dialog
+      .on('dialogcreate', function(e) {
+        $('.ui-dialog-content.crm-ajax-container:hidden[data-unsaved-changes=true]').crmSnippet('destroy').dialog('destroy').remove();
+      });
   });
 
 }(jQuery, CRM));

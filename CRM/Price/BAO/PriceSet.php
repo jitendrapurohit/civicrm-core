@@ -85,8 +85,10 @@ class CRM_Price_BAO_PriceSet extends CRM_Price_DAO_PriceSet {
   /**
    * update the is_active flag in the db
    *
-   * @param  int      $id         id of the database record
-   * @param  boolean  $is_active  value we want to set the is_active field
+   * @param  int $id id of the database record
+   * @param $isActive
+   *
+   * @internal param bool $is_active value we want to set the is_active field
    *
    * @return Object             DAO object on sucess, null otherwise
    * @static
@@ -155,8 +157,8 @@ WHERE       ps.name = '{$entityName}'
   /**
    * Return a list of all forms which use this price set.
    *
-   * @param int  $id id of price set
-   * @param str  $simpleReturn - get raw data. Possible values: 'entity', 'table'
+   * @param int $id id of price set
+   * @param bool|\str $simpleReturn - get raw data. Possible values: 'entity', 'table'
    *
    * @return array
    */
@@ -332,6 +334,8 @@ WHERE     ct.id = cp.financial_type_id AND
    *
    * @param string $entityTable
    * @param integer $entityId
+   *
+   * @return mixed
    */
   public static function removeFrom($entityTable, $entityId) {
     $dao               = new CRM_Price_DAO_PriceSetEntity();
@@ -345,8 +349,11 @@ WHERE     ct.id = cp.financial_type_id AND
    * Used For value for events:1, contribution:2, membership:3
    *
    * @param string $entityTable
-   * @param int    $entityId
-   * @param int    $usedFor ( price set that extends/used for particular component )
+   * @param int $entityId
+   * @param int $usedFor ( price set that extends/used for particular component )
+   *
+   * @param null $isQuickConfig
+   * @param null $setName
    *
    * @return integer|false price_set_id, or false if none found
    */
@@ -411,8 +418,8 @@ WHERE     ct.id = cp.financial_type_id AND
   /**
    * Return an associative array of all price sets
    *
-   * @param bool   $withInactive        whether or not to include inactive entries
-   * @param string $extendComponentName name of the component like 'CiviEvent','CiviContribute'
+   * @param bool $withInactive whether or not to include inactive entries
+   * @param bool|string $extendComponentName name of the component like 'CiviEvent','CiviContribute'
    *
    * @return array associative array of id => name
    */
@@ -456,7 +463,11 @@ WHERE     ct.id = cp.financial_type_id AND
    *
    * An array containing price set details (including price fields) is returned
    *
-   * @param int $setId - price set id whose details are needed
+   * @param $setID
+   * @param bool $required
+   * @param bool $validOnly
+   *
+   * @internal param int $setId - price set id whose details are needed
    *
    * @return array $setTree - array consisting of field details
    */
@@ -783,6 +794,8 @@ WHERE  id = %1";
   /**
    * Function to build the price set form.
    *
+   * @param $form
+   *
    * @return void
    * @access public
    */
@@ -832,8 +845,15 @@ WHERE  id = %1";
     // call the hook.
     CRM_Utils_Hook::buildAmount($component, $form, $feeBlock);
 
+    // CRM-14492 Admin price fields should show up on event registration if user has 'administer CiviCRM' permissions
+    $adminFieldVisible = false;
+    if (CRM_Core_Permission::check('administer CiviCRM')) {
+      $adminFieldVisible = true;
+    }
+
     foreach ($feeBlock as $id => $field) {
       if (CRM_Utils_Array::value('visibility', $field) == 'public' ||
+        (CRM_Utils_Array::value('visibility', $field) == 'admin' && $adminFieldVisible == true) ||
         !$validFieldsOnly
       ) {
         $options = CRM_Utils_Array::value('options', $field);
@@ -890,6 +910,9 @@ WHERE  id = %1";
 
   /**
    * Function to set daefult the price set fields.
+   *
+   * @param $form
+   * @param $defaults
    *
    * @return array $defaults
    * @access public
@@ -986,6 +1009,8 @@ WHERE  id = %1";
    * This function is to check price set permission
    *
    * @param int $sid the price set id
+   *
+   * @return bool
    */
   static function checkPermission($sid) {
     if ($sid && self::eventPriceSetDomainID()) {
@@ -1003,6 +1028,9 @@ WHERE  id = %1";
    *
    * @param int $sid the price set id
    *
+   * @param bool $onlyActive
+   *
+   * @return int|null|string
    * @access public
    * @static
    */

@@ -42,6 +42,8 @@ class CRM_Contact_Form_Task_PDFLetterCommon {
   /**
    * build all the data structures needed to build the form
    *
+   * @param $form
+   *
    * @return void
    * @access public
    */
@@ -257,6 +259,8 @@ class CRM_Contact_Form_Task_PDFLetterCommon {
    *
    * @access protected
    *
+   * @param $form
+   *
    * @return array( $categories, $html_message, $messageToken, $returnProperties )
    */
   static protected function processMessageTemplate(&$form) {
@@ -329,6 +333,8 @@ class CRM_Contact_Form_Task_PDFLetterCommon {
    * process the form after the input has been submitted and validated
    *
    * @access public
+   *
+   * @param $form
    *
    * @return void
    */
@@ -413,6 +419,7 @@ class CRM_Contact_Form_Task_PDFLetterCommon {
     $activityContacts = CRM_Core_OptionGroup::values('activity_contacts', FALSE, FALSE, FALSE, NULL, 'name');
     $targetID = CRM_Utils_Array::key('Activity Targets', $activityContacts);
 
+    //@todo why are we using $form->_contactIds here & contactIds above - need comment
     foreach ($form->_contactIds as $contactId) {
       $activityTargetParams = array(
         'activity_id' => empty($activity->id) ? $activityIds[$contactId] : $activity->id,

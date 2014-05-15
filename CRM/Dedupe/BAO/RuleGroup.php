@@ -108,6 +108,7 @@ class CRM_Dedupe_BAO_RuleGroup extends CRM_Dedupe_DAO_RuleGroup {
         }
       }
     }
+    CRM_Utils_Hook::dupeQuery(CRM_Core_DAO::$_nullObject, 'supportedFields', $fields);
     return $fields[$requestedType];
   }
 
@@ -367,15 +368,22 @@ class CRM_Dedupe_BAO_RuleGroup extends CRM_Dedupe_DAO_RuleGroup {
   /**
    * To find fields related to a rule group.
    *
-   * @param array contains the rule group property to identify rule group
+   * @param $params
    *
-   * @return (rule field => weight) array and threshold associated to rule group
-   * @access public
+   * @internal param \contains $array the rule group property to identify rule group
+   *
+   * @return array (rule field => weight) array and threshold associated to rule group@access public
    */
   static function dedupeRuleFieldsWeight($params) {
     $rgBao               = new CRM_Dedupe_BAO_RuleGroup();
-    $rgBao->used         = $params['used'];
     $rgBao->contact_type = $params['contact_type'];
+    if (CRM_Utils_Array::value('id', $params)) {
+      // accept an ID if provided
+      $rgBao->id = $params['id'];
+    }
+    else {
+      $rgBao->used = $params['used'];
+    }
     $rgBao->find(TRUE);
 
     $ruleBao = new CRM_Dedupe_BAO_Rule();
@@ -387,6 +395,25 @@ class CRM_Dedupe_BAO_RuleGroup extends CRM_Dedupe_DAO_RuleGroup {
     }
 
     return array($ruleFields, $rgBao->threshold);
+  }
+
+  /**
+   * Get all of the combinations of fields that would work with a rule
+   */
+
+  static function combos($rgFields, $threshold, &$combos, $running = array()) {
+    foreach ($rgFields as $rgField => $weight) {
+      unset($rgFields[$rgField]);
+      $diff = $threshold - $weight;
+      $runningnow = $running;
+      $runningnow[] = $rgField;
+      if ($diff > 0) {
+        self::combos($rgFields, $diff, $combos, $runningnow);
+      }
+      else {
+        $combos[] = $runningnow;
+      }
+    }
   }
 
   /**

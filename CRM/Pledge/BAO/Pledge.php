@@ -255,8 +255,9 @@ class CRM_Pledge_BAO_Pledge extends CRM_Pledge_DAO_Pledge {
   /**
    * Function to delete the pledge
    *
-   * @param int $id  pledge id
+   * @param int $id pledge id
    *
+   * @return mixed
    * @access public
    * @static
    *
@@ -489,7 +490,7 @@ GROUP BY  currency
    *
    * @return void.
    */
-  function sendAcknowledgment(&$form, $params) {
+  static function sendAcknowledgment(&$form, $params) {
     //handle Acknowledgment.
     $allPayments = $payments = array();
 
@@ -785,7 +786,9 @@ GROUP BY  currency
   /**
    * Function to get pledge record count for a Contact
    *
-   * @param int $contactId Contact ID
+   * @param $contactID
+   *
+   * @internal param int $contactId Contact ID
    *
    * @return int count of pledge records
    * @access public

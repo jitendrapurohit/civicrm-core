@@ -108,6 +108,8 @@ WHERE  civicrm_pcp.contact_id = civicrm_contact.id
   /**
    * Function to return PCP  Block info for dashboard
    *
+   * @param $contactId
+   *
    * @return array     array of Pcp if found
    * @access public
    * @static
@@ -305,6 +307,12 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
           'qs' => 'eid=%%pcpId%%&blockId=%%pcpBlock%%&reset=1&pcomponent=pcp&component=%%pageComponent%%',
           'title' => ts('Tell Friends'),
         ),
+        CRM_Core_Action::VIEW => array(
+          'name' => ts('URL for this Page'),
+          'url' => 'civicrm/pcp/info',
+          'qs' => 'reset=1&id=%%pcpId%%&component=%%pageComponent%%',
+          'title' => ts('URL for this Page'),
+        ),
         CRM_Core_Action::BROWSE => array(
           'name' => ts('Update Contact Information'),
           'url' => 'civicrm/pcp/info',
@@ -435,7 +443,7 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
           $pcp_supporter_text .= "You can support it as well - once you complete the donation, you will be able to create your own Personal Campaign Page!";
         }
       }
-      
+
       $page->assign('pcpSupporterText', $pcp_supporter_text);
     }
     $page->assign('pcp', TRUE);
@@ -562,10 +570,11 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
    *
    * @param int $id campaign page id
    *
+   * @param $is_active
+   *
    * @return null
    * @access public
    * @static
-   *
    */
   static function setIsActive($id, $is_active) {
     switch ($is_active) {
@@ -604,14 +613,16 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
    * 1. when their PCP status is changed by site admin.
    * 2. when supporter initially creates a Personal Campaign Page ($isInitial set to true).
    *
-   * @param int $pcpId      campaign page id
-   * @param int $newStatus  pcp status id
-   * @param int $isInitial  is it the first time, campaign page has been created by the user
+   * @param int $pcpId campaign page id
+   * @param int $newStatus pcp status id
+   * @param bool|int $isInitial is it the first time, campaign page has been created by the user
    *
+   * @param string $component
+   *
+   * @throws Exception
    * @return null
    * @access public
    * @static
-   *
    */
   static function sendStatusUpdate($pcpId, $newStatus, $isInitial = FALSE, $component = 'contribute') {
     $pcpStatus = CRM_Core_OptionGroup::values("pcp_status");
@@ -700,10 +711,10 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
    *
    * @param int $id campaign page id
    *
+   * @param $is_active
    * @return null
    * @access public
    * @static
-   *
    */
   static function setDisable($id, $is_active) {
     return CRM_Core_DAO::setFieldValue('CRM_PCP_DAO_PCP', $id, 'is_active', $is_active);
@@ -712,12 +723,13 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
   /**
    * Function to get pcp block is active
    *
-   * @param int $id campaign page id
+   * @param $pcpId
+   * @param $component
+   * @internal param int $id campaign page id
    *
    * @return int
    * @access public
    * @static
-   *
    */
   static function getStatus($pcpId, $component) {
     $query = "
@@ -736,12 +748,13 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
   /**
    * Function to get pcp block is enabled for component page
    *
-   * @param int $id contribution page id
+   * @param $pageId
+   * @param $component
+   * @internal param int $id contribution page id
    *
    * @return String
    * @access public
    * @static
-   *
    */
   static function getPcpBlockStatus($pageId, $component) {
     $query = "
@@ -781,12 +794,13 @@ WHERE pcp.id = %1 AND cc.contribution_status_id =1 AND cc.is_test = 0";
   /**
    * Function to get email is enabled for supporter's profile
    *
-   * @param int $id supporter's profile id
+   * @param $profileId
+   *
+   * @internal param int $id supporter's profile id
    *
    * @return boolean
    * @access public
    * @static
-   *
    */
   static function checkEmailProfile($profileId) {
     $query = "
@@ -805,12 +819,14 @@ WHERE field_name like 'email%' And is_active = 1 And uf_group_id = %1";
   /**
    * Function to obtain the title of page associated with a pcp
    *
-   * @param int $id campaign page id
+   * @param $pcpId
+   * @param $component
+   *
+   * @internal param int $id campaign page id
    *
    * @return int
    * @access public
    * @static
-   *
    */
   static function getPcpPageTitle($pcpId, $component) {
     if ($component == 'contribute') {
@@ -835,12 +851,14 @@ WHERE field_name like 'email%' And is_active = 1 And uf_group_id = %1";
   /**
    * Function to get pcp block & entity id given pcp id
    *
-   * @param int $id campaign page id
+   * @param $pcpId
+   * @param $component
+   *
+   * @internal param int $id campaign page id
    *
    * @return String
    * @access public
    * @static
-   *
    */
   static function getPcpBlockEntityId($pcpId, $component) {
     $entity_table = self::getPcpEntityTable($component);
@@ -863,12 +881,13 @@ WHERE pcp.id = %1";
   /**
    * Function to get pcp entity table given a component.
    *
-   * @param int $id campaign page id
+   * @param $component
+   *
+   * @internal param int $id campaign page id
    *
    * @return String
    * @access public
    * @static
-   *
    */
   static function getPcpEntityTable($component) {
     $entity_table_map = array(
@@ -883,13 +902,16 @@ WHERE pcp.id = %1";
   /**
    * Function to get supporter profile id
    *
-   * @param int $contributionPageId contribution page id
+   * @param $component_id
+   * @param string $component
+   *
+   * @internal param int $contributionPageId contribution page id
    *
    * @return int
    * @access public
-   *
+   * @static
    */
-  public function getSupporterProfileId($component_id, $component = 'contribute') {
+  public static function getSupporterProfileId($component_id, $component = 'contribute') {
     $entity_table = self::getPcpEntityTable($component);
 
     $query = "
