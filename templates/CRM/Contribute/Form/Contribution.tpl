@@ -483,10 +483,10 @@
 
     {/literal}{if !$contributionMode}{literal}
      CRM.$(function($) {
-      showHideCancelInfo(cj('#contribution_status_id'));
+      showHideCancelInfo(cj('select[name=contribution_status_id]'));
 
-      cj('#contribution_status_id').change(function() {
-       showHideCancelInfo(cj('#contribution_status_id'));
+      cj('select[name=contribution_status_id]').change(function() {
+       showHideCancelInfo(cj('select[name=contribution_status_id]'));
       }
        );
      });
