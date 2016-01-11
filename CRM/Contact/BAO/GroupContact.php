@@ -576,7 +576,7 @@ SELECT    *
     }
 
     $params = array(
-      array('group', 'IN', array($groupID => 1), 0, 0),
+      array('group', 'IN', array($groupID), 0, 0),
       array('contact_id', '=', $contactID, 0, 0),
     );
     list($contacts, $_) = CRM_Contact_BAO_Query::apiQuery($params, array('contact_id'));
