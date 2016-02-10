@@ -74,8 +74,11 @@ class WebTest_Campaign_CampaignDescriptionTest extends CiviSeleniumTestCase {
 
     $this->waitForText('crm-notification-container', "Campaign $title");
 
-    //Opening Edit Page of the created Campaign
     $this->waitForElementPresent("//div[@id='campaignList']/div/table/tbody//tr/td[3]/div[text()='{$campaignTitle}']/../../td[13]/span/a[1][text()='Edit']");
+    $campaignId = $this->urlArg('id', $this->getAttribute("//div[@id='campaignList']/div/table/tbody//tr/td[3]/div[text()='{$campaignTitle}']/../../td[13]/span/a[1][text()='Edit']@href"));
+    $this->verifyText("//div[@id='campaignList']/div/table/tbody//tr/td[3]/div[text()='{$campaignTitle}']/../../td[1]", $campaignId);
+
+    //Opening Edit Page of the created Campaign
     $this->clickLink("//div[@id='campaignList']/div/table/tbody//tr/td[3]/div[text()='{$campaignTitle}']/../../td[13]/span/a[1][text()='Edit']", "//textarea[@id='description']", FALSE);
     $this->assertTrue($this->isTextPresent($campaignDescription), 'Missing text: ' . $campaignDescription);
   }
