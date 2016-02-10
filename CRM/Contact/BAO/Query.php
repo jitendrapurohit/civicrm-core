@@ -1313,9 +1313,10 @@ class CRM_Contact_BAO_Query {
    *   sql query parts as an array
    */
   public function query($count = FALSE, $sortByChar = FALSE, $groupContacts = FALSE, $onlyDeleted = FALSE) {
+    $excludeHiddenGroups = FALSE;
+
     // build permission clause
     $this->generatePermissionClause($onlyDeleted, $count);
-
     if ($count) {
       if (isset($this->_rowCountClause)) {
         $select = "SELECT {$this->_rowCountClause}";
@@ -1349,6 +1350,9 @@ class CRM_Contact_BAO_Query {
       if (!empty($this->_paramLookup['group'])) {
 
         list($name, $op, $value, $grouping, $wildcard) = $this->_paramLookup['group'][0];
+        if (!empty($this->_tables['civicrm_group']) && !in_array($op, array('IS NULL', 'IS EMPTY'))) {
+          $excludeHiddenGroups = TRUE;
+        }
 
         if (is_array($value) && in_array(key($value), CRM_Core_DAO::acceptedSQLOperators(), TRUE)) {
           $this->_paramLookup['group'][0][1] = key($value);
@@ -1414,6 +1418,9 @@ class CRM_Contact_BAO_Query {
       else {
         $where = "$where AND $this->_permissionWhereClause";
       }
+    }
+    if (!empty($where) && $excludeHiddenGroups) {
+      $where .= ' AND civicrm_group.is_hidden <> 1';
     }
 
     $having = '';
