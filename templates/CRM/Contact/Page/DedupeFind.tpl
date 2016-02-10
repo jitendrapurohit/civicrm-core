@@ -90,7 +90,6 @@
     class="nestedActivitySelector crm-ajax-table"
     cellspacing="0"
     width="100%"
-    data-page-length="10",
     data-searching='true',
     data-dom='flrtip',
     data-order='[]',
@@ -201,6 +200,7 @@
 <script type="text/javascript">
   (function($) {
     CRM.$('table#dupePairs').data({
+      "stateSave": true,
       "ajax": {
         "url": {/literal}'{$sourceUrl}'{literal}
       },
