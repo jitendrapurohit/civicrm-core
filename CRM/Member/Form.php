@@ -464,9 +464,8 @@ class CRM_Member_Form extends CRM_Contribute_Form_AbstractEditPayment {
   }
 
   /**
-   * Wrapper function for unit tests.
+   * CRM-17219 - Build priceset in Membership and Renew membership form
    *
-   * @param array $formValues
    */
   public function buildPriceSetForm() {
     // build price set form.
