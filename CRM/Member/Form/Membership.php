@@ -415,62 +415,7 @@ class CRM_Member_Form_Membership extends CRM_Member_Form {
     if (isset($invoicing)) {
       $this->assign('taxTerm', CRM_Utils_Array::value('tax_term', $invoiceSettings));
     }
-    // build price set form.
-    $buildPriceSet = FALSE;
-    if ($this->_priceSetId || !empty($_POST['price_set_id'])) {
-      if (!empty($_POST['price_set_id'])) {
-        $buildPriceSet = TRUE;
-      }
-      $getOnlyPriceSetElements = TRUE;
-      if (!$this->_priceSetId) {
-        $this->_priceSetId = $_POST['price_set_id'];
-        $getOnlyPriceSetElements = FALSE;
-      }
-
-      $this->set('priceSetId', $this->_priceSetId);
-      CRM_Price_BAO_PriceSet::buildPriceSet($this);
-
-      $optionsMembershipTypes = array();
-      foreach ($this->_priceSet['fields'] as $pField) {
-        if (empty($pField['options'])) {
-          continue;
-        }
-        foreach ($pField['options'] as $opId => $opValues) {
-          $optionsMembershipTypes[$opId] = CRM_Utils_Array::value('membership_type_id', $opValues, 0);
-        }
-      }
-
-      $this->assign('autoRenewOption', CRM_Price_BAO_PriceSet::checkAutoRenewForPriceSet($this->_priceSetId));
-
-      $this->assign('optionsMembershipTypes', $optionsMembershipTypes);
-      $this->assign('contributionType', CRM_Utils_Array::value('financial_type_id', $this->_priceSet));
-
-      // get only price set form elements.
-      if ($getOnlyPriceSetElements) {
-        return;
-      }
-    }
-
-    // use to build form during form rule.
-    $this->assign('buildPriceSet', $buildPriceSet);
-
-    if ($this->_action & CRM_Core_Action::ADD) {
-      $buildPriceSet = FALSE;
-      $priceSets = CRM_Price_BAO_PriceSet::getAssoc(FALSE, 'CiviMember');
-      if (!empty($priceSets)) {
-        $buildPriceSet = TRUE;
-      }
-
-      if ($buildPriceSet) {
-        $this->add('select', 'price_set_id', ts('Choose price set'),
-          array(
-            '' => ts('Choose price set'),
-          ) + $priceSets,
-          NULL, array('onchange' => "buildAmount( this.value );")
-        );
-      }
-      $this->assign('hasPriceSets', $buildPriceSet);
-    }
+    $this->buildPriceSetForm();
 
     //need to assign custom data type and subtype to the template
     $this->assign('customDataType', 'Membership');

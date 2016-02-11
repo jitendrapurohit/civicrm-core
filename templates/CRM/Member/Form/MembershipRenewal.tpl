@@ -24,6 +24,23 @@
  +--------------------------------------------------------------------+
 *}
 {* this template is used for renewing memberships for a contact  *}
+{if $priceSetId}
+  {include file="CRM/Price/Form/PriceSet.tpl" context="standalone" extends="Membership"}
+  {literal}
+  <script type="text/javascript">
+  CRM.$(function($) {
+    var membershipValues = [];
+    {/literal}{foreach from=$optionsMembershipTypes item=memType key=opId}{literal}
+      membershipValues[{/literal}{$opId}{literal}] = {/literal}{$memType}{literal};
+    {/literal}{/foreach}{literal}
+    processMembershipPriceset(membershipValues, {/literal}{$autoRenewOption}{literal}, 1);
+    {/literal}{if !$membershipMode}{literal}
+      enableAmountSection({/literal}{$contributionType}{literal});
+    {/literal}{/if}{literal}
+  });
+  </script>
+  {/literal}
+{else}
   {if $membershipMode == 'test' }
     {assign var=registerMode value="TEST"}
   {elseif $membershipMode == 'live'}
@@ -72,8 +89,17 @@
       </tr>
       <tr id="membershipOrgType" class="crm-member-membershiprenew-form-block-renew_org_name hiddenElement">
         <td class="label">{$form.membership_type_id.label}</td>
-        <td>{$form.membership_type_id.html}
-          {if $member_is_test} {ts}(test){/ts}{/if}<br/>
+        <td><span id='mem_type_id'>{$form.membership_type_id.html}</span>
+        {if $hasPriceSets}
+          <span id='totalAmountORPriceSet'> {ts}OR{/ts}</span>
+          <span id='selectPriceSet'>{$form.price_set_id.html}</span>
+          {if $buildPriceSet && $priceSet}
+            <div id="priceset"><br/>{include file="CRM/Price/Form/PriceSet.tpl" extends="Membership"}</div>
+          {else}
+            <div id="priceset" class="hiddenElement"></div>
+          {/if}
+        {/if}
+        {if $member_is_test} {ts}(test){/ts}{/if}<br/>
           <span class="description">{ts}Select Membership Organization and then Membership Type.{/ts}</span>
         </td>
       </tr>
@@ -303,5 +329,8 @@
         cj('#record-different-contact').hide();
       }
     }
+
+    {/literal}{include file="CRM/Member/Form/MembershipPriceSet.js.tpl"}{literal}
   </script>
 {/literal}
+{/if}

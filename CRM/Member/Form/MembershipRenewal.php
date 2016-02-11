@@ -129,6 +129,10 @@ class CRM_Member_Form_MembershipRenewal extends CRM_Member_Form {
     // This string makes up part of the class names, differentiating them (not sure why) from the membership fields.
     $this->assign('formClass', 'membershiprenew');
     parent::preProcess();
+    // get price set id.
+    $this->_priceSetId = CRM_Utils_Array::value('priceSetId', $_GET);
+    $this->set('priceSetId', $this->_priceSetId);
+    $this->assign('priceSetId', $this->_priceSetId);
     // check for edit permission
     if (!CRM_Core_Permission::check('edit memberships')) {
       CRM_Core_Error::fatal(ts('You do not have permission to access this page.'));
@@ -254,9 +258,9 @@ class CRM_Member_Form_MembershipRenewal extends CRM_Member_Form {
     $this->assign('customDataSubType', $this->_memType);
     $this->assign('entityID', $this->_id);
     $selOrgMemType[0][0] = $selMemTypeOrg[0] = ts('- select -');
+    $this->buildPriceSetForm();
 
     $allMembershipInfo = array();
-
     //CRM-16950
     $taxRates = CRM_Core_PseudoConstant::getTaxRates();
     $taxRate = CRM_Utils_Array::value($this->allMembershipTypeDetails[$defaults['membership_type_id']]['financial_type_id'], $taxRates);
