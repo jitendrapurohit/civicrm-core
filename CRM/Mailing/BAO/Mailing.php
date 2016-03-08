@@ -2448,22 +2448,13 @@ LEFT JOIN civicrm_mailing_group g ON g.mailing_id   = m.id
  WHERE ( ( g.entity_table like 'civicrm_group%' AND g.entity_id IN ( $groupIDs ) )
     OR   ( g.entity_table IS NULL AND g.entity_id IS NULL AND m.domain_id = $domain_id ) )
 ";
+      //CRM-18181 Get all mailings that use the mailings found earlier as receipients
+      $query .= " OR g.entity_table like 'civicrm_mailing%' AND g.entity_id IN ($query)";
       $dao = CRM_Core_DAO::executeQuery($query);
 
       $mailingIDs = array();
       while ($dao->fetch()) {
         $mailingIDs[] = $dao->id;
-      }
-      //CRM-18181 Get all mailings that use the mailings found earlier as receipients
-      $mailings = implode(',', $mailingIDs);
-      $mailingQuery = "
-         SELECT DISTINCT ( m.id ) as id
-         FROM civicrm_mailing m 
-         LEFT JOIN civicrm_mailing_group g ON g.mailing_id = m.id
-         WHERE g.entity_table like 'civicrm_mailing%' AND g.entity_id IN ($mailings)";
-      $mailingDao = CRM_Core_DAO::executeQuery($mailingQuery);
-      while ($mailingDao->fetch()) {
-        $mailingIDs[] = $mailingDao->id;
       }
     }
 
