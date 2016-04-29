@@ -387,31 +387,31 @@ class WebTest_Contact_MergeContactsTest extends CiviSeleniumTestCase {
     $this->waitForElementPresent('_qf_Merge_cancel-bottom');
     $this->clickLink("css=div.crm-contact-merge-form-block div.action-link a");
 
-    $this->waitForElementPresent("xpath=//form[@id='Merge']/div[2]/table/tbody/tr[3]/td[4]/span[text()='(overwrite)']");
-    $this->waitForElementPresent("xpath=//form[@id='Merge']/div[2]/table/tbody/tr[5]/td[4]/span[text()='(add)']");
+    $this->waitForElementPresent("xpath=//form[@id='Merge']/div[2]/table/tbody/tr[11]/td[5]/span/span[text()='(overwrite)']");
+    $this->waitForElementPresent("xpath=//form[@id='Merge']/div[2]/table/tbody/tr[12]/td[5]/span/span[text()='(add)']");
     $this->waitForElementPresent('_qf_Merge_cancel-bottom');
 
+    $this->check("move_location_email_0");
+    $this->check("location[email][0][operation]");
     $this->check("move_location_email_1");
-    $this->check("location[email][1][operation]");
-    $this->check("move_location_email_2");
+    $this->check("move_location_phone_0");
+    $this->check("location[phone][0][operation]");
     $this->check("move_location_phone_1");
-    $this->check("location[phone][1][operation]");
-    $this->check("move_location_phone_2");
     $this->click("_qf_Merge_next-bottom");
     $this->waitForPageToLoad($this->getTimeoutMsec());
 
     $this->assertTrue($this->isTextPresent('Contacts Merged'));
-    $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[2]/div[1][contains(text(), 'Home')]"));
+    $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[2]/div[1][contains(text(), 'Home Email')]"));
     $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[2]/div[2]/a[contains(text(), '{$firstName}.{$lastName}@example.com')]"));
     $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[3]/div[1][contains(text(), 'Home')]"));
     $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[3]/div[2]/a[contains(text(), '{$firstName}.{$lastName}@example.com')]"));
-    $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[4]/div[1][contains(text(), 'Billing')]"));
+    $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[4]/div[1][contains(text(), 'Billing Email')]"));
     $this->assertTrue($this->isElementPresent("xpath=//div[@id='email-block']/div/div/div[4]/div[2]/a[contains(text(), '$firstName.$lastName@billing.com')]"));
-    $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[2]/div[1][contains(text(), 'Home')]"));
+    $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[2]/div[1][contains(text(), 'Home Phone')]"));
     $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[2]/div[2][contains(text(), '9876543211')]"));
-    $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[3]/div[1][contains(text(), 'Home')]"));
+    $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[3]/div[1][contains(text(), 'Home Phone')]"));
     $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[3]/div[2][contains(text(), '9876543210')]"));
-    $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[4]/div[1][contains(text(), 'Billing')]"));
+    $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[4]/div[1][contains(text(), 'Billing Phone')]"));
     $this->assertTrue($this->isElementPresent("xpath=//div[@id='phone-block']/div/div/div[4]/div[2][contains(text(), '9876543120')]"));
 
     //Merge with the feature of (add)
