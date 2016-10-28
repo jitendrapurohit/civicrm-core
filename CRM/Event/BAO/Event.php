@@ -917,7 +917,6 @@ WHERE civicrm_event.is_active = 1
    * @return CRM_Event_DAO_Event
    */
   public static function copy($id, $newEvent = NULL, $afterCreate = FALSE) {
-
     $eventValues = array();
 
     //get the require event values.
@@ -1020,6 +1019,7 @@ WHERE civicrm_event.is_active = 1
     if (!$afterCreate) {
       CRM_Utils_Hook::copy('Event', $copyEvent);
     }
+    CRM_Contribute_BAO_ContributionPage::copyMultilingualValues($id, $copyEvent->id, 'civicrm_event');
     return $copyEvent;
   }
 

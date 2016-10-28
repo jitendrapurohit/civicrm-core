@@ -37,6 +37,7 @@ class CRM_Contribute_BAO_ContributionPageTest extends CiviUnitTestCase {
   }
 
   public function tearDown() {
+    CRM_Core_I18n_Schema::makeSinglelingual('en_US');
   }
 
   /**
@@ -136,9 +137,59 @@ class CRM_Contribute_BAO_ContributionPageTest extends CiviUnitTestCase {
     );
 
     $contributionPage = CRM_Contribute_BAO_ContributionPage::create($params);
+
+    $this->callAPISuccess('Setting', 'create', array(
+      'lcMessages' => 'en_US',
+      'languageLimit' => array(
+        'en_US' => 1,
+      ),
+    ));
+
+    CRM_Core_I18n_Schema::makeMultilingual('en_US');
+
+    global $dbLocale;
+    $dbLocale = '_en_US';
+
+    CRM_Core_I18n_Schema::addLocale('fr_CA', 'en_US');
+
+    $this->callAPISuccess('Setting', 'create', array(
+      'languageLimit' => array(
+        'en_US',
+        'fr_CA',
+      ),
+    ));
+    $table = 'civicrm_contribution_page';
+    $config = CRM_Core_Config::singleton();
+    $locale = 'fr_CA';
+    $columns = CRM_Core_I18n_SchemaStructure::columns();
+    if (!empty($columns)) {
+      $multilingualFields = array_keys($columns[$table]);
+    }
+    $updateFields = array();
+    foreach ($multilingualFields as $field) {
+      $expectedValues["{$field}_{$locale}"] = "Test {$field}";
+      $updateFields[] = "`{$field}_{$locale}` = 'Test {$field}'";
+    }
+    $params = array(1 => array($contributionPage->id, 'Integer'));
+
+    $query = "UPDATE {$table} SET " . implode(', ', $updateFields) . " WHERE id = %1";
+    CRM_Core_DAO::singleValueQuery($query, $params, TRUE, FALSE);
+
     $copyContributionPage = CRM_Contribute_BAO_ContributionPage::copy($contributionPage->id);
     $this->assertEquals($copyContributionPage->financial_type_id, $this->_financialTypeID, 'Check for Financial type id.');
     $this->assertEquals($copyContributionPage->goal_amount, 400, 'Check for goal amount.');
+
+    // Assert if multilingual fields are correctly updated.
+    $queryParams = array(1 => array($copyContributionPage->id, 'Integer'));
+    $cols = implode(', ', array_keys($expectedValues));
+    $query = "SELECT {$cols} FROM {$table} WHERE id = %1";
+    $dao = CRM_Core_DAO::executeQuery($query, $queryParams, TRUE, NULL, FALSE, FALSE);
+
+    while ($dao->fetch()) {
+      foreach ($expectedValues as $field => $val) {
+        $this->assertEquals($dao->$field, $expectedValues[$field], 'Check for Multilingual values.');
+      }
+    }
     $this->callAPISuccess('ContributionPage', 'delete', array('id' => $contributionPage->id));
     $this->callAPISuccess('ContributionPage', 'delete', array('id' => $copyContributionPage->id));
   }

@@ -746,6 +746,7 @@ WHERE entity_table = 'civicrm_contribution_page'
     $copy->save();
 
     CRM_Utils_Hook::copy('ContributionPage', $copy);
+    self::copyMultilingualValues($id, $copy->id, 'civicrm_contribution_page');
 
     return $copy;
   }
@@ -981,6 +982,65 @@ LEFT JOIN  civicrm_premiums            ON ( civicrm_premiums.entity_id = civicrm
       return FALSE;
     }
     return $membershipBlocks['values'][0]['is_separate_payment'];
+  }
+
+  /**
+   * Copy multilingual values while copying an event or a contribution page.
+   *
+   * @param int $id
+   *   Original id of Contribution/Event Page.
+   * @param int $copyId
+   * @param string $table
+   */
+  public static function copyMultilingualValues($id, $copyId, $table) {
+    $multilingualFields = $cols = array();
+    $config = CRM_Core_Config::singleton();
+    $tsLocale = CRM_Core_I18n::getLocale();
+    $locales = $config->languageLimit;
+    // Check if locales are present in the keys
+    if (in_array($tsLocale, array_keys($locales), TRUE)) {
+      $locales = array_keys($locales);
+    }
+    $columns = CRM_Core_I18n_SchemaStructure::columns();
+    if (!empty($columns[$table])) {
+      $multilingualFields = array_keys($columns[$table]);
+    }
+
+    foreach ($multilingualFields as $field) {
+      foreach ($locales as $key => $locale) {
+        $cols[] = "{$field}_{$locale}";
+      }
+    }
+
+    if (empty($multilingualFields) || empty($locales) || empty($cols)) {
+      return;
+    }
+
+    $cols = implode(', ', $cols);
+    $queryParams = array(1 => array($id, 'Integer'));
+    $query = "SELECT {$cols} FROM {$table} WHERE id = %1";
+    $dao = CRM_Core_DAO::executeQuery($query, $queryParams, TRUE, NULL, FALSE, FALSE);
+
+    // Update multilingual values to the copy.
+    while ($dao->fetch()) {
+      $updateFields = array();
+      $params = array(1 => array($copyId, 'Integer'));
+      $i = 2;
+      foreach ($multilingualFields as $field) {
+        foreach ($locales as $locale) {
+          $fieldName = "{$field}_{$locale}";
+          if (!empty($dao->$fieldName) && $locale != $tsLocale) {
+            $updateFields[] = "{$fieldName} = %{$i}";
+            $params[$i] = array($dao->$fieldName, 'String');
+            $i++;
+          }
+        }
+      }
+      if (!empty($updateFields)) {
+        $query = "UPDATE {$table} SET " . implode(', ', $updateFields) . " WHERE id = %1";
+        CRM_Core_DAO::singleValueQuery($query, $params, TRUE, FALSE);
+      }
+    }
   }
 
 }
