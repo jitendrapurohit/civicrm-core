@@ -26,7 +26,9 @@
 <div class="crm-block crm-form-block crm-recurcontrib-form-block">
   {if $changeHelpText}
     <div class="help">
-      {$changeHelpText}
+      {crmRegion name="contribute-form-updatesubscription-changehelp"}
+        {$changeHelpText}
+      {/crmRegion}
   </div>
   {/if}
   <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>

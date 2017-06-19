@@ -32,7 +32,11 @@
     {if $installments}
       {ts 1=$installments}for %1 installments{/ts}.
     {/if}</strong>
-    <div class="content">{ts}Use this form to update the credit card and billing name and address used for this recurring contribution.{/ts}</div>
+    <div class="content">
+      {crmRegion name="contribute-form-updatebilling-recurhelp"}
+        {ts}Use this form to update the credit card and billing name and address used for this recurring contribution.{/ts}
+      {/crmRegion}
+    </div>
   {/if}
 </div>
 
