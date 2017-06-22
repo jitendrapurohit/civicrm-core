@@ -933,7 +933,21 @@ function civicrm_api3_contact_getquick($params) {
     $whereClause = " WHERE ( $table_name.$field_name LIKE '$strSearch') {$where}";
     // Search by id should be exact
     if ($field_name == 'id' || $field_name == 'external_identifier') {
-      $whereClause = " WHERE ( $table_name.$field_name = '$name') {$where}";
+      $regexPattern = $likePattern = 0;
+      //Check for wilcard symbol.
+      $wildcards = array('[', '_', '%', ']');
+      str_replace($wildcards, '', $name, $likeCount);
+      $regex = array('*', '^', '$');
+      str_replace($regex, '', $name, $regexCount);
+
+      $op = '=';
+      if ($likeCount > 0) {
+        $op = 'LIKE';
+      }
+      elseif ($regexCount > 0) {
+        $op = 'REGEXP';
+      }
+      $whereClause = " WHERE ( $table_name.$field_name $op '$name') {$where}";
     }
   }
   else {
