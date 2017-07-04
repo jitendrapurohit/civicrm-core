@@ -52,9 +52,7 @@
     <td>{$form.openid.$blockId.location_type_id.html}</td>
     <td align="center" id="OpenID-Primary-html" class="crm-openid-is_primary">{$form.openid.$blockId.is_primary.1.html}</td>
     <td>
-      {if $blockId gt 1}
-        <a class="crm-delete-inline crm-hover-button" href="#" title="{ts}Delete OpenID{/ts}"><span class="icon delete-icon"></span></a>
-      {/if}
+      <a class="crm-delete-inline crm-hover-button" href="#" title="{ts}Delete OpenID{/ts}"><span class="icon delete-icon"></span></a>
     </td>
   </tr>
   {/section}

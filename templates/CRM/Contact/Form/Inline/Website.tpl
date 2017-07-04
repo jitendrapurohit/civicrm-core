@@ -51,9 +51,7 @@
       <td>{$form.website.$blockId.url.html|crmAddClass:url}&nbsp;</td>
       <td>{$form.website.$blockId.website_type_id.html}</td>
       <td>
-        {if $blockId > 1}
-          <a class="crm-delete-inline crm-hover-button action-item" href="#" title="{ts}Delete Website{/ts}"><span class="icon delete-icon"></span></a>
-        {/if}
+        <a class="crm-delete-inline crm-hover-button action-item" href="#" title="{ts}Delete Website{/ts}"><span class="icon delete-icon"></span></a>
        </td>
     </tr>
     {/section}

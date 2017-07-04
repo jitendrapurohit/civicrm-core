@@ -52,9 +52,7 @@
         <td>{$form.im.$blockId.provider_id.html}</td>
         <td align="center" class="crm-im-is_primary">{$form.im.$blockId.is_primary.1.html}</td>
         <td>
-          {if $blockId gt 1}
-            <a class="crm-delete-inline crm-hover-button" href="#" title="{ts}Delete IM{/ts}"><span class="icon delete-icon"></span></a>
-          {/if}
+          <a class="crm-delete-inline crm-hover-button" href="#" title="{ts}Delete IM{/ts}"><span class="icon delete-icon"></span></a>
         </td>
     </tr>
     {/section}

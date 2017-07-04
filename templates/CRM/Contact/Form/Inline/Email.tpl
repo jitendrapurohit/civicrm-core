@@ -57,9 +57,7 @@
             {/if}
             <td align="center" class="crm-email-is_primary">{$form.email.$blockId.is_primary.1.html}</td>
             <td>
-              {if $blockId gt 1}
-                <a title="{ts}Delete Email{/ts}" class="crm-delete-inline crm-hover-button" href="#"><span class="icon delete-icon"></span></a>
-              {/if}
+              <a title="{ts}Delete Email{/ts}" class="crm-delete-inline crm-hover-button" href="#"><span class="icon delete-icon"></span></a>
             </td>
         </tr>
     {/section}

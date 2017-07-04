@@ -233,6 +233,14 @@
       .on('click', '.crm-delete-inline', function(e) {
         var row = $(this).closest('tr');
         var form = $(this).closest('form');
+        var block = form.attr('id').toLowerCase();
+        if (block) {
+          var isPrimary = row.find('td.crm-' + block + '-is_primary input').is(':checked');
+          if (isPrimary) {
+            CRM.alert("You cannot delete block selected as primary.", ts('Error'), 'error');
+            return;
+          }
+        }
         row.hide();
         $('input', row).val('');
         //if the primary is checked for deleted block

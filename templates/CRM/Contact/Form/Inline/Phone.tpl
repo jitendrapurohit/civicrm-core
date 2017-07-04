@@ -52,9 +52,7 @@
         <td>{$form.phone.$blockId.phone_type_id.html}</td>
         <td align="center" class="crm-phone-is_primary">{$form.phone.$blockId.is_primary.1.html}</td>
         <td>
-          {if $blockId gt 1}
-            <a class="crm-delete-inline crm-hover-button" href="#" title="{ts}Delete phone{/ts}"><span class="icon delete-icon"></span></a>
-          {/if}
+          <a class="crm-delete-inline crm-hover-button" href="#" title="{ts}Delete phone{/ts}"><span class="icon delete-icon"></span></a>
         </td>
     </tr>
     {/section}
