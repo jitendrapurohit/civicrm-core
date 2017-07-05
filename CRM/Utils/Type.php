@@ -257,7 +257,7 @@ class CRM_Utils_Type {
 
       case 'Float':
       case 'Money':
-        if (CRM_Utils_Rule::numeric($data)) {
+        if (CRM_Utils_Rule::money($data)) {
           return $data;
         }
         break;
