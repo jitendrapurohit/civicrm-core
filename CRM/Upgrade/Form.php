@@ -762,8 +762,7 @@ SET    version = '$version'
     Civi::service('settings_manager')->flush();
 
     // cleanup caches CRM-8739
-    $config = CRM_Core_Config::singleton();
-    $config->cleanupCaches(1);
+    CRM_Core_Invoke::rebuildMenuAndCaches(FALSE, TRUE);
 
     // Rebuild all triggers and re-enable logging if needed
     $logging = new CRM_Logging_Schema();
