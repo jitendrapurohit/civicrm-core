@@ -217,8 +217,13 @@ class CRM_Member_BAO_Query extends CRM_Core_BAO_Query {
         }
       case 'membership_status':
       case 'membership_status_id':
+        $dao = 'CRM_Member_DAO_MembershipStatus';
+
       case 'membership_type':
       case 'membership_type_id':
+        if (empty($dao)) {
+          $dao = 'CRM_Member_DAO_MembershipType';
+        }
         // CRM-17075 we are specifically handling the possibility we are dealing with the entity reference field
         // for membership_type_id here (although status would be handled if converted). The unhandled pathway at the moment
         // is from groupContactCache::load and this is a small fix to get the entity reference field to work.
@@ -227,6 +232,9 @@ class CRM_Member_BAO_Query extends CRM_Core_BAO_Query {
         // to get a contact list. But, better to deal with in 4.8 now...
         if (is_string($value) && strpos($value, ',') && $op == '=') {
           $value = array('IN' => explode(',', $value));
+        }
+        elseif (is_string($value) && !strpos($value, ',')) {
+          $value = CRM_Core_DAO::getFieldValue($dao, $value, 'id', 'name');
         }
       case 'membership_id':
       case 'member_id': // CRM-18523 Updated to membership_id but kept member_id case for backwards compatibility
