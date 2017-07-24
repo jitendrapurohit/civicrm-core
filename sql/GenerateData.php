@@ -1843,7 +1843,6 @@ order by cc.id; ";
     $select = 'SELECT contribution.id contribution_id, cli.id as line_item_id, contribution.contact_id, contribution.receive_date, contribution.total_amount, contribution.currency, cli.label,
       cli.financial_type_id,  cefa.financial_account_id, contribution.payment_instrument_id, contribution.check_number, contribution.trxn_id';
     $where = 'WHERE cefa.account_relationship = 1';
-    $financialAccountId = CRM_Financial_BAO_FinancialTypeAccount::getInstrumentFinancialAccount();
     foreach ($components as $component) {
       if ($component == 'contribution') {
         $from = 'FROM `civicrm_contribution` contribution';
@@ -1857,7 +1856,7 @@ order by cc.id; ";
         INNER JOIN civicrm_entity_financial_account cefa ON cefa.entity_id =  cli.financial_type_id ";
       $sql = " {$select} {$from} {$where} ";
       $result = CRM_Core_DAO::executeQuery($sql);
-      $this->addFinancialItem($result, $financialAccountId);
+      $this->addFinancialItem($result);
     }
   }
 
@@ -1865,9 +1864,11 @@ order by cc.id; ";
    * @param $result
    * @param null $financialAccountId
    */
-  private function addFinancialItem($result, $financialAccountId) {
+  private function addFinancialItem($result) {
     $defaultFinancialAccount = CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_financial_account WHERE is_default = 1");
     while ($result->fetch()) {
+      $financialAccountId = CRM_Financial_BAO_FinancialTypeAccount::getInstrumentFinancialAccount($result->payment_instrument_id);
+
       $trxnParams = array(
         'trxn_date' => CRM_Utils_Date::processDate($result->receive_date),
         'total_amount' => $result->total_amount,
