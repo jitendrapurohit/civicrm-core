@@ -4723,7 +4723,10 @@ civicrm_relationship.is_permission_a_b = 0
           list($selectColumn, $alias) = array_pad($aliasArray, 2, NULL);
           $dateRegex = '/^(DATE_FORMAT|DATE_ADD|CASE)/i';
           $tableName = current(explode('.', $selectColumn));
-          $primaryKey = "{$tableName}.id";
+          $primaryKey = NULL;
+          if (!substr($tableName, 0, 4) === "log_") {
+            $primaryKey = "{$tableName}.id";
+          }
           // exclude columns which are already included in groupBy and aggregate functions from select
           // CRM-18439 - Also exclude the columns which are functionally dependent on columns in $groupBy (MySQL 5.7+)
           if (!in_array($selectColumn, $groupBy) && !in_array($primaryKey, $groupBy) && preg_match($regexToExclude, trim($selectColumn)) !== 1) {

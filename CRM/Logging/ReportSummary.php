@@ -184,7 +184,13 @@ class CRM_Logging_ReportSummary extends CRM_Report_Form {
   }
 
   public function groupBy() {
-    $this->_groupBy = 'GROUP BY entity_log_civireport.log_conn_id, entity_log_civireport.log_user_id, EXTRACT(DAY_MICROSECOND FROM entity_log_civireport.log_date), entity_log_civireport.id';
+    $groupBy = array(
+      'entity_log_civireport.log_conn_id',
+      'entity_log_civireport.log_user_id',
+      'EXTRACT(DAY_MICROSECOND FROM entity_log_civireport.log_date)',
+      'entity_log_civireport.id'
+    );
+    $this->_groupBy = CRM_Contact_BAO_Query::getGroupByFromSelectColumns($this->_selectClauses, $groupBy);
   }
 
   /**
@@ -268,7 +274,7 @@ class CRM_Logging_ReportSummary extends CRM_Report_Form {
       ) {
         $this->currentLogTable = $entity;
         $sql = $this->buildQuery(FALSE);
-        $sql = str_replace("entity_log_civireport.log_type as", "'{$entity}' as", $sql);
+        $sql = str_replace(array("entity_log_civireport.log_type as", "entity_log_civireport.log_type"), array("'{$entity}' as", "'{$entity}'"), $sql);
         $sql = "INSERT IGNORE INTO civicrm_temp_civireport_logsummary {$sql}";
         CRM_Core_DAO::executeQuery($sql);
       }
