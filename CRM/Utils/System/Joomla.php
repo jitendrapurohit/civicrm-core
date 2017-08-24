@@ -342,6 +342,8 @@ class CRM_Utils_System_Joomla extends CRM_Utils_System_Base {
       }
       CRM_Utils_System::loadBootStrap($bootStrapParams, TRUE, TRUE, FALSE);
     }
+    //CRM-20904 Load all DAOs defined in hooks/extensions.
+    CRM_Core_DAO_AllCoreTables::reinitializeCache(TRUE);
 
     jimport('joomla.application.component.helper');
     jimport('joomla.database.table');

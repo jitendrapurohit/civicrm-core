@@ -401,7 +401,33 @@ class CRM_Upgrade_Incremental_php_FourSeven extends CRM_Upgrade_Incremental_Base
   public function upgrade_4_7_23($rev) {
     $this->addTask('CRM-20387 - Add invoice_number column to civicrm_contribution', 'addColumn',
       'civicrm_contribution', 'invoice_number', "varchar(255) COMMENT 'Human readable invoice number' DEFAULT NULL");
+    $this->addtask('Fix onbehalf setting in uf_join table', 'fixOnBehalfInUFJoin');
     $this->addTask(ts('Upgrade DB to %1: SQL', array(1 => $rev)), 'runSql', $rev);
+  }
+
+  /**
+   * Field is_for_organisation in module_data set as 0 should be
+   * inactive in uf_join table
+   */
+  public static function fixOnBehalfInUFJoin() {
+    $ufJoinParams = array(
+      'module' => 'on_behalf',
+      'entity_table' => 'civicrm_contribution_page',
+    );
+    $ufJoin = new CRM_Core_DAO_UFJoin();
+    $ufJoin->copyValues($ufJoinParams);
+    $ufJoin->find();
+    while ($ufJoin->fetch()) {
+      $moduleData = json_decode($ufJoin->module_data, TRUE);
+      //Disable is_active field if is_for_organization is set to 0 && $ufjoin row is still active.
+      if (!empty($moduleData['on_behalf']) && isset($moduleData['on_behalf']['is_for_organization']) &&
+        $moduleData['on_behalf']['is_for_organization'] == 0 && !empty($ufJoin->is_active)) {
+
+        $ufJoin->is_active = 0;
+        $ufJoin->save();
+      }
+    }
+    return TRUE;
   }
 
   /*
