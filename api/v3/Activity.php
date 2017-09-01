@@ -385,6 +385,11 @@ function _civicrm_api3_activity_get_extraFilters(&$params, &$sql) {
       $sql->where("a.id IN (SELECT activity_id FROM civicrm_activity_contact WHERE $typeClause !clause)",
         array('#typeId' => $activityContactValue, '!clause' => $clause)
       );
+      // skip case activities if CiviCase is not enabled
+      $enabledComponents = CRM_Activity_BAO_Activity::activityComponents();
+      if (isset($params['return']) && in_array('case_id', $params['return']) && !in_array('CiviCase', $enabledComponents)) {
+        $sql->where("a.id NOT IN (SELECT activity_id FROM civicrm_case_activity)");
+      }
     }
   }
 

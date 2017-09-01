@@ -732,6 +732,10 @@ class CRM_Activity_BAO_Activity extends CRM_Activity_DAO_Activity {
       else {
         $excludeActivityIDs[] = CRM_Utils_Type::escape($params['activity_type_exclude_id'], 'Positive');
       }
+      //Exclude activity_type_id directly from the query built in api call.
+      if (!empty($activityParams['activity_type_id'] && !empty($activityParams['activity_type_id']['IN']))) {
+        $activityParams['activity_type_id']['IN'] = array_diff($activityParams['activity_type_id']['IN'], $excludeActivityIDs);
+      }
     }
 
     if (!empty($params['rowCount']) &&
@@ -761,11 +765,11 @@ class CRM_Activity_BAO_Activity extends CRM_Activity_DAO_Activity {
       $activityParams['options']['sort'] = str_replace('activity_type ', 'activity_type_id.label ', $order);
     }
 
-    //TODO :
-    // 1. we should use Activity.Getcount for fetching count only, but  in order to check that
-    //    current logged in user has permission to view Case activities we are performing filtering out those activities from list (see below).
-    //    This logic need to be incorporated in Activity.get definition
-    $result = civicrm_api3('Activity', 'Get', $activityParams);
+    $action = $getCount ? 'getcount' : 'get';
+    $result = civicrm_api3('Activity', $action, $activityParams);
+    if ($getCount) {
+      return $result;
+    }
 
     $enabledComponents = self::activityComponents();
     $allCampaigns = CRM_Campaign_BAO_Campaign::getCampaigns(NULL, NULL, FALSE, FALSE, FALSE, TRUE);
@@ -793,20 +797,7 @@ class CRM_Activity_BAO_Activity extends CRM_Activity_DAO_Activity {
     );
 
     foreach ($result['values'] as $id => $activity) {
-      // skip case activities if CiviCase is not enabled OR those actvities which are
-      if ((!empty($activity['case_id']) && !in_array('CiviCase', $enabledComponents)) ||
-        (count($excludeActivityIDs) && in_array($activity['activity_type_id'], $excludeActivityIDs))
-      ) {
-        continue;
-      }
-
       $activities[$id] = array();
-
-      // if count is needed, no need to populate the array list with attributes
-      if ($getCount) {
-        continue;
-      }
-
       $isBulkActivity = (!$bulkActivityTypeID || ($bulkActivityTypeID != $activity['activity_type_id']));
       foreach ($mappingParams as $apiKey => $expectedName) {
         if (in_array($apiKey, array('assignee_contact_name', 'target_contact_name'))) {
@@ -853,7 +844,7 @@ class CRM_Activity_BAO_Activity extends CRM_Activity_DAO_Activity {
       $activities[$id]['is_recurring_activity'] = CRM_Core_BAO_RecurringEntity::getParentFor($id, 'civicrm_activity');
     }
 
-    return $getCount ? count($activities) : $activities;
+    return $activities;
   }
 
   /**
