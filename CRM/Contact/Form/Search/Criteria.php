@@ -166,6 +166,7 @@ class CRM_Contact_Form_Search_Criteria {
         FALSE,
         array('class' => 'crm-select2')
       );
+      $form->assign('componentModes', json_encode(CRM_Contact_Form_Search::getModeWithPaneNames()));
     }
 
     $form->addRadio(

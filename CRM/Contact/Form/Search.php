@@ -168,6 +168,23 @@ class CRM_Contact_Form_Search extends CRM_Core_Form_Search {
   }
 
   /**
+   * Used by js to load the pane selected in "Display Result As" input.
+   *
+   * @return array
+   */
+  public static function getModeWithPaneNames() {
+    return array(
+      CRM_Contact_BAO_Query::MODE_CONTRIBUTE => 'CiviContribute',
+      CRM_Contact_BAO_Query::MODE_EVENT => 'CiviEvent',
+      CRM_Contact_BAO_Query::MODE_ACTIVITY => 'activity',
+      CRM_Contact_BAO_Query::MODE_MEMBER => 'CiviMember',
+      CRM_Contact_BAO_Query::MODE_CASE => 'CiviCase',
+      CRM_Contact_BAO_Query::MODE_CONTACTSRELATED => 'Related Contacts',
+      CRM_Contact_BAO_Query::MODE_MAILING => 'CiviMail',
+    );
+  }
+
+  /**
    * Define the set of valid contexts that the search form operates on.
    *
    * @return array
