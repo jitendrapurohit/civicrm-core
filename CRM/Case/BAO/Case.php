@@ -871,6 +871,9 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
     if ($activeOnly) {
       $query .= ' AND rel.is_active = 1 AND (rel.end_date IS NULL OR rel.end_date > NOW())';
     }
+    else {
+      $query .= ' ORDER BY civicrm_relationship_id DESC';
+    }
 
     $params = array(
       1 => array($contactID, 'Positive'),
@@ -885,6 +888,9 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
 
     $values = array();
     while ($dao->fetch()) {
+      if (!$activeOnly && in_array($dao->relation_type, CRM_Utils_Array::collect('relation_type', $values))) {
+        continue;
+      }
       $rid = $dao->civicrm_relationship_id;
       $values[$rid]['cid'] = $dao->civicrm_contact_id;
       $values[$rid]['relation'] = $dao->relation;
