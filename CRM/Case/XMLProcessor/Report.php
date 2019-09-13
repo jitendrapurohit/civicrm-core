@@ -417,14 +417,17 @@ WHERE      a.id = %1
     $activityContacts = CRM_Activity_BAO_ActivityContact::buildOptions('record_type_id', 'validate');
     $sourceID = CRM_Utils_Array::key('Activity Source', $activityContacts);
     $source_contact_id = CRM_Activity_BAO_Activity::getActivityContact($activityDAO->id, $sourceID);
-    $reporter = CRM_Core_DAO::getFieldValue('CRM_Contact_DAO_Contact',
-      $source_contact_id,
-      'display_name'
-    );
+    $reporter = NULL;
+    if ($source_contact_id) {
+      $reporter = CRM_Core_DAO::getFieldValue('CRM_Contact_DAO_Contact',
+        $source_contact_id,
+        'display_name'
+      );
+    }
 
     // add Reporter SortName as well as Display to the strings to be redacted across the case session
     // suffixed with a randomly generated 4-digit number
-    if (!array_key_exists($reporter, $this->_redactionStringRules)) {
+    if (!empty($reporter) && !array_key_exists($reporter, $this->_redactionStringRules)) {
       $this->_redactionStringRules = CRM_Utils_Array::crmArrayMerge($this->_redactionStringRules,
         array($reporter => 'name_' . rand(10000, 100000))
       );

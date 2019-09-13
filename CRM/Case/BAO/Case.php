@@ -887,10 +887,10 @@ SELECT civicrm_case.id, case_status.label AS case_status, status_id, civicrm_cas
              FROM civicrm_case_activity cca
        INNER JOIN civicrm_activity ca
                ON ca.id = cca.activity_id
-       INNER JOIN civicrm_activity_contact cas
+       LEFT JOIN civicrm_activity_contact cas
                ON cas.activity_id = ca.id
               AND cas.record_type_id = {$sourceID}
-       INNER JOIN civicrm_contact scc
+       LEFT JOIN civicrm_contact scc
                ON scc.id = cas.contact_id
         LEFT JOIN civicrm_activity_contact caa
                ON caa.activity_id = ca.id
