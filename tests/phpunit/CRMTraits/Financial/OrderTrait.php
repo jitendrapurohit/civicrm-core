@@ -89,6 +89,48 @@ trait CRMTraits_Financial_OrderTrait {
   }
 
   /**
+   * Create an order for a contribution.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  protected function createContributionOrder() {
+    $orderID = $this->callAPISuccess('Order', 'create', [
+      'total_amount' => 100,
+      'financial_type_id' => 'Donation',
+      'contact_id' => $this->_contactID,
+      'is_test' => 0,
+      'payment_instrument_id' => 'Check',
+      'receive_date' => date('Y-m-d'),
+      'line_items' => [
+        [
+          'params' => [
+            'contact_id' => $this->_contactID,
+            'source' => 'Payment',
+          ],
+          'line_item' => [
+            [
+              'label' => 'Contribution Amount',
+              'qty' => 1,
+              'unit_price' => 100,
+              'line_total' => 100,
+              'financial_type_id' => CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'financial_type_id', 'Donation'),
+              'entity_table' => 'civicrm_contribution',
+              'price_field_id' => $this->callAPISuccessGetValue('price_field', [
+                'return' => 'id',
+                'label' => 'Contribution Amount',
+                'options' => ['limit' => 1, 'sort' => 'id DESC'],
+              ]),
+              'price_field_value_id' => NULL,
+            ],
+          ],
+        ],
+      ],
+    ])['id'];
+
+    $this->ids['Contribution'][0] = $orderID;
+  }
+
+  /**
    * Create an order with more than one membership.
    *
    * @throws \CRM_Core_Exception
