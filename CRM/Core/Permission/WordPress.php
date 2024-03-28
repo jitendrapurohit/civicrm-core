@@ -1,55 +1,40 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
  *
  */
 class CRM_Core_Permission_WordPress extends CRM_Core_Permission_Base {
+
   /**
-   * given a permission string, check for access requirements
+   * Given a permission string, check for access requirements
    *
-   * @param string $str the permission to check
+   * @param string $str
+   *   The permission to check.
+   * @param int $userId
    *
-   * @return boolean true if yes, else false
-   * @access public
+   * @return bool
+   *   true if yes, else false
    */
-  function check($str) {
-    // Generic cms 'administer users' role tranlates to 'administrator' WordPress role
-    $str = $this->translatePermission($str, 'WordPress', array(
-      'administer users' => 'administrator',
-    ));
+  public function check($str, $userId = NULL) {
+    // Generic cms 'administer users' role tranlates to users with the 'edit_users' capability' in WordPress
+    $str = $this->translatePermission($str, 'WordPress', [
+      'administer users' => 'edit_users',
+    ]);
     if ($str == CRM_Core_Permission::ALWAYS_DENY_PERMISSION) {
       return FALSE;
     }
@@ -57,47 +42,89 @@ class CRM_Core_Permission_WordPress extends CRM_Core_Permission_Base {
       return TRUE;
     }
 
+    // CRM-15629
+    // During some extern/* calls we don't bootstrap CMS hence
+    // below constants are not set. In such cases, we don't need to
+    // check permission, hence directly return TRUE
+    if (!defined('ABSPATH') || !defined('WPINC')) {
+      require_once 'CRM/Utils/System.php';
+      CRM_Utils_System::loadBootStrap();
+    }
+
+    require_once ABSPATH . WPINC . '/pluggable.php';
+
     // for administrators give them all permissions
     if (!function_exists('current_user_can')) {
       return TRUE;
     }
 
-    if (current_user_can('super admin') || current_user_can('administrator')) {
+    $user = $userId ? get_userdata($userId) : wp_get_current_user();
+
+    if ($userId !== 0 && ($user->has_cap('super admin') || $user->has_cap('administrator'))) {
       return TRUE;
     }
 
     // Make string lowercase and convert spaces into underscore
     $str = CRM_Utils_String::munge(strtolower($str));
 
-    if ( is_user_logged_in() ) {
+    if ($userId !== 0 && $user->exists()) {
       // Check whether the logged in user has the capabilitity
-      if (current_user_can($str)) {
+      if ($user->has_cap($str)) {
         return TRUE;
       }
     }
     else {
       //check the capabilities of Anonymous user)
       $roleObj = new WP_Roles();
-      if (
-        $roleObj->get_role('anonymous_user') != NULL &&
-        array_key_exists($str, $roleObj->get_role('anonymous_user')->capabilities)
-      ) {
+      $anonObj = $roleObj->get_role('anonymous_user');
+      if (!empty($anonObj->capabilities) && array_key_exists($str, $anonObj->capabilities)) {
         return TRUE;
       }
     }
     return FALSE;
   }
+
   /**
-   * {@inheritDoc}
+   * @inheritDoc
+   */
+  public function getAvailablePermissions() {
+    // We want to list *only* WordPress perms, so we'll *skip* Civi perms.
+    $mungedCorePerms = array_map(
+      function($str) {
+        return CRM_Utils_String::munge(strtolower($str));
+      },
+      array_keys(\CRM_Core_Permission::basicPermissions(TRUE))
+    );
+
+    // WP doesn't have an API to list all capabilities. However, we can discover a
+    // pretty good list by inspecting the (super)admin roles.
+    $wpCaps = [];
+    foreach (wp_roles()->roles as $wpRole) {
+      $wpCaps = array_unique(array_merge(array_keys($wpRole['capabilities']), $wpCaps));
+    }
+
+    $permissions = [];
+    foreach ($wpCaps as $wpCap) {
+      if (!in_array($wpCap, $mungedCorePerms)) {
+        $permissions["WordPress:$wpCap"] = [
+          'title' => "WordPress: $wpCap",
+        ];
+      }
+    }
+    return $permissions;
+  }
+
+  /**
+   * @inheritDoc
    */
   public function isModulePermissionSupported() {
     return TRUE;
   }
 
   /**
-   * {@inheritdoc}
+   * @inheritDoc
    */
-  function upgradePermissions($permissions) {
-    return;
+  public function upgradePermissions($permissions) {
   }
+
 }

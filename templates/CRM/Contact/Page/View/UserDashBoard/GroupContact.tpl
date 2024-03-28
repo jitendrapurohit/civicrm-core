@@ -1,38 +1,27 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
+{if !empty($userChecksum)}
+  {assign var=edit value='0'}
+{/if}
+{crmRegion name="crm-contact-userdashboard-groupcontact-pre"}
+{/crmRegion}
 <div id="groupContact">
     <div class="view-content">
-        {if $groupCount eq 0 }
+        {if $groupCount eq 0}
             <div class="messages status no-popup">
-                    <div class="icon inform-icon"></div>
+                    {icon icon="fa-info-circle"}{/icon}
                     {ts}You are not currently subscribed to any Groups.{/ts}
             </div>
         {/if}
 
-        {if $groupIn }
+        {if $groupIn}
             <div class="form-item">
                 <div>
                     {strip}
@@ -66,7 +55,7 @@
             {include file="CRM/Contact/Form/GroupContact.tpl"}
         {/if}
 
-        {if $groupPending }
+        {if $groupPending}
             <div class="form-item">
                 <div class="label status-pending">{ts}Pending Subscriptions{/ts}</div>
                 <div class="description">{ts}Your subscription to these group(s) is pending confirmation.{/ts}</div>
@@ -97,7 +86,7 @@
             </div>
         {/if}
 
-        {if $groupOut }
+        {if $groupOut}
             <div class="form-item">
                 <div class="label status-removed">{ts}Unsubscribed Groups{/ts}</div>
                 <div class="description">{ts}You are no longer subscribed to these group(s). Click Rejoin Group if you want to re-subscribe.{/ts}</div>
@@ -131,3 +120,5 @@
         {/if}
     </div>
 </div>
+{crmRegion name="crm-contact-userdashboard-groupcontact-post"}
+{/crmRegion}

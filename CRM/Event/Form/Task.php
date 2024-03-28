@@ -1,102 +1,71 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
+
+use Civi\Api4\Participant;
 
 /**
- * This class generates task actions for CiviEvent
- *
+ * Class for event form task actions.
+ * FIXME: This needs refactoring to properly inherit from CRM_Core_Form_Task and share more functions.
  */
-class CRM_Event_Form_Task extends CRM_Core_Form {
+class CRM_Event_Form_Task extends CRM_Core_Form_Task {
 
   /**
-   * the task being performed
-   *
-   * @var int
-   */
-  protected $_task;
-
-  /**
-   * The additional clause that we restrict the search with
-   *
-   * @var string
-   */
-  protected $_componentClause = NULL;
-
-  /**
-   * The array that holds all the component ids
-   *
-   * @var array
-   */
-  protected $_componentIds;
-
-  /**
-   * The array that holds all the participant ids
+   * The array that holds all the participant ids.
    *
    * @var array
    */
   protected $_participantIds;
 
   /**
-   * build all the data structures needed to build the form
+   * Rows to act on.
    *
-   * @param
+   * Each row will have a participant ID & a contact ID using
+   * the keys the token processor expects.
+   *
+   * @var array
+   */
+  protected $rows = [];
+
+  /**
+   * Build all the data structures needed to build the form.
    *
    * @return void
-   * @access public
    */
-  function preProcess() {
+  public function preProcess() {
     self::preProcessCommon($this);
   }
 
-  static function preProcessCommon(&$form, $useTable = FALSE) {
-    $form->_participantIds = array();
+  /**
+   * @param CRM_Core_Form_Task $form
+   */
+  public static function preProcessCommon(&$form) {
+    $form->_participantIds = [];
 
-    $values = $form->controller->exportValues($form->get('searchFormName'));
+    $values = $form->getSearchFormValues();
 
     $form->_task = $values['task'];
-    $eventTasks = CRM_Event_Task::tasks();
-    $form->assign('taskName', $eventTasks[$form->_task]);
-
-    $ids = array();
-    if ($values['radio_ts'] == 'ts_sel') {
-      foreach ($values as $name => $value) {
-        if (substr($name, 0, CRM_Core_Form::CB_PREFIX_LEN) == CRM_Core_Form::CB_PREFIX) {
-          $ids[] = substr($name, CRM_Core_Form::CB_PREFIX_LEN);
-        }
-      }
+    $tasks = CRM_Event_Task::permissionedTaskTitles(CRM_Core_Permission::getPermission());
+    if (!array_key_exists($form->_task, $tasks)) {
+      CRM_Core_Error::statusBounce(ts('You do not have permission to access this page.'));
     }
-    else {
+
+    $ids = $form->getSelectedIDs($values);
+
+    if (!$ids) {
       $queryParams = $form->get('queryParams');
       $sortOrder = NULL;
       if ($form->get(CRM_Utils_Sort::SORT_ORDER)) {
@@ -121,63 +90,99 @@ class CRM_Event_Form_Task extends CRM_Core_Form {
 
     $form->_participantIds = $form->_componentIds = $ids;
 
-    //set the context for redirection for any task actions
-    $session = CRM_Core_Session::singleton();
+    $form->setNextUrl('event');
+  }
 
-    $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $this);
-    $urlParams = 'force=1';
-    if (CRM_Utils_Rule::qfKey($qfKey)) {
-      $urlParams .= "&qfKey=$qfKey";
-    }
-
-    $searchFormName = strtolower($form->get('searchFormName'));
-    if ($searchFormName == 'search') {
-      $session->replaceUserContext(CRM_Utils_System::url('civicrm/event/search', $urlParams));
-    }
-    else {
-      $session->replaceUserContext(CRM_Utils_System::url("civicrm/contact/search/$searchFormName",
-          $urlParams
-        ));
-    }
+  /**
+   * Get the participant IDs.
+   *
+   * @return array
+   */
+  public function getIDs(): array {
+    return $this->_participantIds;
   }
 
   /**
    * Given the participant id, compute the contact id
    * since its used for things like send email
    */
-  public function setContactIDs() {
-    $this->_contactIds = &CRM_Core_DAO::getContactIDsFromComponent($this->_participantIds,
-      'civicrm_participant'
-    );
+  public function setContactIDs(): void {
+    $this->_contactIds = $this->getContactIDs();
   }
 
   /**
-   * simple shell that derived classes can call to add buttons to
+   * Get the relevant contact IDs.
+   *
+   * @return array
+   */
+  protected function getContactIDs(): array {
+    if (isset($this->_contactIds)) {
+      return $this->_contactIds;
+    }
+    foreach ($this->getRows() as $row) {
+      $this->_contactIds[] = $row['contact_id'];
+    }
+    return $this->_contactIds;
+  }
+
+  /**
+   * Simple shell that derived classes can call to add buttons to.
    * the form with a customized title for the main Submit
    *
-   * @param string $title title of the main button
+   * @param string $title
+   *   Title of the main button.
    * @param string $nextType
    * @param string $backType
    * @param bool $submitOnce
    *
-   * @internal param string $type button type for the form after processing
-   *
    * @return void
-   * @access public
    */
-  function addDefaultButtons($title, $nextType = 'next', $backType = 'back', $submitOnce = FALSE) {
-    $this->addButtons(array(
-        array(
-          'type' => $nextType,
-          'name' => $title,
-          'isDefault' => TRUE,
-        ),
-        array(
-          'type' => $backType,
-          'name' => ts('Cancel'),
-        ),
-      )
-    );
+  public function addDefaultButtons($title, $nextType = 'next', $backType = 'back', $submitOnce = FALSE) {
+    $this->addButtons([
+      [
+        'type' => $nextType,
+        'name' => $title,
+        'isDefault' => TRUE,
+      ],
+      [
+        'type' => $backType,
+        'name' => ts('Cancel'),
+      ],
+    ]);
   }
-}
 
+  /**
+   * Get the rows form the search, keyed to make the token processor happy.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  protected function getRows(): array {
+    if (empty($this->rows)) {
+      // checkPermissions set to false - in case form is bypassing in some way.
+      $participants = Participant::get(FALSE)
+        ->addWhere('id', 'IN', $this->getIDs())
+        ->setSelect(['id', 'contact_id'])->execute();
+      foreach ($participants as $participant) {
+        $this->rows[] = [
+          'contact_id' => $participant['contact_id'],
+          'participant_id' => $participant['id'],
+          'schema' => [
+            'contactId' => $participant['contact_id'],
+            'participantId' => $participant['id'],
+          ],
+        ];
+      }
+    }
+    return $this->rows;
+  }
+
+  /**
+   * Get the token processor schema required to list any tokens for this task.
+   *
+   * @return array
+   */
+  public function getTokenSchema(): array {
+    return ['participantId', 'contactId', 'eventId'];
+  }
+
+}

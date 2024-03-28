@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -39,11 +21,15 @@
  */
 class CRM_Admin_Form_MailSettings extends CRM_Admin_Form {
 
+  protected $_testButtonName;
+
   /**
-   * Function to build the form
-   *
-   * @return void
-   * @access public
+   * @var bool
+   */
+  public $submitOnce = TRUE;
+
+  /**
+   * Build the form object.
    */
   public function buildQuickForm() {
     parent::buildQuickForm();
@@ -51,6 +37,16 @@ class CRM_Admin_Form_MailSettings extends CRM_Admin_Form {
     if ($this->_action & CRM_Core_Action::DELETE) {
       return;
     }
+
+    $this->_testButtonName = $this->getButtonName('upload', 'test');
+    $buttons = $this->getElement('buttons')->getElements();
+    $buttons[] = $this->createElement(
+      'xbutton',
+      $this->_testButtonName,
+      CRM_Core_Page::crmIcon('fa-chain') . ' ' . ts('Save & Test'),
+      ['type' => 'submit', 'class' => 'crm-button']
+    );
+    $this->getElement('buttons')->setElements($buttons);
 
     $this->applyFilter('__ALL__', 'trim');
 
@@ -70,64 +66,108 @@ class CRM_Admin_Form_MailSettings extends CRM_Admin_Form {
 
     $this->add('select', 'protocol',
       ts('Protocol'),
-      array('' => ts('- select -')) + CRM_Core_PseudoConstant::get('CRM_Core_DAO_MailSettings', 'protocol'),
+      ['' => ts('- select -')] + CRM_Core_PseudoConstant::get('CRM_Core_DAO_MailSettings', 'protocol'),
       TRUE
     );
 
     $this->add('text', 'server', ts('Server'), $attributes['server']);
 
-    $this->add('text', 'username', ts('Username'), array('autocomplete' => 'off'));
+    $this->add('text', 'username', ts('Username'), ['autocomplete' => 'off']);
 
-    $this->add('password', 'password', ts('Password'), array('autocomplete' => 'off'));
+    $this->add('password', 'password', ts('Password'), ['autocomplete' => 'off']);
 
-    $this->add('text', 'source', ts('Source'), $attributes['source']);
+    $this->add('text', 'source', ts('Mail Folder'), $attributes['source']);
 
     $this->add('checkbox', 'is_ssl', ts('Use SSL?'));
 
-    $usedfor = array(1 => ts('Bounce Processing'),
+    $usedfor = [
+      1 => ts('Bounce Processing'),
       0 => ts('Email-to-Activity Processing'),
-    );
+    ];
     $this->add('select', 'is_default', ts('Used For?'), $usedfor);
+
+    $activityTypes =
+      [CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_type_id', 'Inbound Email') => 'Inbound Email']
+      + [CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_type_id', 'Email') => 'Email']
+      + CRM_Core_PseudoConstant::ActivityType(FALSE);
+    $this->add('select', 'activity_type_id', ts('Activity Type'),
+      $activityTypes,
+      TRUE,
+      ['class' => 'crm-select2 required']
+    );
+    $this->addField('activity_status', ['placeholder' => FALSE]);
+    CRM_Campaign_BAO_Campaign::addCampaign($this);
+
+    $this->add('checkbox', 'is_non_case_email_skipped', ts('Skip emails which do not have a Case ID or Case hash'));
+    $this->add('checkbox', 'is_contact_creation_disabled_if_no_match', ts('Do not create new contacts when filing emails'));
+
+    $emailRecipients = ['from' => 'From', 'to' => 'To', 'cc' => 'CC', 'bcc' => 'BCC'];
+    $this->add('select', 'activity_source', ts('Activity Source'), $emailRecipients, TRUE, ['class' => 'crm-select2 required']);
+    $this->add('select', 'activity_targets', ts('Activity Targets'), $emailRecipients, FALSE, ['class' => 'crm-select2', 'multiple' => TRUE]);
+    $this->add('select', 'activity_assignees', ts('Activity Assignees'), $emailRecipients, FALSE, ['class' => 'crm-select2', 'multiple' => TRUE]);
+
+    $this->add('checkbox', 'is_active', ts('Enabled'));
   }
 
   /**
-   * Add local and global form rules
-   *
-   * @access protected
-   *
-   * @return void
+   * Add local and global form rules.
    */
-  function addRules() {
-    $this->addFormRule(array('CRM_Admin_Form_MailSettings', 'formRule'));
+  public function addRules() {
+    $this->addFormRule(['CRM_Admin_Form_MailSettings', 'formRule'], $this);
+  }
+
+  public function getDefaultEntity() {
+    return 'MailSettings';
   }
 
   /**
-   * global validation rules for the form
-   *
-   * @param array $fields posted values of the form
-   *
-   * @return array list of errors to be posted back to the form
-   * @static
-   * @access public
+   * Add local and global form rules.
    */
-  static function formRule($fields) {
-    $errors = array();
-    // Check for default from email address and organization (domain) name. Force them to change it.
-    if ($fields['domain'] == 'EXAMPLE.ORG') {
-      $errors['domain'] = ts('Please enter a valid domain for this mailbox account (the part after @).');
+  public function setDefaultValues() {
+    $defaults = parent::setDefaultValues();
+
+    $defaults['is_ssl'] ??= TRUE;
+    $defaults['is_default'] ??= 0;
+    $defaults['activity_type_id'] = $defaults['activity_type_id'] ??
+      CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_type_id', 'Inbound Email');
+    $defaults['activity_status'] ??= 'Completed';
+    $defaults['activity_source'] ??= 'from';
+    $defaults['activity_targets'] ??= 'to,cc,bcc';
+    $defaults['activity_assignees'] ??= 'from';
+    $defaults['is_active'] ??= TRUE;
+
+    return $defaults;
+  }
+
+  /**
+   * Global validation rules for the form.
+   *
+   * @param array $fields
+   *   Posted values of the form.
+   * @param array $files
+   *   Not used here.
+   * @param CRM_Core_Form $form
+   *   This form.
+   *
+   * @return array
+   *   list of errors to be posted back to the form
+   */
+  public static function formRule($fields, $files, $form) {
+    $errors = [];
+    if ($form->_action != CRM_Core_Action::DELETE) {
+      // Check for default from email address and organization (domain) name. Force them to change it.
+      if ($fields['domain'] == 'EXAMPLE.ORG') {
+        $errors['domain'] = ts('Please enter a valid domain for this mailbox account (the part after @).');
+      }
     }
 
     return empty($errors) ? TRUE : $errors;
   }
 
   /**
-   * Function to process the form
-   *
-   * @access public
-   *
-   * @return void
+   * Process the form submission.
    */
-  function postProcess() {
+  public function postProcess() {
     if ($this->_action & CRM_Core_Action::DELETE) {
       CRM_Core_BAO_MailSettings::deleteMailSettings($this->_id);
       CRM_Core_Session::setStatus("", ts('Mail Setting Deleted.'), "success");
@@ -138,7 +178,7 @@ class CRM_Admin_Form_MailSettings extends CRM_Admin_Form {
     $formValues = $this->controller->exportValues($this->_name);
 
     //form fields.
-    $fields = array(
+    $fields = [
       'name',
       'domain',
       'localpart',
@@ -151,23 +191,37 @@ class CRM_Admin_Form_MailSettings extends CRM_Admin_Form {
       'source',
       'is_ssl',
       'is_default',
-    );
+      'activity_status',
+      'is_non_case_email_skipped',
+      'is_contact_creation_disabled_if_no_match',
+      'activity_type_id',
+      'campaign_id',
+      'activity_source',
+      'activity_targets',
+      'activity_assignees',
+      'is_active',
+    ];
 
-    $params = array();
+    $params = [];
     foreach ($fields as $f) {
-      if (in_array($f, array(
-        'is_default', 'is_ssl'))) {
-        $params[$f] = CRM_Utils_Array::value($f, $formValues, FALSE);
+      if (in_array($f, [
+        'is_default',
+        'is_ssl',
+        'is_non_case_email_skipped',
+        'is_contact_creation_disabled_if_no_match',
+        'is_active',
+      ])) {
+        $params[$f] = $formValues[$f] ?? FALSE;
       }
       else {
-        $params[$f] = CRM_Utils_Array::value($f, $formValues);
+        $params[$f] = $formValues[$f] ?? NULL;
       }
     }
 
     $params['domain_id'] = CRM_Core_Config::domainID();
 
     // assign id only in update mode
-    $status = ts('Your New  Email Settings have been saved.');
+    $status = ts('Your New Email Settings have been saved.');
     if ($this->_action & CRM_Core_Action::UPDATE) {
       $params['id'] = $this->_id;
       $status = ts('Your Email Settings have been updated.');
@@ -181,6 +235,14 @@ class CRM_Admin_Form_MailSettings extends CRM_Admin_Form {
     else {
       CRM_Core_Session::setStatus("", ts('Changes Not Saved.'), "info");
     }
-  }
-}
 
+    if ($this->controller->getButtonName() == $this->_testButtonName) {
+      $test = civicrm_api4('MailSettings', 'testConnection', [
+        'where' => [['id', '=', $mailSettings->id]],
+      ])->single();
+      CRM_Core_Session::setStatus($test['details'], $test['title'],
+        $test['error'] ? 'error' : 'success');
+    }
+  }
+
+}

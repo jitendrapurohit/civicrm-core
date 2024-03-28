@@ -1,46 +1,34 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
-<div id="help">
-    {ts}This screen presents the list of most recent 1,000 scheduled jobs log entries.{/ts} {$docLink}
+<div class="help">
+    {ts}This screen presents the list of most recent 1,000 scheduled jobs log entries.{/ts} {if !empty($docLink)}{$docLink}{/if}
 </div>
+
+<div class="crm-content-block crm-block">
 
 {if $jobId}
-    <h1>{ts}List of log entries for:{/ts} {$jobName}</h1>
+    <h3>{ts}List of log entries for:{/ts} {$jobName}</h3>
 {/if}
 
-<div class="action-link">
-  <a href="{crmURL p='civicrm/admin/job' q="reset=1"}" id="jobsList-top" class="button"><span><div class="icon back-icon"></div>{ts}Back to Scheduled Jobs Listing{/ts}</span></a>
-</div>
+  <div class="action-link">
+    <a href="{crmURL p='civicrm/admin/job' q="reset=1"}" id="jobsList-top" class="button"><span><i class="crm-i fa-chevron-left" aria-hidden="true"></i> {ts}Back to Scheduled Jobs Listing{/ts}</span></a>
+    {if $jobRunUrl}
+      <a href="{$jobRunUrl}" id="jobsList-run-top" class="button"><span><i class="crm-i fa-play" aria-hidden="true"></i> {ts}Execute Now{/ts}</span></a>
+    {/if}
+  </div>
 
-{if $rows}
-<div id="ltype">
+{if !empty($rows)}
+  <div id="ltype">
         {strip}
         {* handle enable/disable actions*}
    {include file="CRM/common/enableDisableApi.tpl"}
-   {include file="CRM/common/crmeditable.tpl"}
         <table class="selector row-highlight">
         <tr class="columnheader">
             <th >{ts}Date{/ts}</th>
@@ -48,23 +36,23 @@
             <th >{ts}Command{/ts}/{ts}Job Status{/ts}/{ts}Additional Information{/ts}</th>
         </tr>
         {foreach from=$rows item=row}
-        <tr id="job-{$row.id}" class="crm-entity {cycle values="odd-row,even-row"} {$row.class}">
+        <tr id="job-{$row.id}" class="crm-entity {cycle values="odd-row,even-row"}{if !empty($row.class)} {$row.class}{/if}">
             <td class="crm-joblog-run_datetime">{$row.run_time}</td>
             <td class="crm-joblog-name">{$row.name}</td>
             <td class="crm-joblog-details">
                 <div class="crm-joblog-command">{$row.command}</div>
-                {if $row.description}<div class="crm-joblog-description"><span class="bold">Summary</span><br/>{$row.description}</div>{/if}
-              {if $row.data}<div class="crm-joblog-data" style="border-top:1px solid #ccc; margin-top: 10px;"><span class="bold">Details</span><br/><pre>{$row.data}</pre></div>{/if}
+                {if $row.description}<div class="crm-joblog-description"><span class="bold">{ts}Summary{/ts}</span><br/>{$row.description}</div>{/if}
+                {if $row.data}<div class="crm-joblog-data" style="border-top:1px solid #ccc; margin-top: 10px;"><span class="bold">{ts}Details{/ts}</span><br/><pre>{$row.data}</pre></div>{/if}
             </td>
         </tr>
         {/foreach}
         </table>
         {/strip}
 
-</div>
+  </div>
 {elseif $action ne 1}
     <div class="messages status no-popup">
-      <div class="icon inform-icon"></div>&nbsp;
+      {icon icon="fa-info-circle"}{/icon}
       {if $jobId}
         {ts}This scheduled job does not have any log entries.{/ts}
       {else}
@@ -73,6 +61,10 @@
      </div>
 {/if}
 
-<div class="action-link">
-  <a href="{crmURL p='civicrm/admin/job' q="reset=1"}" id="jobsList-bottom" class="button"><span><div class="icon back-icon"></div>{ts}Back to Scheduled Jobs Listing{/ts}</span></a>
+  <div class="action-link">
+    <a href="{crmURL p='civicrm/admin/job' q="reset=1"}" id="jobsList-bottom" class="button"><span><i class="crm-i fa-chevron-left" aria-hidden="true"></i> {ts}Back to Scheduled Jobs Listing{/ts}</span></a>
+    {if $jobRunUrl}
+      <a href="{$jobRunUrl}" id="jobsList-run-bottom" class="button"><span><i class="crm-i fa-play" aria-hidden="true"></i> {ts}Execute Now{/ts}</span></a>
+    {/if}
+  </div>
 </div>

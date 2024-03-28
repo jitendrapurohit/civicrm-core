@@ -1,39 +1,51 @@
 <?php
 
-require_once 'CiviTest/CiviUnitTestCase.php';
-
+/**
+ * Class CRM_Utils_GlobalStackTest
+ * @group headless
+ */
 class CRM_Utils_GlobalStackTest extends CiviUnitTestCase {
 
-  public function testPushPop() {
-    global $FOO, $EXTRA;
+  public function setUp(): void {
+    parent::setUp();
+    $this->useTransaction();
+  }
 
-    $FOO['bar'] = 1;
-    $FOO['whiz'] = 1;
-    $EXTRA = 1;
+  /**
+   * Temporarily override global variables and ensure that the variable data.
+   * is set as expected (before/during/after the override).
+   */
+  public function testPushPop(): void {
+    global $_FOO, $_EXTRA;
 
-    $this->assertEquals(1, $FOO['bar']);
-    $this->assertEquals(1, $FOO['whiz']);
-    $this->assertFalse(isset($FOO['bang']));
-    $this->assertEquals(1, $EXTRA);
+    $_FOO['bar'] = 1;
+    $_FOO['whiz'] = 1;
+    $_EXTRA = 1;
 
-    CRM_Utils_GlobalStack::singleton()->push(array(
-      'FOO' => array(
+    $this->assertEquals(1, $_FOO['bar']);
+    $this->assertEquals(1, $_FOO['whiz']);
+    $this->assertFalse(isset($_FOO['bang']));
+    $this->assertEquals(1, $_EXTRA);
+
+    CRM_Utils_GlobalStack::singleton()->push([
+      '_FOO' => [
         'bar' => 2,
         'bang' => 2,
-      ),
-      'EXTRA' => 2,
-    ));
+      ],
+      '_EXTRA' => 2,
+    ]);
 
-    $this->assertEquals(2, $FOO['bar']);
-    $this->assertEquals(1, $FOO['whiz']);
-    $this->assertEquals(2, $FOO['bang']);
-    $this->assertEquals(2, $EXTRA);
+    $this->assertEquals(2, $_FOO['bar']);
+    $this->assertEquals(1, $_FOO['whiz']);
+    $this->assertEquals(2, $_FOO['bang']);
+    $this->assertEquals(2, $_EXTRA);
 
     CRM_Utils_GlobalStack::singleton()->pop();
 
-    $this->assertEquals(1, $FOO['bar']);
-    $this->assertEquals(1, $FOO['whiz']);
-    $this->assertEquals(NULL, $FOO['bang']);
-    $this->assertEquals(1, $EXTRA);
+    $this->assertEquals(1, $_FOO['bar']);
+    $this->assertEquals(1, $_FOO['whiz']);
+    $this->assertEquals(NULL, $_FOO['bang']);
+    $this->assertEquals(1, $_EXTRA);
   }
+
 }

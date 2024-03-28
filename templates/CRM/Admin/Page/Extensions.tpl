@@ -1,46 +1,30 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 
 {if $action eq 1 or $action eq 2 or $action eq 8 or $action eq 32 or $action eq 64}
     {include file="CRM/Admin/Form/Extensions.tpl"}
 {else}
+  <div class="crm-content-block crm-block">
     {if $action ne 1 and $action ne 2}
         {include file="CRM/Admin/Page/Extensions/Refresh.tpl"}
     {/if}
 
     {if $extDbUpgrades}
       <div class="messages warning">
-        <p>{ts 1=$extDbUpgradeUrl}Your extensions require database updates. Please <a href="%1">execute the updates</a>.{/ts}
+        <p>{ts 1=$extDbUpgradeUrl}Your extensions require database updates. Please <a href="%1">execute the updates</a>.{/ts}</p>
       </div>
     {/if}
 
     {include file="CRM/Admin/Page/Extensions/About.tpl"}
 
     {include file="CRM/common/enableDisableApi.tpl"}
-    {include file="CRM/common/crmeditable.tpl"}
     {include file="CRM/common/jsortable.tpl"}
 
     <div id="mainTabContainer" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
@@ -80,47 +64,15 @@
     {if $action ne 1 and $action ne 2}
         {include file="CRM/Admin/Page/Extensions/Refresh.tpl"}
     {/if}
+  </div>
 
-    {* Expand/Collapse *}
-    {literal}
-    <script type="text/javascript">
-      CRM.$(function($) {
-          cj('.collapsed').click( function( ) {
-              var currentObj = cj( this );
-              if ( currentObj.hasClass( 'expanded') ) {
-                  currentObj.removeClass( 'expanded' );
-                  currentObj.parent( ).parent( ).next( ).hide( );
-              } else {
-                  currentObj.addClass( 'expanded' );
-                  currentObj.parent( ).parent( ).next( ).show( );
-              }
-
-              return false;
-          });
-      });
-    </script>
-    {/literal}
-
-    {* Tab management *}
-    <script type="text/javascript">
-    var selectedTab  = 'summary';
-    {if $selectedChild}selectedTab = "{$selectedChild}";{/if}
-
-    {literal}
-
-    CRM.$(function($) {
-      var tabIndex = cj('#tab_' + selectedTab).prevAll().length;
-      cj("#mainTabContainer").tabs({active: tabIndex});
-      cj(".crm-tab-button").addClass("ui-corner-bottom");
-    });
-    {/literal}
-    </script>
+    {include file="CRM/common/TabHeader.tpl" defaultTab="summary"}
 
     {* Refresh buttons *}
     {literal}
     <script type="text/javascript">
     CRM.$(function($) {
-      cj('.crm-extensions-refresh').click(function(event){
+      $('.crm-extensions-refresh').click(function(event){
         event.stopPropagation();
         CRM.alert('', '{/literal}{ts escape="js"}Refreshing...{/ts}{literal}', 'crm-msg-loading', {expires: 0});
         CRM.api('Extension', 'refresh', {}, {

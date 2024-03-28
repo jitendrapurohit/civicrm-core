@@ -1,181 +1,293 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
+use Civi\Api4\Contribution;
+use Civi\Api4\EntityFinancialAccount;
 
-
-require_once 'CiviTest/CiviUnitTestCase.php';
-require_once 'CiviTest/Contact.php';
-require_once 'CiviTest/Event.php';
-require_once 'CiviTest/Participant.php';
+/**
+ * Class CRM_Event_BAO_AdditionalPaymentTest
+ *
+ * @group headless
+ */
 class CRM_Event_BAO_AdditionalPaymentTest extends CiviUnitTestCase {
-  function get_info() {
-    return array(
-      'name' => 'Additional Payment BAOs test',
-      'description' => 'BAOs testing done for addtional payment logic check',
-      'group' => 'CiviCRM BAO Tests',
-    );
-  }
 
-  function setUp() {
+  /**
+   * Contact ID.
+   *
+   * @var int
+   */
+  protected $contactID;
+
+  /**
+   * Event ID.
+   *
+   * @var int
+   */
+  protected $eventID;
+
+  /**
+   * Set up.
+   */
+  public function setUp(): void {
     parent::setUp();
-    $this->_contactId = Contact::createIndividual();
-    $this->_eventId = Event::create($this->_contactId);
+    $this->contactID = $this->individualCreate();
+    $event = $this->eventCreatePaid();
+    $this->eventID = $event['id'];
   }
 
-  function tearDown() {
-    $this->eventDelete($this->_eventId);
-    $this->quickCleanup(
-      array(
-        'civicrm_contact',
-        'civicrm_contribution',
-        'civicrm_participant',
-        'civicrm_participant_payment',
-        'civicrm_line_item',
-        'civicrm_financial_item',
-        'civicrm_financial_trxn',
-        'civicrm_entity_financial_trxn',
-      ),
-      TRUE
-    );
+  /**
+   * Cleanup after test.
+   */
+  public function tearDown(): void {
+    $this->quickCleanUpFinancialEntities();
+    parent::tearDown();
   }
 
-  // helper function to record participant with paid contribution
-  function _addParticipantWithPayment($feeTotal, $actualPaidAmt) {
-    // creating price set, price field
-    $paramsSet['title'] = 'Price Set';
-    $paramsSet['name'] = CRM_Utils_String::titleToVar('Price Set');
-    $paramsSet['is_active'] = FALSE;
-    $paramsSet['extends'] = 1;
-
-    $priceset = CRM_Price_BAO_PriceSet::create($paramsSet);
-    CRM_Price_BAO_PriceSet::addTo('civicrm_event', $this->_eventId, $priceset->id);
-    $priceSetId = $priceset->id;
-
-    //Checking for priceset added in the table.
-    $this->assertDBCompareValue('CRM_Price_BAO_PriceSet', $priceSetId, 'title',
-      'id', $paramsSet['title'], 'Check DB for created priceset'
-    );
-    $paramsField = array(
-      'label' => 'Price Field',
-      'name' => CRM_Utils_String::titleToVar('Price Field'),
-      'html_type' => 'Text',
-      'price' => $feeTotal,
-      'option_label' => array('1' => 'Price Field'),
-      'option_value' => array('1' => $feeTotal),
-      'option_name' => array('1' => $feeTotal),
-      'option_weight' => array('1' => 1),
-      'option_amount' => array('1' => 1),
-      'is_display_amounts' => 1,
-      'weight' => 1,
-      'options_per_line' => 1,
-      'is_active' => array('1' => 1),
-      'price_set_id' => $priceset->id,
-      'is_enter_qty' => 1,
-    );
-
-    $ids = array();
-    $pricefield = CRM_Price_BAO_PriceField::create($paramsField, $ids);
-
-    //Checking for priceset added in the table.
-    $this->assertDBCompareValue('CRM_Price_BAO_PriceField', $pricefield->id, 'label',
-      'id', $paramsField['label'], 'Check DB for created pricefield'
-    );
-
-    // create participant record
-    $eventId = $this->_eventId;
-    $participantParams = array(
-      'send_receipt' => 1,
-      'is_test' => 0,
-      'is_pay_later' => 0,
-      'event_id' => $eventId,
-      'register_date' => date('Y-m-d') . " 00:00:00",
-      'role_id' => 1,
-      'status_id' => 14,
-      'source' => 'Event_' . $eventId,
-      'contact_id' => $this->_contactId,
-      'note' => 'Note added for Event_' . $eventId,
-      'fee_level' => 'Price_Field - 55',
-    );
-    $participant = $this->callAPISuccess('participant', 'create', $participantParams);
-    $this->callAPISuccessGetSingle('participant', array('id' => $participant['id']));
-    // create participant contribution with partial payment
-    $contributionParams = array(
-      'total_amount' => $actualPaidAmt,
-      'source' => 'Fall Fundraiser Dinner: Offline registration',
-      'currency' => 'USD',
-      'non_deductible_amount' => 'null',
-      'receipt_date' => date('Y-m-d') . " 00:00:00",
-      'contact_id' => $this->_contactId,
-      'financial_type_id' => 4,
-      'payment_instrument_id' => 4,
-      'contribution_status_id' => 1,
-      'receive_date' => date('Y-m-d') . " 00:00:00",
-      'skipLineItem' => 1,
-      'partial_payment_total' => $feeTotal,
-      'partial_amount_pay' => $actualPaidAmt
-    );
-
-    $contribution = CRM_Contribute_BAO_Contribution::create($contributionParams);
-    $contributionId = $contribution->id;
-    $participant = $this->callAPISuccessGetSingle('participant', array('id' => $participant['id']));
-
-    // add participant payment entry
-    $this->callAPISuccess('participant_payment', 'create', array('participant_id' => $participant['id'], 'contribution_id' => $contributionId));
-
+  /**
+   * Helper function to record participant with paid contribution.
+   *
+   * @param float $actualPaidAmt
+   * @param array $participantParams
+   * @param array $contributionParams
+   *
+   * @return array
+   */
+  protected function addParticipantWithPayment(float $actualPaidAmt, array $participantParams = [], array $contributionParams = []): array {
     // -- processing priceSet using the BAO
-    $lineItem = array();
-    $priceSet = CRM_Price_BAO_PriceSet::getSetDetail($priceSetId, TRUE, FALSE);
-    $priceSet = CRM_Utils_Array::value($priceSetId, $priceSet);
-    $feeBlock = CRM_Utils_Array::value('fields', $priceSet);
-    $params['price_2'] = $feeTotal;
-    CRM_Price_BAO_PriceSet::processAmount($feeBlock,
-      $params, $lineItem
+    $lineItems = [];
+
+    $participantParams = array_merge(
+      [
+        'send_receipt' => 1,
+        'is_test' => 0,
+        'is_pay_later' => 0,
+        'event_id' => $this->eventID,
+        'register_date' => date('Y-m-d') . ' 00:00:00',
+        'role_id' => 1,
+        'status_id' => 14,
+        'source' => 'Event_' . $this->eventID,
+        'contact_id' => $this->contactID,
+        'note' => 'Note added for Event_' . $this->eventID,
+        'fee_level' => 'Price_Field - 55',
+      ],
+      $participantParams
     );
-    $lineItemVal[$priceSetId] = $lineItem;
-    CRM_Price_BAO_LineItem::processPriceSet($participant['id'], $lineItemVal, $contribution, 'civicrm_participant');
-    return array($participant, $contribution);
+
+    // create participant contribution with partial payment
+    $contributionParams = array_merge(
+      [
+        'source' => 'Fall Fundraiser Dinner: Offline registration',
+        'currency' => 'USD',
+        'receipt_date' => 'today',
+        'contact_id' => $this->contactID,
+        'financial_type_id' => 4,
+        'payment_instrument_id' => 4,
+        'contribution_status_id' => 'Pending',
+        'receive_date' => 'today',
+        'api.Payment.create' => ['total_amount' => $actualPaidAmt],
+        'line_items' => [
+          [
+            'line_item' => [
+              [
+                'entity_table' => 'civicrm_participant',
+                'price_field_value_id' => $this->ids['PriceFieldValue']['PaidEvent_student'],
+              ],
+            ],
+            'params' => $participantParams,
+          ],
+        ],
+      ],
+      $contributionParams
+    );
+
+    $contribution = $this->callAPISuccess('Order', 'create', $contributionParams);
+    $this->ids['Contribution']['PaidEvent'] = $contribution['id'];
+    $participant = $this->callAPISuccessGetSingle('Participant', []);
+    $this->callAPISuccessGetSingle('ParticipantPayment', ['contribution_id' => $contribution['id'], 'participant_id' => $participant['id']]);
+
+    // Check it is correct.
+    try {
+      $contribution = Contribution::get(FALSE)
+        ->addWhere('id', '=', $contribution['id'])
+        ->addSelect('paid_amount', 'total_amount', 'balance_amount', 'contribution_status_id:label')
+        ->execute()
+        ->first();
+
+      $this->assertEquals(100, $contribution['total_amount']);
+      $this->assertEquals($actualPaidAmt, $contribution['paid_amount'], 'Amount paid is not correct');
+      $this->assertEquals(100 - $actualPaidAmt, $contribution['balance_amount'], 'Balance is not correct');
+      if ($actualPaidAmt > 0) {
+        $this->assertEquals('Partially paid', $contribution['contribution_status_id:label'], 'Contribution status is not correct');
+      }
+      else {
+        $this->assertEquals('Pending Label**', $contribution['contribution_status_id:label'], 'Contribution status is not correct');
+      }
+    }
+    catch (CRM_Core_Exception $e) {
+      $this->fail('Failed to retrieve contribution ' . $e->getMessage());
+    }
+    return [
+      'participant' => $participant,
+      'contribution' => $this->callAPISuccessGetSingle('Contribution', ['id' => $contribution['id']]),
+    ];
   }
 
-  // CRM-13964
-  function testAddPartialPayment() {
-    $feeAmt = 100;
-    $amtPaid = 60;
-    $balance = $feeAmt - $amtPaid;
-    list($participant, $contribution) = $this->_addParticipantWithPayment($feeAmt, $amtPaid);
-    $paymentInfo = CRM_Contribute_BAO_Contribution::getPaymentInfo($participant['id'], 'event');
+  /**
+   * See https://lab.civicrm.org/dev/core/issues/153
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testPaymentWithCustomPaymentInstrument(): void {
+    // Create undetermined Payment Instrument
+    $paymentInstrumentID = $this->createPaymentInstrument(['label' => 'Undetermined'], 'Accounts Receivable');
 
-    // amount checking
-    $this->assertEquals(round($paymentInfo['total']), $feeAmt, 'Total amount recorded is not proper');
-    $this->assertEquals(round($paymentInfo['paid']), $amtPaid, 'Amount paid is not proper');
-    $this->assertEquals(round($paymentInfo['balance']), $balance, 'Balance amount is not proper');
+    // record pending payment for an event
+    $result = $this->addParticipantWithPayment(
+      0,
+      ['is_pay_later' => 1],
+      [
+        'total_amount' => 100,
+        'payment_instrument_id' => $paymentInstrumentID,
+        'contribution_status_id' => CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Pending'),
+      ]
+    );
+    $contributionID = $this->ids['Contribution']['PaidEvent'];
 
-    // status checking
-    $this->assertEquals($participant['participant_status_id'], 14, 'Status record is not proper for participant');
-    $this->assertEquals($contribution->contribution_status_id, 8, 'Status record is not proper for contribution');
+    $_REQUEST['id'] = $contributionID;
+    // make additional payment via 'Record Payment' form
+    $form = $this->getFormObject('CRM_Contribute_Form_AdditionalPayment', [
+      'contact_id' => $result['contribution']['contact_id'],
+      'contribution_id' => $contributionID,
+      'total_amount' => 100,
+      'currency' => 'USD',
+      'trxn_date' => '2017-04-11 13:05:11',
+      'payment_processor_id' => 0,
+      'payment_instrument_id' => CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'payment_instrument_id', 'Check'),
+      'check_number' => '#123',
+    ]);
+    $form->preProcess();
+    $form->buildForm();
+    $form->postProcess();
+
+    $contribution = Contribution::get(FALSE)
+      ->addWhere('id', '=', $contributionID)
+      ->addSelect('paid_amount', 'total_amount', 'balance_amount', 'contribution_status_id:label')
+      ->execute()
+      ->first();
+
+    $this->assertEquals(100, $contribution['total_amount']);
+    $this->assertEquals(100, $contribution['paid_amount'], 'Amount paid is not correct');
+    $this->assertEquals(0, $contribution['balance_amount'], 'Balance is not correct');
+    $this->assertEquals('Completed', $contribution['contribution_status_id:label'], 'Contribution status is not correct');
+
+    $this->callAPISuccess('OptionValue', 'delete', ['id' => $paymentInstrumentID]);
   }
+
+  /**
+   * Create Payment Instrument.
+   *
+   * @param array $params
+   * @param string $financialAccountName
+   *
+   * @return int
+   *
+   * @noinspection PhpDocMissingThrowsInspection
+   * @noinspection PhpUnhandledExceptionInspection
+   */
+  protected function createPaymentInstrument(array $params = [], string $financialAccountName = 'Donation'): int {
+    $params = array_merge([
+      'label' => 'Payment Instrument - new',
+      'option_group_id' => 'payment_instrument',
+      'is_active' => 1,
+    ], $params);
+    $newPaymentInstrument = $this->callAPISuccess('OptionValue', 'create', $params)['id'];
+
+    $relationTypeID = key(CRM_Core_PseudoConstant::accountOptionValues('account_relationship', NULL, " AND v.name LIKE 'Asset Account is' "));
+
+    $financialAccountParams = [
+      'entity_table' => 'civicrm_option_value',
+      'entity_id' => $newPaymentInstrument,
+      'account_relationship' => $relationTypeID,
+      'financial_account_id' => $this->callAPISuccess('FinancialAccount', 'getValue', ['name' => $financialAccountName, 'return' => 'id']),
+    ];
+    EntityFinancialAccount::create()->setValues($financialAccountParams)->execute();
+
+    return CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'payment_instrument_id', $params['label']);
+  }
+
+  /**
+   * @see https://issues.civicrm.org/jira/browse/CRM-13964
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testAddPartialPayment(): void {
+    // First add an unrelated contribution since otherwise the contribution and
+    // participant ids are all 1 so they might match by accident.
+    $this->contributionCreate(['contact_id' => $this->individualCreate([], 0, TRUE)]);
+
+    $amtPaid = (float) 60;
+    $result = $this->addParticipantWithPayment($amtPaid);
+    $this->assertEquals('Partially paid', $result['participant']['participant_status']);
+
+    // Check the record payment link has the right id and that it doesn't
+    // match by accident.
+    $this->assertNotEquals($this->ids['Contribution']['PaidEvent'], $result['participant']['id']);
+    $paymentInfo = CRM_Contribute_BAO_Contribution::getPaymentInfo($this->ids['Contribution']['PaidEvent']);
+    $this->assertEquals('Record Payment', $paymentInfo['payment_links'][0]['title']);
+    $this->assertEquals($this->ids['Contribution']['PaidEvent'], $paymentInfo['payment_links'][0]['qs']['id']);
+  }
+
+  /**
+   * Test owed/refund info is listed on view payments.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testTransactionInfo(): void {
+    $amtPaid = 80;
+    $result = $this->addParticipantWithPayment($amtPaid);
+    $contributionID = $result['contribution']['id'];
+
+    $this->callAPISuccess('Payment', 'create', [
+      'contribution_id' => $contributionID,
+      'total_amount' => 20,
+      'payment_instrument_id' => 3,
+      'participant_id' => $result['participant']['id'],
+    ]);
+
+    //Change selection to a lower amount.
+    $params['price_2'] = $this->ids['PriceFieldValue']['PaidEvent_student_early'];
+    $priceSet = CRM_Price_BAO_PriceSet::getSetDetail($this->ids['PriceSet']['PaidEvent']);
+    $priceSet = $priceSet[$this->ids['PriceSet']['PaidEvent']] ?? NULL;
+    $feeBlock = $priceSet['fields'] ?? NULL;
+    CRM_Price_BAO_LineItem::changeFeeSelections($params, $result['participant']['id'], 'participant', $contributionID, $feeBlock, NULL);
+
+    $this->callAPISuccess('Payment', 'create', [
+      'total_amount' => -50,
+      'contribution_id' => $contributionID,
+      'participant_id' => $result['participant']['id'],
+      'payment_instrument_id' => 3,
+    ]);
+    $paymentInfo = CRM_Contribute_BAO_Contribution::getPaymentInfo($result['participant']['id'], 'event', TRUE);
+    $transaction = $paymentInfo['transaction'];
+
+    // Assert all transaction(owed and refund) are listed on view payments.
+    $this->assertCount(3, $transaction, 'Transaction Details is not proper');
+    $this->assertEquals(80.00, $transaction[0]['total_amount']);
+    $this->assertEquals('Completed', $transaction[0]['status']);
+
+    $this->assertEquals(20.00, $transaction[1]['total_amount']);
+    $this->assertEquals('Completed', $transaction[1]['status']);
+
+    $this->assertEquals(-50.00, $transaction[2]['total_amount']);
+    $this->assertEquals('Refunded Label**', $transaction[2]['status']);
+  }
+
 }
-

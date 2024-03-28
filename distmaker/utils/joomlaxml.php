@@ -1,39 +1,19 @@
 <?php
-define('CIVICRM_MYSQL_STRICT', 0);
-if (isset($GLOBALS['_SERVER']['DM_SOURCEDIR'])) {
-  $sourceCheckoutDir = $GLOBALS['_SERVER']['DM_SOURCEDIR'];
-}
-else {
-  $sourceCheckoutDir = $argv[1];
-}
-$sourceCheckoutDirLength = strlen($sourceCheckoutDir);
 
-if (isset($GLOBALS['_SERVER']['DM_TMPDIR'])) {
-  $targetDir = $GLOBALS['_SERVER']['DM_TMPDIR'] . '/com_civicrm';
-}
-else {
-  $targetDir = $argv[2];
-}
-$targetDirLength = strlen($targetDir);
-
-if (isset($GLOBALS['_SERVER']['DM_VERSION'])) {
-  $version = $GLOBALS['_SERVER']['DM_VERSION'];
-}
-else {
-  $version = $argv[3];
-}
-
-if (isset($GLOBALS['_SERVER']['DM_PKGTYPE'])) {
-  $pkgType = $GLOBALS['_SERVER']['DM_PKGTYPE'];
-}
-else {
-  $pkgType = $argv[4];
-}
+$sourceCheckoutDir = $GLOBALS['_SERVER']['DM_SOURCEDIR'] ?? $argv[1];
+$targetDir = $GLOBALS['_SERVER']['DM_TMPDIR'] . '/com_civicrm' ?? $argv[2];
+$version = $GLOBALS['_SERVER']['DM_VERSION'] ?? $argv[3];
+$pkgType = $GLOBALS['_SERVER']['DM_PKGTYPE'] ?? $argv[4];
 
 ini_set('include_path',
   "{$sourceCheckoutDir}:{$sourceCheckoutDir}/packages:" . ini_get('include_path')
 );
-require_once "$sourceCheckoutDir/civicrm.config.php";
+
+define('CIVICRM_UF', 'Joomla');
+$GLOBALS['civicrm_root'] = $sourceCheckoutDir;
+require_once $sourceCheckoutDir . '/CRM/Core/ClassLoader.php';
+CRM_Core_ClassLoader::singleton()->register();
+
 require_once 'Smarty/Smarty.class.php';
 
 generateJoomlaConfig($version);
@@ -53,6 +33,9 @@ function createDir($dir, $perm = 0755) {
   }
 }
 
+/**
+ * @param $version
+ */
 function generateJoomlaConfig($version) {
   global $targetDir, $sourceCheckoutDir, $pkgType;
 
@@ -69,7 +52,7 @@ function generateJoomlaConfig($version) {
 
   $output = $targetDir . '/civicrm.xml';
   $fd = fopen($output, "w");
-  fputs($fd, $xml);
+  fwrite($fd, $xml);
   fclose($fd);
 
   require_once 'CRM/Core/Config.php';
@@ -77,33 +60,43 @@ function generateJoomlaConfig($version) {
 
   require_once 'CRM/Core/Permission.php';
   require_once 'CRM/Utils/String.php';
+  require_once 'CRM/Core/I18n.php';
   $permissions = CRM_Core_Permission::getCorePermissions();
 
   $crmFolderDir = $sourceCheckoutDir . DIRECTORY_SEPARATOR . 'CRM';
 
+  // @todo call getCoreAndComponentPermissions instead and let that
+  // do the work of these next 15-20 lines.
   require_once 'CRM/Core/Component.php';
   $components = CRM_Core_Component::getComponentsFromFile($crmFolderDir);
   foreach ($components as $comp) {
-    $perm = $comp->getPermissions();
+    $perm = $comp->getPermissions(FALSE, TRUE);
     if ($perm) {
       $info = $comp->getInfo();
-      foreach ($perm as $p) {
-        $permissions[$p] = $info['translatedName'] . ': ' . $p;
+      foreach ($perm as $p => $attr) {
+        $title = $info['translatedName'] . ': ' . array_shift($attr);
+        array_unshift($attr, $title);
+        $permissions[$p] = $attr;
       }
     }
   }
 
   $perms_array = array();
-  foreach ($permissions as $perm => $title) {
+  foreach ($permissions as $perm => $attr) {
+    // give an empty string as default description
+    $attr[] = '';
+
     //order matters here, but we deal with that later
-    $perms_array[CRM_Utils_String::munge(strtolower($perm))] = $title;
+    $perms_array[CRM_Utils_String::munge(strtolower($perm))] = array(
+      'title' => array_shift($attr),
+      'description' => array_shift($attr),
+    );
   }
   $smarty->assign('permissions', $perms_array);
 
   $output = $targetDir . '/admin/access.xml';
   $xml    = $smarty->fetch('access.tpl');
   $fd     = fopen($output, "w");
-  fputs($fd, $xml);
+  fwrite($fd, $xml);
   fclose($fd);
 }
-

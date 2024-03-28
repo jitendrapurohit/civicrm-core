@@ -1,179 +1,135 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
+
+use Civi\Api4\Relationship;
+use Civi\Api4\RelationshipType;
+use Civi\Core\Event\PreEvent;
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
-class CRM_Contact_BAO_RelationshipType extends CRM_Contact_DAO_RelationshipType {
+class CRM_Contact_BAO_RelationshipType extends CRM_Contact_DAO_RelationshipType implements \Civi\Core\HookInterface {
 
   /**
-   * class constructor
+   * @deprecated
+   * @param array $params
+   * @param array $defaults
+   * @return self|null
    */
-  function __construct() {
-    parent::__construct();
+  public static function retrieve($params, &$defaults) {
+    return self::commonRetrieve(self::class, $params, $defaults);
   }
 
   /**
-   * Takes a bunch of params that are needed to match certain criteria and
-   * retrieves the relevant objects. Typically the valid params are only
-   * contact_id. We'll tweak this function to be more full featured over a period
-   * of time. This is the inverse function of create. It also stores all the retrieved
-   * values in the default array
-   *
-   * @param array $params   (reference ) an assoc array of name/value pairs
-   * @param array $defaults (reference ) an assoc array to hold the flattened values
-   *
-   * @return object CRM_Contact_BAO_RelationshipType object
-   * @access public
-   * @static
+   * @deprecated - this bypasses hooks.
+   * @param int $id
+   * @param bool $is_active
+   * @return bool
    */
-  static function retrieve(&$params, &$defaults) {
-    $relationshipType = new CRM_Contact_DAO_RelationshipType();
-    $relationshipType->copyValues($params);
-    if ($relationshipType->find(TRUE)) {
-      CRM_Core_DAO::storeValues($relationshipType, $defaults);
-      $relationshipType->free();
-      return $relationshipType;
-    }
-    return NULL;
-  }
-
-  /**
-   * update the is_active flag in the db
-   *
-   * @param int      $id        id of the database record
-   * @param boolean  $is_active value we want to set the is_active field
-   *
-   * @return Object             DAO object on sucess, null otherwise
-   * @static
-   */
-  static function setIsActive($id, $is_active) {
+  public static function setIsActive($id, $is_active) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
     return CRM_Core_DAO::setFieldValue('CRM_Contact_DAO_RelationshipType', $id, 'is_active', $is_active);
   }
 
   /**
-   * Function to add the relationship type in the db
-   *
-   * @param array $params (reference ) an assoc array of name/value pairs
-   * @param array $ids    the array that holds all the db ids
-   *
-   * @return object CRM_Contact_DAO_RelationshipType
-   * @access public
-   * @static
-   *
+   * @deprecated
+   * @param array $params
+   * @return CRM_Contact_DAO_RelationshipType
    */
-  static function add(&$params, &$ids) {
-    //to change name, CRM-3336
-    if (empty($params['label_a_b']) && !empty($params['name_a_b'])) {
-      $params['label_a_b'] = $params['name_a_b'];
-    }
-
-    if (empty($params['label_b_a']) && !empty($params['name_b_a'])) {
-      $params['label_b_a'] = $params['name_b_a'];
-    }
-
-    // set label to name if it's not set - but *only* for
-    // ADD action. CRM-3336 as part from (CRM-3522)
-    if (empty($ids['relationshipType'])) {
-      if (empty($params['name_a_b']) && !empty($params['label_a_b'])) {
-        $params['name_a_b'] = $params['label_a_b'];
-      }
-      if (empty($params['name_b_a']) && !empty($params['label_b_a'])) {
-        $params['name_b_a'] = $params['label_b_a'];
-      }
-    }
-
-    // action is taken depending upon the mode
-    $relationshipType = new CRM_Contact_DAO_RelationshipType();
-
-    $relationshipType->copyValues($params);
-
-    // if label B to A is blank, insert the value label A to B for it
-    if (!strlen(trim($strName = CRM_Utils_Array::value('name_b_a', $params)))) {
-      $relationshipType->name_b_a = CRM_Utils_Array::value('name_a_b', $params);
-    }
-    if (!strlen(trim($strName = CRM_Utils_Array::value('label_b_a', $params)))) {
-      $relationshipType->label_b_a = CRM_Utils_Array::value('label_a_b', $params);
-    }
-
-    $relationshipType->id = CRM_Utils_Array::value('relationshipType', $ids);
-
-    return $relationshipType->save();
+  public static function add($params) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
+    return self::writeRecord($params);
   }
 
   /**
-   * Function to delete Relationship Types
-   *
+   * @deprecated
    * @param int $relationshipTypeId
-   *
    * @throws CRM_Core_Exception
    * @return mixed
-   * @static
    */
-  static function del($relationshipTypeId) {
-    // make sure relationshipTypeId is an integer
-    // @todo review this as most delete functions rely on the api & form layer for this
-    // or do a find first & throw error if no find
-    if (!CRM_Utils_Rule::positiveInteger($relationshipTypeId)) {
-      throw new CRM_Core_Exception(ts('Invalid relationship type'));
-    }
-
-
-    //check dependencies
-
-    // delete all relationships
-    $relationship = new CRM_Contact_DAO_Relationship();
-    $relationship->relationship_type_id = $relationshipTypeId;
-    $relationship->delete();
-
-    // set all membership_type to null
-    $query = "
-UPDATE civicrm_membership_type
-  SET  relationship_type_id = NULL
- WHERE relationship_type_id = %1
-";
-    $params = array(1 => array(CRM_Core_DAO::VALUE_SEPARATOR . $relationshipTypeId . CRM_Core_DAO::VALUE_SEPARATOR, 'String'));
-    CRM_Core_DAO::executeQuery($query, $params);
-
-    //fixed for CRM-3323
-    $mappingField = new CRM_Core_DAO_MappingField();
-    $mappingField->relationship_type_id = $relationshipTypeId;
-    $mappingField->find();
-    while ($mappingField->fetch()) {
-      $mappingField->delete();
-    }
-
-    $relationshipType = new CRM_Contact_DAO_RelationshipType();
-    $relationshipType->id = $relationshipTypeId;
-    return $relationshipType->delete();
+  public static function del($relationshipTypeId) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    return static::deleteRecord(['id' => $relationshipTypeId]);
   }
-}
 
+  /**
+   * Callback for hook_civicrm_pre().
+   *
+   * @param \Civi\Core\Event\PreEvent $event
+   * @throws \CRM_Core_Exception
+   */
+  public static function self_hook_civicrm_pre(PreEvent $event): void {
+    if ($event->action === 'create') {
+      // Set name to label if not set
+      if (empty($event->params['label_a_b']) && !empty($event->params['name_a_b'])) {
+        $event->params['label_a_b'] = $event->params['name_a_b'];
+      }
+      if (empty($event->params['label_b_a']) && !empty($event->params['name_b_a'])) {
+        $event->params['label_b_a'] = $event->params['name_b_a'];
+      }
+
+      // set label to name if it's not set
+      if (empty($event->params['name_a_b']) && !empty($event->params['label_a_b'])) {
+        $event->params['name_a_b'] = $event->params['label_a_b'];
+      }
+      if (empty($event->params['name_b_a']) && !empty($event->params['label_b_a'])) {
+        $event->params['name_b_a'] = $event->params['label_b_a'];
+      }
+    }
+    if ($event->action === 'delete') {
+      // Delete all existing relationships with this type
+      Relationship::delete(FALSE)
+        ->addWhere('relationship_type_id', '=', $event->id)
+        ->execute();
+    }
+  }
+
+  /**
+   * Callback for hook_civicrm_post().
+   * @param \Civi\Core\Event\PostEvent $event
+   */
+  public static function self_hook_civicrm_post(\Civi\Core\Event\PostEvent $event) {
+    CRM_Core_PseudoConstant::relationshipType('label', TRUE);
+    CRM_Core_PseudoConstant::relationshipType('name', TRUE);
+    CRM_Core_PseudoConstant::flush();
+  }
+
+  /**
+   * Get the id of the employee relationship, checking it is valid.
+   * We check that contact_type_a is Individual, but not contact_type_b because there's
+   * nowhere in the code that requires it to be Organization.
+   *
+   * @return int
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public static function getEmployeeRelationshipTypeID(): int {
+    try {
+      if (!Civi::cache('metadata')->has(__CLASS__ . __FUNCTION__)) {
+        $relationship = RelationshipType::get(FALSE)
+          ->addWhere('name_a_b', '=', 'Employee of')
+          ->addWhere('contact_type_a', '=', 'Individual')
+          ->addSelect('id')->execute()->first();
+        if (empty($relationship)) {
+          throw new CRM_Core_Exception('no valid relationship');
+        }
+        Civi::cache('metadata')->set(__CLASS__ . __FUNCTION__, $relationship['id']);
+      }
+    }
+    catch (CRM_Core_Exception $e) {
+      throw new CRM_Core_Exception(ts("You seem to have deleted the relationship type 'Employee of'"));
+    }
+    return Civi::cache('metadata')->get(__CLASS__ . __FUNCTION__);
+  }
+
+}

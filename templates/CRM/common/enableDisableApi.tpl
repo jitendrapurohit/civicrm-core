@@ -1,89 +1,83 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* handle common enable/disable actions *}
 {literal}
 <script type="text/javascript">
   CRM.$(function($) {
-    var $row, info, enabled, fieldLabel;
+    var $a, $row, info, enabled, fieldLabel;
 
     function successMsg() {
       {/literal} {* client-side variable substitutions in smarty are AWKWARD! *}
-      var msg = enabled ? '{ts escape="js" 1="<em>%1</em>"}%1 Disabled{/ts}' : '{ts escape="js" 1="<em>%1</em>"}%1 Enabled{/ts}'{literal};
+      var msg = enabled ? '{ts escape="js" 1="%1"}%1 Disabled{/ts}' : '{ts escape="js" 1="%1"}%1 Enabled{/ts}'{literal};
       return ts(msg, {1: fieldLabel});
     }
 
     function refresh() {
+      // the opposite of the current status based on row class
+      var newStatus = $row.hasClass('disabled');
+      $a.trigger('crmPopupFormSuccess', {
+        'entity': info.entity,
+        'id': info.id,
+        'enabled': newStatus
+      });
       CRM.refreshParent($row);
     }
 
     function save() {
       $row.closest('table').block();
-      CRM.api3(info.entity, 'setvalue', {id: info.id, field: 'is_active', value: enabled ? 0 : 1}, {success: successMsg}).done(refresh);
-      if (enabled) {
-        $(this).dialog('close');
+      var params = {id: info.id};
+      if (info.action == 'setvalue') {
+        params.field = 'is_active';
+        params.value = enabled ? 0 : 1;
+      } else {
+        params.is_active = enabled ? 0 : 1;
       }
+      CRM.api3(info.entity, info.action, params, {success: successMsg}).done(refresh);
     }
 
-    function confirmation() {
-      var conf = $(this);
-      $.getJSON(CRM.url('civicrm/ajax/statusmsg', {entity: info.entity, id: info.id}), function(response) {
-        conf.html(response.content);
-        if (!response.illegal) {
-          conf.dialog('option', 'buttons', [
-            {text: {/literal}'{ts escape="js"}Disable{/ts}'{literal}, click: save},
-            {text: {/literal}'{ts escape="js"}Cancel{/ts}'{literal}, click: function() {$(this).dialog('close');}}
-          ]);
-        }
-      });
+    function checkResponse(e, response) {
+      if (response.illegal) {
+        $(this).dialog('option', 'buttons', [
+          {text: {/literal}'{ts escape="js"}Close{/ts}'{literal}, click: function() {$(this).dialog('close');}, icons: {primary: 'fa-times'}}
+        ]);
+      }
     }
 
     function enableDisable() {
-      $row = $(this).closest('.crm-entity');
-      info = $(this).crmEditableEntity();
-      fieldLabel = info.label || info.title || info.name || {/literal}'{ts escape="js"}Record{/ts}'{literal};
+      $row = $a.closest('.crm-entity');
+      info = $a.crmEditableEntity();
+      fieldLabel = info.label || info.title || info.display_name || info.name || {/literal}'{ts escape="js"}Record{/ts}'{literal};
       enabled = !$row.hasClass('disabled');
       if (enabled) {
-        CRM.confirm({{/literal}
-          message: '<div class="crm-loading-element">{ts escape="js"}Loading{/ts}...</div>',
-          {* client-side variable substitutions in smarty are AWKWARD! *}
-          title: ts('{ts escape="js" 1='%1'}Disable %1{/ts}{literal}', {1: fieldLabel}),
+        CRM.confirm({
+          url: CRM.url('civicrm/ajax/statusmsg', {entity: info.entity, id: info.id}),
+          title: ts('{/literal}{ts escape="js" 1='%1'}Disable %1{/ts}{literal}', {1: fieldLabel}),
+          options: {{/literal}yes: '{ts escape="js"}Yes{/ts}', no: '{ts escape="js"}No{/ts}'{literal}},
           width: 300,
-          options: null,
-          open: confirmation
-        });
+          height: 'auto'
+        })
+          .on('crmLoad', checkResponse)
+          .on('crmConfirm:yes', save);
       } else {
         save();
       }
-      return false;
     }
 
     // Because this is an inline script it may get added to the document more than once, so remove handler before adding
     $('body')
       .off('.crmEnableDisable')
-      .on('click.crmEnableDisable', '.action-item.crm-enable-disable', enableDisable);
+      .on('click.crmEnableDisable', '.action-item.crm-enable-disable', function(e) {
+        e.preventDefault();
+        $a = $(this);
+        CRM.loadScript(CRM.config.resourceBase + 'js/jquery/jquery.crmEditable.js').done(enableDisable);
+      });
   });
 </script>
 {/literal}

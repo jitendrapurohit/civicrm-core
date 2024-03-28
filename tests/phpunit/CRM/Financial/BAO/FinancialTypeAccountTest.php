@@ -1,72 +1,33 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
-require_once 'CiviTest/CiviUnitTestCase.php';
+ */
 
+/**
+ * Class CRM_Financial_BAO_FinancialTypeAccountTest
+ * @group headless
+ */
 class CRM_Financial_BAO_FinancialTypeAccountTest extends CiviUnitTestCase {
 
-  function get_info() {
-    return array(
-      'name' => 'FinancialTypeAccount BAOs',
-      'description' => 'Test all Contribute_BAO_Contribution methods.',
-      'group' => 'CiviCRM BAO Tests',
-    );
-  }
-
-  function setUp() {
+  public function setUp(): void {
     parent::setUp();
     $this->organizationCreate();
   }
 
   /**
-   * check method add()
+   * Check method add()
    */
-  function testAdd() {
-    $params = array(
-      'name' => 'TestFinancialAccount_1',
-      'accounting_code' => 4800,
-      'contact_id' => 1,
-      'is_deductible' => 0,
-      'is_active' => 1,
-      'is_reserved' => 0,
+  public function testAdd(): void {
+    list($financialAccount, $financialType, $financialAccountType) = $this->createFinancialAccount(
+      'Revenue',
+      'Income Account is'
     );
-
-    $ids = array();
-    $financialAccount = CRM_Financial_BAO_FinancialAccount::add($params, $ids);
-    $params['name'] = 'test_financialType1';
-    $financialType = CRM_Financial_BAO_FinancialType::add($params, $ids);
-    $relationTypeId = key(CRM_Core_PseudoConstant::accountOptionValues('account_relationship', NULL, " AND v.name LIKE 'Income Account is' "));
-    $financialParams = array(
-      'entity_table' => 'civicrm_financial_type',
-      'entity_id' => $financialType->id,
-      'account_relationship' => $relationTypeId,
-      'financial_account_id' => $financialAccount->id,
-    );
-
-    CRM_Financial_BAO_FinancialTypeAccount::add($financialParams, $ids);
     $result = $this->assertDBNotNull(
       'CRM_Financial_DAO_EntityFinancialAccount',
       $financialAccount->id,
@@ -74,125 +35,126 @@ class CRM_Financial_BAO_FinancialTypeAccountTest extends CiviUnitTestCase {
       'financial_account_id',
       'Database check on added financial type record.'
     );
-    $this->assertEquals( $result, $financialType->id, 'Verify Account Type');
+    $this->assertEquals($result, $financialType->id, 'Verify Account Type');
   }
 
   /**
-   * check method del()
+   * Check method retrieve()
    */
-  function testDel() {
-    $params = array(
-      'name' => 'TestFinancialAccount_2',
-      'is_deductible' => 0,
-      'is_active' => 1,
-      'is_reserved' => 0,
+  public function testRetrieve(): void {
+    list($financialAccount, $financialType, $financialAccountType) = $this->createFinancialAccount(
+      'Asset',
+      'Asset Account is'
     );
-
-    $ids = array();
-    $defaults = array();
-    $financialAccount = CRM_Financial_BAO_FinancialAccount::add($params, $ids);
-    $params['name'] = 'test_financialType2';
-    $financialType = CRM_Financial_BAO_FinancialType::add($params, $ids);
-    $relationTypeId = key(CRM_Core_PseudoConstant::accountOptionValues('account_relationship', NULL, " AND v.name LIKE 'Expense Account is' "));
-    $financialParams = array(
-      'entity_table' => 'civicrm_financial_type',
-      'entity_id' => $financialType->id,
-      'account_relationship' => $relationTypeId,
-      'financial_account_id' => $financialAccount->id,
-    );
-    $financialAccountType = CRM_Financial_BAO_FinancialTypeAccount::add($financialParams, $ids);
-    CRM_Financial_BAO_FinancialTypeAccount::del($financialAccountType->id);
-    $params = array('id' => $financialAccountType->id );
-    $result = CRM_Financial_BAO_FinancialType::retrieve($params, $defaults);
-    $this->assertEquals( empty($result), true, 'Verify financial types record deletion.');
-  }
-
-  /**
-   * check method getFinancialAccount()
-   */
-  function testRetrieve() {
-    $params = array(
-      'name' => 'TestFinancialAccount_3',
-      'is_deductible' => 0,
-      'is_active' => 1,
-      'is_reserved' => 0,
-    );
-    $ids = array();
-    $financialAccount = CRM_Financial_BAO_FinancialAccount::add($params, $ids);
-    $params['name'] = 'test_financialType3';
-    $financialType = CRM_Financial_BAO_FinancialType::add($params, $ids);
     $relationTypeId = key(CRM_Core_PseudoConstant::accountOptionValues('account_relationship', NULL, " AND v.name LIKE 'Asset Account is' "));
-    $financialParams = array(
+    $financialParams = [
       'entity_table' => 'civicrm_financial_type',
       'entity_id' => $financialType->id,
       'account_relationship' => $relationTypeId,
       'financial_account_id' => $financialAccount->id,
-    );
+    ];
 
-    CRM_Financial_BAO_FinancialTypeAccount::add($financialParams, $ids);
-    $defaults = array();
-    $financialAccountType = CRM_Financial_BAO_FinancialTypeAccount::retrieve($financialParams, $defaults);
-    $this->assertEquals( $financialAccountType['entity_id'], $financialType->id, 'Verify Entity Id.');
-    $this->assertEquals( $financialAccountType['financial_account_id'], $financialAccount->id, 'Verify Financial Account Id.');
+    $defaults = [];
+    $financialAccountType = CRM_Financial_BAO_EntityFinancialAccount::retrieve($financialParams, $defaults);
+    $this->assertEquals($financialAccountType['entity_id'], $financialType->id, 'Verify Entity Id.');
+    $this->assertEquals($financialAccountType['financial_account_id'], $financialAccount->id, 'Verify Financial Account Id.');
   }
 
   /**
-   * check method getFinancialAccount()
+   * Check method getInstrumentFinancialAccount()
    */
-  function testGetFinancialAccount() {
-    $params = array(
-      'name' => 'TestFinancialAccount',
-      'accounting_code' => 4800,
-      'is_deductible' => 0,
-      'is_active' => 1,
-      'is_reserved' => 0,
-    );
-    $ids = array();
-    $financialAccount = CRM_Financial_BAO_FinancialAccount::add($params, $ids);
-    $params = array(
-      'financial_account_id' => $financialAccount->id,
-      'payment_processor_type_id' => 1,
-      'domain_id' => 1,
-      'billing_mode' => 1,
-      'name' => 'paymentProcessor',
-    );
-    $processor = CRM_Financial_BAO_PaymentProcessor::create($params);
-
-    $account = CRM_Financial_BAO_FinancialTypeAccount::getFinancialAccount(
-      $processor->id,
-      'civicrm_payment_processor'
-    );
-    $this->assertEquals($account, 'TestFinancialAccount', 'Verify Financial Account Name');
-  }
-
-  /**
-   * check method getInstrumentFinancialAccount()
-   */
-  function testGetInstrumentFinancialAccount() {
+  public function testGetInstrumentFinancialAccount(): void {
     $paymentInstrumentValue = 1;
-    $params = array(
-      'name' => 'Donations',
-      'is_deductible' => 0,
-      'is_active' => 1,
+    list($financialAccount, $financialType, $financialAccountType) = $this->createFinancialAccount(
+      'Asset'
     );
-    $ids = array();
-    $financialAccount = CRM_Financial_BAO_FinancialAccount::add($params, $ids);
-    $optionParams = array(
+    $optionParams = [
       'name' => 'Credit Card',
       'value' => $paymentInstrumentValue,
-    );
+    ];
     $optionValue = CRM_Core_BAO_OptionValue::retrieve($optionParams, $defaults);
     $relationTypeId = key(CRM_Core_PseudoConstant::accountOptionValues('account_relationship', NULL, " AND v.name LIKE 'Asset Account is' "));
-    $financialParams = array(
+    $financialParams = [
       'entity_table' => 'civicrm_option_value',
       'entity_id' => $optionValue->id,
       'account_relationship' => $relationTypeId,
       'financial_account_id' => $financialAccount->id,
-    );
+    ];
 
-    CRM_Financial_BAO_FinancialTypeAccount::add($financialParams, $ids);
-    $financialAccountId = CRM_Financial_BAO_FinancialTypeAccount::getInstrumentFinancialAccount($paymentInstrumentValue);
+    CRM_Financial_BAO_EntityFinancialAccount::add($financialParams);
+    $financialAccountId = CRM_Financial_BAO_EntityFinancialAccount::getInstrumentFinancialAccount($paymentInstrumentValue);
 
-    $this->assertEquals( $financialAccountId, $financialAccount->id, 'Verify Payment Instrument');
+    $this->assertEquals($financialAccountId, $financialAccount->id, 'Verify Payment Instrument');
   }
+
+  /**
+   * Test validate account relationship with financial account type.
+   */
+  public function testValidateRelationship(): void {
+    $params = ['labelColumn' => 'name'];
+    $financialAccount = CRM_Core_PseudoConstant::get('CRM_Financial_DAO_FinancialAccount', 'financial_account_type_id', $params);
+    $accountRelationships = CRM_Core_PseudoConstant::get('CRM_Financial_DAO_EntityFinancialAccount', 'account_relationship', $params);
+    $financialType = CRM_Contribute_PseudoConstant::financialType();
+    $financialAccountType = new CRM_Financial_DAO_EntityFinancialAccount();
+    $financialAccountType->entity_table = 'civicrm_financial_type';
+    $financialAccountType->entity_id = array_search('Member Dues', $financialType);
+    $financialAccountType->account_relationship = array_search('Credit/Contra Revenue Account is', $accountRelationships);
+    $financialAccountType->financial_account_id = array_search('Liability', $financialAccount);
+    try {
+      CRM_Financial_BAO_EntityFinancialAccount::validateRelationship($financialAccountType);
+      $this->fail("Missed expected exception");
+    }
+    catch (Exception $e) {
+      $this->assertTrue(TRUE, 'Received expected exception');
+      $this->assertEquals($e->getMessage(), "This financial account cannot have 'Credit/Contra Revenue Account is' relationship.");
+    }
+  }
+
+  /**
+   * Function to create Financial Account.
+   *
+   * @param string $financialAccountType
+   *
+   * @param string $relationType
+   *
+   * @return array
+   *   obj CRM_Financial_DAO_FinancialAccount, obj CRM_Financial_DAO_FinancialType, obj CRM_Financial_DAO_EntityFinancialAccount
+   */
+  public function createFinancialAccount($financialAccountType, $relationType = NULL) {
+    $params = ['labelColumn' => 'name'];
+    $relationTypes = CRM_Core_PseudoConstant::get('CRM_Financial_DAO_EntityFinancialAccount', 'account_relationship', $params);
+    $financialAccountTypes = CRM_Core_PseudoConstant::get('CRM_Financial_DAO_FinancialAccount', 'financial_account_type_id', $params);
+    $params = [
+      'name' => 'TestFinancialAccount_' . rand(),
+      'contact_id' => 1,
+      'is_deductible' => 0,
+      'is_active' => 1,
+      'is_reserved' => 0,
+      'financial_account_type_id' => array_search($financialAccountType, $financialAccountTypes),
+    ];
+    $financialAccount = CRM_Financial_BAO_FinancialAccount::writeRecord($params);
+    $financialType = $financialAccountType = NULL;
+    if ($relationType) {
+      $params['name'] = 'test_financialType1';
+      $financialType = CRM_Financial_BAO_FinancialType::writeRecord($params);
+      $financialParams = [
+        'entity_table' => 'civicrm_financial_type',
+        'entity_id' => $financialType->id,
+        'account_relationship' => array_search($relationType, $relationTypes),
+      ];
+
+      //CRM-20313: As per unique index added in civicrm_entity_financial_account table,
+      //  first check if there's any record on basis of unique key (entity_table, account_relationship, entity_id)
+      $dao = new CRM_Financial_DAO_EntityFinancialAccount();
+      $dao->copyValues($financialParams);
+      $dao->find();
+      if ($dao->fetch()) {
+        $financialParams['id'] = $dao->id;
+      }
+      $financialParams['financial_account_id'] = $financialAccount->id;
+      $financialAccountType = CRM_Financial_BAO_EntityFinancialAccount::add($financialParams);
+    }
+    return [$financialAccount, $financialType, $financialAccountType];
+  }
+
 }

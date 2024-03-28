@@ -1,128 +1,139 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
-require_once 'CiviTest/CiviUnitTestCase.php';
+ */
 
+use Civi\Api4\FinancialType;
+use Civi\Api4\MembershipType;
+
+/**
+ * Class CRM_Financial_BAO_FinancialTypeTest
+ * @group headless
+ */
 class CRM_Financial_BAO_FinancialTypeTest extends CiviUnitTestCase {
 
-  function get_info() {
-    return array(
-      'name' => 'FinancialType BAOs',
-      'description' => 'Test all Contribute_BAO_Contribution methods.',
-      'group' => 'CiviCRM BAO Tests',
-    );
-  }
-
-  function setUp() {
-    parent::setUp();
-  }
-
-  function teardown() {
+  public function tearDown(): void {
+    global $dbLocale;
+    if ($dbLocale) {
+      $this->disableMultilingual();
+    }
     $this->financialAccountDelete('Donations');
+    parent::tearDown();
   }
 
   /**
-   * check method add()
+   * Delete test for testGitLabIssue1108.
+   *
+   * @dataProvider getBooleanDataProvider
+   * @group locale
+   * @throws \CRM_Core_Exception
    */
-  function testAdd() {
-    $params = array(
-      'name' => 'Donations',
-      'is_active' => 1,
-      'is_deductible' => 1,
-      'is_reserved' => 1,
-    );
-    $ids = array();
-    $financialType = CRM_Financial_BAO_FinancialType::add($params, $ids);
-    $result = $this->assertDBNotNull(
-      'CRM_Financial_DAO_FinancialType',
-      $financialType->id ,
-      'name',
-      'id',
-      'Database check on added financial type record.'
-    );
-    $this->assertEquals( $result, 'Donations', 'Verify Name for Financial Type');
-  }
-
-  /**
-   * check method retrive()
-   */
-  function testRetrieve() {
-    $params = array(
-      'name' => 'Donations',
-      'is_active' => 1,
-      'is_deductible' => 1,
-      'is_reserved' => 1,
-    );
-
-    $ids = array();
-    CRM_Financial_BAO_FinancialType::add($params, $ids);
-
-    $defaults = array();
-    $result = CRM_Financial_BAO_FinancialType::retrieve($params, $defaults);
-    $this->assertEquals($result->name, 'Donations', 'Verify Name for Financial Type');
-  }
-
-  /**
-   * check method setIsActive()
-   */
-  function testSetIsActive() {
-    $params = array(
+  public function testDelete(bool $isMultiLingual): void {
+    if ($isMultiLingual) {
+      $this->enableMultilingual(['en_US' => 'fr_FR']);
+    }
+    $financialTypeID = FinancialType::create()->setValues([
       'name' => 'Donations',
       'is_deductible' => 0,
       'is_active' => 1,
-    );
-    $ids = array();
-    $financialType = CRM_Financial_BAO_FinancialType::add($params, $ids);
-    $result = CRM_Financial_BAO_FinancialType::setIsActive($financialType->id, 0);
-    $this->assertEquals($result, true , 'Verify financial type record updation for is_active.');
-    $isActive = $this->assertDBNotNull(
-      'CRM_Financial_DAO_FinancialType',
-      $financialType->id ,
-      'is_active',
-      'id',
-      'Database check on updated for financial type is_active.'
-    );
-    $this->assertEquals($isActive, 0, 'Verify financial types is_active.');
+    ])->execute()->first()['id'];
+
+    if ($isMultiLingual) {
+      global $dbLocale;
+      $dbLocale = '_fr_FR';
+    }
+    FinancialType::delete()->addWhere('id', '=', $financialTypeID)->execute();
+    $result = FinancialType::get()->addWhere('id', '=', $financialTypeID)->execute();
+    $this->assertCount(0, $result, 'Verify financial types record deletion.');
+    $results = CRM_Core_DAO::executeQuery('SELECT * FROM civicrm_entity_financial_account WHERE entity_id = %1', [1 => [$financialTypeID, 'Positive']])->fetchAll();
+    $this->assertEquals(TRUE, empty($results), 'Assert related entity financial account has been deleted as well');
+    if ($isMultiLingual) {
+      global $dbLocale;
+      $dbLocale = '_en_US';
+    }
   }
 
   /**
-   * check method del()
+   * Set ACLs for Financial Types()
    */
-  function testDel() {
-    $params = array(
-      'name' => 'Donations',
-      'is_deductible' => 0,
-      'is_active' => 1,
-    );
-    $ids = array();
-    $financialType = CRM_Financial_BAO_FinancialType::add($params, $ids);
-
-    CRM_Financial_BAO_FinancialType::del($financialType->id);
-    $params = array('id' => $financialType->id);
-    $result = CRM_Financial_BAO_FinancialType::retrieve($params, $defaults);
-    $this->assertEquals(empty($result), true, 'Verify financial types record deletion.');
+  public function setACL(): void {
+    Civi::settings()->set('acl_financial_type', 1);
   }
+
+  /**
+   * Check method testGetAvailableFinancialTypes()
+   */
+  public function testGetAvailableFinancialTypes(): void {
+    $this->setACL();
+    $this->setPermissions([
+      'view contributions of type Donation',
+      'view contributions of type Member Dues',
+    ]);
+    $types = [];
+    CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes($types);
+    $expectedResult = [
+      1 => 'Donation',
+      2 => 'Member Dues',
+    ];
+    $this->assertEquals($expectedResult, $types, 'Verify that only certain financial types can be retrieved');
+
+    $this->setPermissions([
+      'view contributions of type Donation',
+    ]);
+    unset($expectedResult[2]);
+    CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes($types);
+    $this->assertEquals($expectedResult, $types, 'Verify that removing permission for a financial type restricts the available financial types');
+  }
+
+  /**
+   * Check method test getAvailableMembershipTypes()
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testGetAvailableMembershipTypes(): void {
+    // Create Membership types
+    $params = [
+      'name' => 'Type One',
+      'domain_id' => 1,
+      'minimum_fee' => 10,
+      'duration_unit' => 'year',
+      'member_of_contact_id' => $this->organizationCreate(),
+      'period_type' => 'fixed',
+      'duration_interval' => 1,
+      'financial_type_id' => 1,
+      'visibility' => 'Public',
+      'is_active' => 1,
+    ];
+    MembershipType::create()->setValues($params)->execute();
+    // Add another
+    $params['name'] = 'Type Two';
+    $params['financial_type_id'] = 2;
+    MembershipType::create()->setValues($params)->execute();
+
+    $this->setACL();
+
+    $this->setPermissions([
+      'view contributions of type Donation',
+      'view contributions of type Member Dues',
+    ]);
+    CRM_Financial_BAO_FinancialType::getAvailableMembershipTypes($types);
+    $expectedResult = [
+      1 => 'Type One',
+      2 => 'Type Two',
+    ];
+    $this->assertEquals($expectedResult, $types, 'Verify that only certain membership types can be retrieved');
+    $this->setPermissions([
+      'view contributions of type Donation',
+    ]);
+    unset($expectedResult[2]);
+    CRM_Financial_BAO_FinancialType::getAvailableMembershipTypes($types);
+    $this->assertEquals($expectedResult, $types, 'Verify that removing permission for a financial type restricts the available membership types');
+  }
+
 }

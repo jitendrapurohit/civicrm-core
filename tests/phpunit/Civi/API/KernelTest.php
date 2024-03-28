@@ -1,71 +1,71 @@
 <?php
 namespace Civi\API;
-use \Symfony\Component\EventDispatcher\EventDispatcher;
 
-require_once 'CiviTest/CiviUnitTestCase.php';
+use Civi\Core\CiviEventDispatcher;
 
 /**
  */
 class KernelTest extends \CiviUnitTestCase {
-  const MOCK_VERSION = 99;
+  const MOCK_VERSION = 3;
 
   /**
-   * @var array(int => array('name' => string $eventName, 'type' => string $className))
+   * @var array
+   * (int => array('name' => string $eventName, 'type' => string $className))
    */
-  var $actualEventSequence;
+  public $actualEventSequence;
 
   /**
-   * @var EventDispatcher
+   * @var \Civi\Core\CiviEventDispatcher
    */
-  var $dispatcher;
+  public $dispatcher;
 
   /**
    * @var Kernel
    */
-  var $kernel;
+  public $kernel;
 
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
-    $this->actualEventSequence = array();
-    $this->dispatcher = new EventDispatcher();
+    $this->actualEventSequence = [];
+    $this->dispatcher = new CiviEventDispatcher();
     $this->monitorEvents(Events::allEvents());
     $this->kernel = new Kernel($this->dispatcher);
   }
 
-  function testNormalEvents() {
+  public function testNormalEvents(): void {
     $this->kernel->registerApiProvider($this->createWidgetFrobnicateProvider());
-    $result = $this->kernel->run('Widget', 'frobnicate', array(
+    $result = $this->kernel->runSafe('Widget', 'frobnicate', [
       'version' => self::MOCK_VERSION,
-    ));
+    ]);
 
-    $expectedEventSequence = array(
-      array('name' => Events::RESOLVE, 'class' => 'Civi\API\Event\ResolveEvent'),
-      array('name' => Events::AUTHORIZE, 'class' => 'Civi\API\Event\AuthorizeEvent'),
-      array('name' => Events::PREPARE, 'class' => 'Civi\API\Event\PrepareEvent'),
-      array('name' => Events::RESPOND, 'class' => 'Civi\API\Event\RespondEvent'),
-    );
+    $expectedEventSequence = [
+      ['name' => 'civi.api.resolve', 'class' => 'Civi\API\Event\ResolveEvent'],
+      ['name' => 'civi.api.authorize', 'class' => 'Civi\API\Event\AuthorizeEvent'],
+      ['name' => 'civi.api.prepare', 'class' => 'Civi\API\Event\PrepareEvent'],
+      ['name' => 'civi.api.respond', 'class' => 'Civi\API\Event\RespondEvent'],
+    ];
     $this->assertEquals($expectedEventSequence, $this->actualEventSequence);
     $this->assertEquals('frob', $result['values'][98]);
   }
 
-  function testResolveException() {
+  public function testResolveException(): void {
     $test = $this;
-    $this->dispatcher->addListener(Events::RESOLVE, function () {
-      throw new \API_Exception('Oh My God', 'omg', array('the' => 'badzes'));
+    $this->dispatcher->addListener('civi.api.resolve', function () {
+      throw new \CRM_Core_Exception('Oh My God', 'omg', ['the' => 'badzes']);
     }, Events::W_EARLY);
-    $this->dispatcher->addListener(Events::EXCEPTION, function(\Civi\API\Event\ExceptionEvent $event) use ($test) {
+    $this->dispatcher->addListener('civi.api.exception', function (\Civi\API\Event\ExceptionEvent $event) use ($test) {
       $test->assertEquals('Oh My God', $event->getException()->getMessage());
     });
 
     $this->kernel->registerApiProvider($this->createWidgetFrobnicateProvider());
-    $result = $this->kernel->run('Widget', 'frobnicate', array(
+    $result = $this->kernel->runSafe('Widget', 'frobnicate', [
       'version' => self::MOCK_VERSION,
-    ));
+    ]);
 
-    $expectedEventSequence = array(
-      array('name' => Events::RESOLVE, 'class' => 'Civi\API\Event\ResolveEvent'),
-      array('name' => Events::EXCEPTION, 'class' => 'Civi\API\Event\ExceptionEvent'),
-    );
+    $expectedEventSequence = [
+      ['name' => 'civi.api.resolve', 'class' => 'Civi\API\Event\ResolveEvent'],
+      ['name' => 'civi.api.exception', 'class' => 'Civi\API\Event\ExceptionEvent'],
+    ];
     $this->assertEquals($expectedEventSequence, $this->actualEventSequence);
     $this->assertEquals('Oh My God', $result['error_message']);
     $this->assertEquals('omg', $result['error_code']);
@@ -82,7 +82,7 @@ class KernelTest extends \CiviUnitTestCase {
   public function createWidgetFrobnicateProvider() {
     $provider = new \Civi\API\Provider\AdhocProvider(self::MOCK_VERSION, 'Widget');
     $provider->addAction('frobnicate', 'access CiviCRM', function ($apiRequest) {
-      return civicrm_api3_create_success(array(98 => 'frob'));
+      return civicrm_api3_create_success([98 => 'frob']);
     });
     return $provider;
   }
@@ -91,19 +91,20 @@ class KernelTest extends \CiviUnitTestCase {
    * Add listeners to $this->dispatcher which record each invocation of $monitoredEvents
    * in $this->actualEventSequence.
    *
-   * @param array $monitoredEvents list of event names
+   * @param array $monitoredEvents
+   *   List of event names.
    *
-   * @internal param \Symfony\Component\EventDispatcher\EventDispatcher $this ->dispatcher
    */
   public function monitorEvents($monitoredEvents) {
     foreach ($monitoredEvents as $monitoredEvent) {
       $test = $this;
       $this->dispatcher->addListener($monitoredEvent, function ($event) use ($monitoredEvent, &$test) {
-        $test->actualEventSequence[] = array(
+        $test->actualEventSequence[] = [
           'name' => $monitoredEvent,
           'class' => get_class($event),
-        );
+        ];
       }, 2 * Events::W_EARLY);
     }
   }
+
 }

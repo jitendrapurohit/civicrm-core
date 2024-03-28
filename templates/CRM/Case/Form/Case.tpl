@@ -1,26 +1,10 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* Base template for Open Case. May be used for other special activity types at some point ..
@@ -29,18 +13,10 @@
 *}
 <div class="crm-block crm-form-block crm-case-form-block">
 
-{if $cdType }
-   {include file="CRM/Custom/Form/CustomData.tpl"}
-{else}
-
-{if $action neq 8 && $action neq 32768}
-<div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
-{/if}
-
 <h3>{if $action eq 8}{ts}Delete Case{/ts}{elseif $action eq 32768}{ts}Restore Case{/ts}{/if}</h3>
-{if $action eq 8 or $action eq 32768 }
+{if $action eq 8 or $action eq 32768}
       <div class="messages status no-popup">
-        <div class="icon inform-icon"></div>
+        {icon icon="fa-info-circle"}{/icon}
           {if $action eq 8}
             {ts}Click Delete to move this case and all associated activities to the Trash.{/ts}
           {else}
@@ -49,17 +25,17 @@
       </div>
 {else}
 <table class="form-layout">
-    {if $activityTypeDescription }
+    {if $activityTypeDescription}
         <tr>
-            <div id="help">{$activityTypeDescription}</div>
+            <div class="help">{$activityTypeDescription|purify}</div>
         </tr>
     {/if}
 {if $clientName}
     <tr class="crm-case-form-block-clientName">
-      <td class="label font-size12pt">{ts}Client{/ts}</td>
-      <td class="font-size12pt bold view-value">{$clientName}</td>
+      <td class="label">{ts}Client{/ts}</td>
+      <td class="bold view-value">{$clientName}</td>
     </tr>
-{elseif !$clientName and $action eq 1}
+{elseif $action eq 1}
     {if $context eq 'standalone'}
       <td class="label">{$form.client_id.label}</td>
       <td class="view-value">{$form.client_id.html}</td>
@@ -73,21 +49,22 @@
     </tr>
 {/if}
 
-{if $form.activity_details.html}
+{if !empty($form.activity_details.html)}
     <tr class="crm-case-form-block-activity_details">
         <td class="label">{$form.activity_details.label}{help id="id-details" activityTypeFile=$activityTypeFile file="CRM/Case/Form/Case.hlp"}</td>
-        <td class="view-value">{if $defaultWysiwygEditor eq 0}{$form.activity_details.html|crmStripAlternatives|crmAddClass:huge40}{else}{$form.activity_details.html|crmStripAlternatives}{/if}</td>
+        <td class="view-value">{$form.activity_details.html|crmStripAlternatives}</td>
     </tr>
 {/if}
 
 {* custom data group *}
-{if $groupTree}
-    <tr>
-       <td colspan="2">{include file="CRM/Custom/Form/CustomData.tpl"}</td>
-    </tr>
-{/if}
+{* This shows ACTIVITY custom fields, as opposed to CASE custom fields, so is not a duplicate of the other custom data block below. *}
+<tr class="crm-activity-form-block-custom_data">
+  <td colspan="2">
+    {include file="CRM/common/customDataBlock.tpl" customDataType='Activity' customDataSubType=$activityTypeID cid=false}
+  </td>
+</tr>
 
-{if $form.activity_subject.html}
+{if !empty($form.activity_subject.html)}
     <tr class="crm-case-form-block-activity_subject">
        <td class="label">{$form.activity_subject.label}{help id="id-activity_subject" activityTypeFile=$activityTypeFile file="CRM/Case/Form/Case.hlp"}</td>
        <td>{$form.activity_subject.html|crmAddClass:huge}</td>
@@ -99,7 +76,7 @@
     {include file="CRM/Case/Form/Activity/$activityTypeFile.tpl"}
 {/if}
 
-{if $form.duration.html}
+{if !empty($form.duration.html)}
     <tr class="crm-case-form-block-duration">
       <td class="label">{$form.duration.label}</td>
       <td class="view-value">
@@ -109,7 +86,7 @@
     </tr>
 {/if}
 
-{if $form.tag.html}
+{if !empty($form.tag.html)}
     <tr class="crm-case-form-block-tag">
       <td class="label">{$form.tag.label}</td>
       <td class="view-value"><div class="crm-select-container">{$form.tag.html}</div>
@@ -117,35 +94,22 @@
     </tr>
 {/if}
 
+{* This shows CASE custom fields, as opposed to ACTIVITY custom fields, so is not a duplicate of the other custom data block above. *}
 <tr class="crm-case-form-block-custom_data">
     <td colspan="2">
-        <div id="customData"></div>
+      {include file="CRM/common/customDataBlock.tpl" customDataType='Case' customDataSubType=$caseTypeID cid=false}
     </td>
 </tr>
 
-<tr class="crm-case-form-block-tag_set"><td colspan="2">{include file="CRM/common/Tagset.tpl" tagsetType='case'}</td></tr>
+{if $isTagset}
+<tr class="crm-case-form-block-tag_set">
+    {include file="CRM/common/Tagset.tpl" tagsetType='case' tableLayout=true}
+</tr>
+{/if}
 
 </table>
 {/if}
 
-{if $action eq 1}
-    {*include custom data js file*}
-    {include file="CRM/common/customData.tpl"}
-    {literal}
-      <script type="text/javascript">
-      cj(document).ready(function() {
-           var customDataSubType = cj('#case_type_id').val();
-           if ( customDataSubType ) {
-              CRM.buildCustomData( {/literal}'{$customDataType}'{literal}, customDataSubType );
-           } else {
-              CRM.buildCustomData( {/literal}'{$customDataType}'{literal} );
-           }
-       });
-       </script>
-     {/literal}
-{/if}
-
 <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="bottom"}</div>
 
-{/if}
 </div>

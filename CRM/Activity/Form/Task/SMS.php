@@ -1,85 +1,141 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
- * This class provides the functionality to sms a group of
- * contacts.
+ * @package CRM
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
+ */
+
+/**
+ * This class provides the functionality to sms a group of contacts.
  */
 class CRM_Activity_Form_Task_SMS extends CRM_Activity_Form_Task {
+
+  use CRM_Contact_Form_Task_SMSTrait;
 
   /**
    * Are we operating in "single mode", i.e. sending sms to one
    * specific contact?
    *
-   * @var boolean
+   * @var bool
    */
   public $_single = FALSE;
 
   /**
-   * all the existing templates in the system
+   * All the existing templates in the system.
    *
    * @var array
    */
   public $_templates = NULL;
 
   /**
-   * build all the data structures needed to build the form
-   *
-   * @return void
-   * @access public
+   * Build all the data structures needed to build the form.
    */
-  function preProcess() {
+  public function preProcess() {
     parent::preProcess();
-    CRM_Contact_Form_Task_SMSCommon::preProcessProvider($this);
+    $form = $this;
+    $this->bounceOnNoActiveProviders();
+    $activityCheck = 0;
+    foreach ($this->_activityHolderIds as $value) {
+      if (CRM_Core_DAO::getFieldValue('CRM_Activity_DAO_Activity', $value, 'subject', 'id') != CRM_Contact_Form_Task_SMSCommon::RECIEVED_SMS_ACTIVITY_SUBJECT) {
+        $activityCheck++;
+      }
+    }
+    if ($activityCheck == count($this->_activityHolderIds)) {
+      CRM_Core_Error::statusBounce(ts("The Reply SMS Could only be sent for activities with '%1' subject.",
+        [1 => CRM_Contact_Form_Task_SMSCommon::RECIEVED_SMS_ACTIVITY_SUBJECT]
+      ));
+    }
     $this->assign('single', $this->_single);
   }
 
   /**
-   * Build the form
-   *
-   * @access public
-   *
-   * @return void
+   * Build the form object.
    */
   public function buildQuickForm() {
-    //enable form element
-    $this->assign('SMSTask', TRUE);
-    CRM_Contact_Form_Task_SMSCommon::buildQuickForm($this);
+    $this->buildSmsForm();
   }
 
   /**
-   * process the form after the input has been submitted and validated
+   * Get the relevant activity name.
    *
-   * @access public
+   * This is likely to be further refactored/ clarified.
    *
-   * @return void
+   * @internal
+   *
+   * @return string
    */
-  public function postProcess() {
-    CRM_Contact_Form_Task_SMSCommon::postProcess($this);
+  protected function getActivityName() {
+    return 'SMS Received';
   }
-}
 
+  /**
+   * @throws \CRM_Core_Exception
+   */
+  protected function filterContactIDs(): void {
+    $form = $this;
+    if (!empty($this->_activityHolderIds)) {
+      $extendTargetContacts = 0;
+      $invalidActivity = 0;
+      $validActivities = 0;
+      foreach ($form->_activityHolderIds as $id) {
+        //valid activity check
+        if (CRM_Core_DAO::getFieldValue('CRM_Activity_DAO_Activity', $id, 'subject', 'id') !== $this->getActivityName()) {
+          $invalidActivity++;
+          continue;
+        }
+
+        $activityContacts = CRM_Activity_BAO_ActivityContact::buildOptions('record_type_id', 'validate');
+        $targetID = CRM_Utils_Array::key('Activity Targets', $activityContacts);
+        //target contacts limit check
+        $ids = array_keys(CRM_Activity_BAO_ActivityContact::getNames($id, $targetID));
+
+        if (count($ids) > 1) {
+          $extendTargetContacts++;
+          continue;
+        }
+        $validActivities++;
+        $form->_contactIds = empty($form->_contactIds) ? $ids : array_unique(array_merge($form->_contactIds, $ids));
+      }
+
+      if (!$validActivities) {
+        $errorMess = "";
+        if ($extendTargetContacts) {
+          $errorMess = ts('One selected activity consists of more than one target contact.', [
+            'count' => $extendTargetContacts,
+            'plural' => '%count selected activities consist of more than one target contact.',
+          ]);
+        }
+        if ($invalidActivity) {
+          $errorMess = ($errorMess ? ' ' : '');
+          $errorMess .= ts('The selected activity is invalid.', [
+            'count' => $invalidActivity,
+            'plural' => '%count selected activities are invalid.',
+          ]);
+        }
+        CRM_Core_Error::statusBounce(ts("%1: SMS Reply will not be sent.", [1 => $errorMess]));
+      }
+    }
+
+    //activity related variables
+    $form->assign('invalidActivity', $invalidActivity ?? NULL);
+    $form->assign('extendTargetContacts', $extendTargetContacts ?? NULL);
+  }
+
+  protected function isInvalidRecipient($contactID): bool {
+    //to check for "if the contact id belongs to a specified activity type"
+    // @todo use the api instead - function is deprecated.
+    $actDetails = CRM_Activity_BAO_Activity::getContactActivity($contactID);
+    return $this->getActivityName() !==
+      CRM_Utils_Array::retrieveValueRecursive($actDetails, 'subject');
+  }
+
+}

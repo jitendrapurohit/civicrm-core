@@ -1,33 +1,22 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
-{if $showCMS }{*true if is_cms_user field is set *}
+{if $showCMS}{*true if is_cms_user field is set *}
    <fieldset class="crm-group crm_user-group">
+      <legend>{ts}Account{/ts}</legend>
       <div class="messages help cms_user_help-section">
    {if !$isCMS}
-      {ts}If you would like to create an account on this site, check the box below and enter a Username{/ts}{if $form.cms_pass} {ts}and a password{/ts}.{/if}
+     {if array_key_exists('cms_pass', $form)}
+       {ts}If you would like to create an account on this site, check the box below and enter a Username and Password.{/ts}
+     {else}
+       {ts}If you would like to create an account on this site, check the box below and enter a Username.{/ts}
+     {/if}
    {else}
       {ts}Please enter a Username to create an account.{/ts}
    {/if}
@@ -48,7 +37,7 @@
              </div>
            </div>
 
-           {if $form.cms_pass}
+           {if !empty($form.cms_pass)}
            <div class="crm-section cms_pass-section">
              <div class="label">
                <label for="cms_pass">{$form.cms_pass.label}</label>

@@ -1,11 +1,11 @@
 {* common dupe contacts processing *}
-<div id='processDupes' class="success-status" style="display:none;"></div>
+<div id='processDupes' style="display:none;"></div>
 {literal}
 <script type='text/javascript'>
 
 cj( '#processDupes' ).hide( );
 
-function processDupes( cid, oid, oper, context, reloadURL ) {
+function processDupes(cid, oid, oper, context, reloadURL) {
         //currently we are doing in a single way.
         //later we might want two way operations.
 
@@ -38,6 +38,13 @@ function processDupes( cid, oid, oper, context, reloadURL ) {
                                      // redirect after a small delay
                                      setTimeout("window.location.href = '" + reloadURL + "'", 500);
         }
+        else {
+          //CRM-15113 this has the effect of causing the alert to display. Also, as they are already 'actioned' Civi sensibly returns the browser to the
+          //search screen
+          setTimeout(function(){
+            window.location.reload();
+          }, 500);
+        }
       }
     }
   });
@@ -55,7 +62,7 @@ function saveProcessDupes( cid, oid, oper, context ) {
        var statusMsg = {/literal}'{ts escape="js"}Marked as duplicates.{/ts}'{literal};
     }
 
-    var url = {/literal}"{crmURL p='civicrm/ajax/rest' q='className=CRM_Contact_Page_AJAX&fnName=processDupes' h=0 }"{literal};
+    var url = {/literal}"{crmURL p='civicrm/ajax/rest' q='className=CRM_Contact_Page_AJAX&fnName=processDupes' h=0}"{literal};
     //post the data to process dupes.
     cj.post( url,
             {cid: cid, oid: oid, op: oper},

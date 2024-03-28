@@ -1,77 +1,71 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class generates form components for File System Path
- *
+ * This class generates form components for File System Path.
  */
 class CRM_Admin_Form_Setting_Path extends CRM_Admin_Form_Setting {
 
   /**
-   * Function to build the form
+   * Subset of settings on the page as defined using the legacy method.
    *
-   * @return void
-   * @access public
+   * @var array
+   *
+   * @deprecated - do not add new settings here - the page to display
+   * settings on should be defined in the setting metadata.
+   */
+  protected $_settings = [
+    // @todo remove these, define any not yet defined in the setting metadata.
+    'uploadDir' => CRM_Core_BAO_Setting::DIRECTORY_PREFERENCES_NAME,
+    'imageUploadDir' => CRM_Core_BAO_Setting::DIRECTORY_PREFERENCES_NAME,
+    'customFileUploadDir' => CRM_Core_BAO_Setting::DIRECTORY_PREFERENCES_NAME,
+    'customTemplateDir' => CRM_Core_BAO_Setting::DIRECTORY_PREFERENCES_NAME,
+    'customPHPPathDir' => CRM_Core_BAO_Setting::DIRECTORY_PREFERENCES_NAME,
+    'extensionsDir' => CRM_Core_BAO_Setting::DIRECTORY_PREFERENCES_NAME,
+    'ext_max_depth' => CRM_Core_BAO_Setting::EXT,
+  ];
+
+  /**
+   * Build the form object.
+   *
+   * @throws \CRM_Core_Exception
    */
   public function buildQuickForm() {
-    CRM_Utils_System::setTitle(ts('Settings - Upload Directories'));
+    $this->setTitle(ts('Settings - Upload Directories'));
+    parent::buildQuickForm();
 
-    $directories = array('uploadDir' => ts('Temporary Files'),
+    $directories = [
+      'uploadDir' => ts('Temporary Files'),
       'imageUploadDir' => ts('Images'),
       'customFileUploadDir' => ts('Custom Files'),
       'customTemplateDir' => ts('Custom Templates'),
       'customPHPPathDir' => ts('Custom PHP Path Directory'),
       'extensionsDir' => ts('CiviCRM Extensions Directory'),
-    );
+    ];
     foreach ($directories as $name => $title) {
-      $this->add('text', $name, $title);
+      //$this->add('text', $name, $title);
       $this->addRule($name,
         ts("'%1' directory does not exist",
-          array(1 => $title)
+          [1 => $title]
         ),
-        'fileExists'
+        'settingPath'
       );
     }
 
-    parent::buildQuickForm();
   }
 
-  public function postProcess() {
-    parent::postProcess();
-
-    parent::rebuildMenu();
-  }
 }
-

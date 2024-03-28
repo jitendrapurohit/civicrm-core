@@ -1,33 +1,17 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* Export Wizard - Step 2 *}
 {* @var $form Contains the array for the form elements and other form associated information assigned to the template by the controller *}
 <div class="crm-block crm-form-block crm-export-form-block">
 
- <div id="help">
+ <div class="help">
     <p>{ts}<strong>Export PRIMARY fields</strong> provides the most commonly used data values. This includes primary address information, preferred phone and email.{/ts}</p>
     <p>{ts}Click <strong>Select fields for export</strong> and then <strong>Continue</strong> to choose a subset of fields for export. This option allows you to export multiple specific locations (Home, Work, etc.) as well as custom data. You can also save your selections as a 'field mapping' so you can use it again later.{/ts}</p>
  </div>
@@ -35,7 +19,6 @@
  {* WizardHeader.tpl provides visual display of steps thru the wizard as well as title for current step *}
  {include file="CRM/common/WizardHeader.tpl"}
 
- <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
  <div id="export-type">
   <div class="crm-section crm-exportOption-section">
     <h3>{ts count=$totalSelectedRecords plural='%count records selected for export.'}One record selected for export.{/ts}</h3>
@@ -45,7 +28,7 @@
   </div>
 
   <div id="map" class="crm-section crm-export-mapping-section">
-      {if $form.mapping }
+      {if !empty($form.mapping)}
         <div class="label crm-label-export-mapping">
             {$form.mapping.label}
         </div>
@@ -56,11 +39,11 @@
       {/if}
   </div>
 
-  {if $taskName eq 'Export Contacts' OR $component eq false}
+  {if $isShowMergeOptions}
   <div class="crm-section crm-export-mergeOptions-section">
     <div class="label crm-label-mergeOptions">{ts}Merge Options{/ts} {help id="id-export_merge_options"}</div>
     <div class="content crm-content-mergeOptions">
-        &nbsp;{$form.mergeOption.html}
+      {$form.mergeOption.html}
     </div>
     <div id='greetings' class="content crm-content-greetings class='hiddenElement'">
       <table class="form-layout-compressed">
@@ -84,11 +67,6 @@
       </table>
       <div class="clear">&nbsp;</div>
     </div>
-
-    <div class="content crm-content-mergeSameHousehold">
-        &nbsp;{$form.merge_same_household.html}
-    </div>
-    <br/>
     <div class="label crm-label-postalMailingExport">{$form.postal_mailing_export.label}</div>
     <div class="content crm-content-postalMailingExport">
         &nbsp;{$form.postal_mailing_export.html}

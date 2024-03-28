@@ -1,36 +1,12 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
-
-/**
- *
- * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
  */
 
 /**
@@ -40,33 +16,37 @@
 class CRM_Friend_Form extends CRM_Core_Form {
 
   /**
-   * Constants for number of friend contacts
+   * Constants for number of friend contacts.
    */
-  CONST NUM_OPTION = 3;
+  const NUM_OPTION = 3;
 
   /**
-   * the id of the entity that we are proceessing
+   * The id of the entity that we are processing.
    *
    * @var int
-   * @protected
    */
   protected $_entityId;
 
   /**
-   * the table name of the entity that we are proceessing
+   * Tell a friend id in db.
+   *
+   * @var int
+   */
+  public $_friendId;
+
+  /**
+   * The table name of the entity that we are processing.
    *
    * @var string
-   * @protected
    */
   protected $_entityTable;
 
   protected $_campaignId;
 
   /**
-   * the contact ID
+   * The contact ID.
    *
    * @var int
-   * @protected
    */
   protected $_contactID;
 
@@ -76,36 +56,37 @@ class CRM_Friend_Form extends CRM_Core_Form {
 
     $pcomponent = CRM_Utils_Request::retrieve('pcomponent', 'String', $this, TRUE);
 
-    if (in_array($pcomponent, array(
-      'contribute', 'event'))) {
-      $values = array();
-      $params = array('id' => $this->_entityId);
+    if (in_array($pcomponent, ['contribute', 'event'])) {
+      $values = [];
+      $params = ['id' => $this->_entityId];
       CRM_Core_DAO::commonRetrieve('CRM_Contribute_DAO_ContributionPage',
-        $params, $values, array('title', 'campaign_id', 'is_share')
+        $params, $values, ['title', 'campaign_id', 'is_share']
       );
-      $this->_title       = CRM_Utils_Array::value('title', $values);
-      $this->_campaignId  = CRM_Utils_Array::value('campaign_id', $values);
+      $this->_title = $values['title'] ?? NULL;
+      $this->_campaignId = $values['campaign_id'] ?? NULL;
       $this->_entityTable = 'civicrm_contribution_page';
-      if ($pcomponent == 'event') {
+      if ($pcomponent === 'event') {
         $this->_entityTable = 'civicrm_event';
         $isShare = CRM_Core_DAO::getFieldValue('CRM_Event_DAO_Event', $this->_entityId, 'is_share');
-      } else {
-        $isShare = CRM_Utils_Array::value('is_share', $values);
+        $this->_title = CRM_Core_DAO::getFieldValue('CRM_Event_DAO_Event', $this->_entityId, 'title');
+      }
+      else {
+        $isShare = $values['is_share'] ?? NULL;
       }
       // Tell Form.tpl whether to include SocialNetwork.tpl for social media sharing
       $this->assign('isShare', $isShare);
     }
-    elseif ($pcomponent == 'pcp') {
+    elseif ($pcomponent === 'pcp') {
       $this->_pcpBlockId = CRM_Utils_Request::retrieve('blockId', 'Positive', $this, TRUE);
 
-      $values = array();
-      $params = array('id' => $this->_pcpBlockId);
+      $values = [];
+      $params = ['id' => $this->_pcpBlockId];
       CRM_Core_DAO::commonRetrieve('CRM_PCP_DAO_PCPBlock',
-        $params, $values, array('is_tellfriend_enabled', 'tellfriend_limit')
+        $params, $values, ['is_tellfriend_enabled', 'tellfriend_limit']
       );
 
       if (empty($values['is_tellfriend_enabled'])) {
-        CRM_Core_Error::fatal(ts('Tell Friend is disable for this Personal Campaign Page'));
+        CRM_Core_Error::statusBounce(ts('Tell Friend is disable for this Personal Campaign Page'));
       }
 
       $this->_mailLimit = $values['tellfriend_limit'];
@@ -117,28 +98,26 @@ class CRM_Friend_Form extends CRM_Core_Form {
   FROM  civicrm_pcp pcp
     INNER JOIN  civicrm_contribution_page contrib ON ( pcp.page_id = contrib.id AND pcp.page_type = "contribute" )
   WHERE  pcp.id = %1';
-      $pcp = CRM_Core_DAO::executeQuery($sql, array(1 => array($this->_entityId, 'Positive')));
+      $pcp = CRM_Core_DAO::executeQuery($sql, [1 => [$this->_entityId, 'Positive']]);
       while ($pcp->fetch()) {
         $this->_title = $pcp->title;
         $this->_campaignId = $pcp->campaign_id;
-        $pcp->free();
       }
 
       $this->assign('pcpTitle', $this->_title);
     }
     else {
-      CRM_Core_Error::fatal(ts('page argument missing or invalid'));
+      CRM_Core_Error::statusBounce(ts('page argument missing or invalid'));
     }
     $this->assign('context', $pcomponent);
 
-    $session = CRM_Core_Session::singleton();
-    $this->_contactID = $session->get('userID');
+    $this->_contactID = CRM_Core_Session::getLoggedInContactID();
     if (!$this->_contactID) {
-      $this->_contactID = $session->get('transaction.userID');
+      $this->_contactID = CRM_Core_Session::singleton()->get('transaction.userID');
     }
 
     if (!$this->_contactID) {
-      CRM_Core_Error::fatal(ts('Could not get the contact ID'));
+      CRM_Core_Error::statusBounce(ts('Could not get the contact ID'));
     }
 
     // we do not want to display recently viewed items, so turn off
@@ -146,24 +125,23 @@ class CRM_Friend_Form extends CRM_Core_Form {
   }
 
   /**
-   * This function sets the default values for the form.
+   * Set default values for the form.
    *
-   * @access public
    *
-   * @return void
+   * @return array
    */
   public function setDefaultValues() {
-    $defaults = array();
+    $defaults = [];
 
     $defaults['entity_id'] = $this->_entityId;
     $defaults['entity_table'] = $this->_entityTable;
 
     CRM_Friend_BAO_Friend::getValues($defaults);
-    CRM_Utils_System::setTitle(CRM_Utils_Array::value('title', $defaults));
+    $this->setTitle(CRM_Utils_Array::value('title', $defaults));
 
-    $this->assign('title', CRM_Utils_Array::value('title', $defaults));
-    $this->assign('intro', CRM_Utils_Array::value('intro', $defaults));
-    $this->assign('message', CRM_Utils_Array::value('suggested_message', $defaults));
+    $this->assign('title', $defaults['title'] ?? NULL);
+    $this->assign('intro', $defaults['intro'] ?? NULL);
+    $this->assign('message', $defaults['suggested_message'] ?? NULL);
     $this->assign('entityID', $this->_entityId);
 
     list($fromName, $fromEmail) = CRM_Contact_BAO_Contact::getContactDetails($this->_contactID);
@@ -175,12 +153,12 @@ class CRM_Friend_Form extends CRM_Core_Form {
   }
 
   /**
-   * Function to build the form
+   * Build the form object.
    *
    * @return void
-   * @access public
    */
   public function buildQuickForm() {
+    $this->applyFilter('__ALL__', 'trim');
     // Details of User
     $name = &$this->add('text',
       'from_name',
@@ -197,10 +175,10 @@ class CRM_Friend_Form extends CRM_Core_Form {
     );
     $email->freeze();
 
-    $this->addWysiwyg('suggested_message', ts('Your Message'), CRM_Core_DAO::getAttribute('CRM_Friend_DAO_Friend', 'suggested_message'));
-    $friend = array();
+    $this->add('wysiwyg', 'suggested_message', ts('Your Message'), CRM_Core_DAO::getAttribute('CRM_Friend_DAO_Friend', 'suggested_message'));
+    $friend = [];
     $mailLimit = self::NUM_OPTION;
-    if ($this->_entityTable == 'civicrm_pcp') {
+    if ($this->_entityTable === 'civicrm_pcp') {
       $mailLimit = $this->_mailLimit;
     }
     $this->assign('mailLimit', $mailLimit + 1);
@@ -211,37 +189,33 @@ class CRM_Friend_Form extends CRM_Core_Form {
       $this->addRule("friend[$i][email]", ts('The format of this email address is not valid.'), 'email');
     }
 
-    $this->addButtons(array(
-        array(
-          'type' => 'submit',
-          'name' => ts('Send Your Message'),
-          'spacing' => '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;',
-          'isDefault' => TRUE,
-        ),
-        array(
-          'type' => 'cancel',
-          'name' => ts('Cancel'),
-        ),
-      )
-    );
+    $this->addButtons([
+      [
+        'type' => 'submit',
+        'name' => ts('Send Your Message'),
+        'spacing' => '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;',
+        'isDefault' => TRUE,
+      ],
+      [
+        'type' => 'cancel',
+        'name' => ts('Cancel'),
+      ],
+    ]);
 
-    $this->addFormRule(array('CRM_Friend_Form', 'formRule'));
+    $this->addFormRule(['CRM_Friend_Form', 'formRule']);
   }
 
   /**
-   * Function for validation
+   * Validation.
    *
-   * @param $fields
+   * @param array $fields
    *
-   * @internal param array $params (ref.) an assoc array of name/value pairs
-   *
-   * @return mixed true or array of errors
-   * @access public
-   * @static
+   * @return bool|array
+   *   mixed true or array of errors
    */
-  static function formRule($fields) {
+  public static function formRule($fields) {
 
-    $errors = array();
+    $errors = [];
 
     $valid = FALSE;
     foreach ($fields['friend'] as $key => $val) {
@@ -270,11 +244,10 @@ class CRM_Friend_Form extends CRM_Core_Form {
   }
 
   /**
-   * Function to process the form
-   *
-   * @access public
+   * Process the form submission.
    *
    * @return void
+   * @throws \CRM_Core_Exception
    */
   public function postProcess() {
     // get the submitted form values.
@@ -290,17 +263,17 @@ class CRM_Friend_Form extends CRM_Core_Form {
     CRM_Friend_BAO_Friend::create($formValues);
 
     $this->assign('status', 'thankyou');
-    $defaults = array();
+    $defaults = [];
 
     $defaults['entity_id'] = $this->_entityId;
     $defaults['entity_table'] = $this->_entityTable;
 
     CRM_Friend_BAO_Friend::getValues($defaults);
-    if ($this->_entityTable == 'civicrm_pcp') {
-      $defaults['thankyou_text'] = $defaults['thankyou_title'] = ts('Thanks for your Support');
+    if ($this->_entityTable === 'civicrm_pcp') {
+      $defaults['thankyou_text'] = $defaults['thankyou_title'] = ts('Thank you for your support');
       $defaults['thankyou_text'] = ts('Thanks for supporting this campaign by spreading the word to your friends.');
     }
-    elseif ($this->_entityTable == 'civicrm_contribution_page') {
+    elseif ($this->_entityTable === 'civicrm_contribution_page') {
       // If this is tell a friend after contributing, give donor link to create their own fundraising page
       if ($linkText = CRM_PCP_BAO_PCP::getPcpBlockStatus($defaults['entity_id'], $defaults['entity_table'])) {
 
@@ -309,24 +282,22 @@ class CRM_Friend_Form extends CRM_Core_Form {
           FALSE, NULL, TRUE,
           TRUE
         );
-        $this->assign('linkTextUrl', $linkTextUrl);
-        $this->assign('linkText', $linkText);
       }
-        } else if ( $this->_entityTable == 'civicrm_event' ) {
-            // If this is tell a friend after registering for an event, give donor link to create their own fundraising page
-            require_once 'CRM/PCP/BAO/PCP.php';
-            if ( $linkText = CRM_PCP_BAO_PCP::getPcpBlockStatus( $defaults['entity_id'], $defaults['entity_table'] ) ) {
-                $linkTextUrl = CRM_Utils_System::url( 'civicrm/contribute/campaign',
-                                                      "action=add&reset=1&pageId={$defaults['entity_id']}&component=event",
-                                                      false, null, true,
-                                                      true );
-                $this->assign( 'linkTextUrl', $linkTextUrl );
-                $this->assign( 'linkText', $linkText );
     }
-        }
-
-    CRM_Utils_System::setTitle($defaults['thankyou_title']);
+    elseif ($this->_entityTable === 'civicrm_event') {
+      // If this is tell a friend after registering for an event, give donor link to create their own fundraising page
+      require_once 'CRM/PCP/BAO/PCP.php';
+      if ($linkText = CRM_PCP_BAO_PCP::getPcpBlockStatus($defaults['entity_id'], $defaults['entity_table'])) {
+        $linkTextUrl = CRM_Utils_System::url('civicrm/contribute/campaign',
+          "action=add&reset=1&pageId={$defaults['entity_id']}&component=event",
+          FALSE, NULL, TRUE,
+          TRUE);
+      }
+    }
+    $this->assign('linkTextUrl', $linkTextUrl ?? NULL);
+    $this->assign('linkText', $linkText ?? NULL);
+    $this->setTitle($defaults['thankyou_title']);
     $this->assign('thankYouText', $defaults['thankyou_text']);
   }
-}
 
+}

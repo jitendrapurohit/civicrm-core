@@ -1,26 +1,10 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* Search criteria form elements - Find Contacts *}
@@ -36,10 +20,10 @@
 
 {strip}
 <div class="crm-block crm-form-block crm-basic-criteria-form-block">
-    <div class="crm-accordion-wrapper crm-case_search-accordion {if $rows}collapsed{/if}">
-     <div class="crm-accordion-header crm-master-accordion-header">
+    <details class="crm-accordion-light crm-case_search-accordion" {if $rows}{else}open{/if}>
+     <summary>
         {$editTitle}
-    </div><!-- /.crm-accordion-header -->
+    </summary>
     <div class="crm-accordion-body">
         <div class="crm-section sort_name-section">
           <div class="label">
@@ -51,7 +35,7 @@
           <div class="clear"></div>
         </div>
 
-        {if $form.contact_type}
+        {if !empty($form.contact_type)}
           <div class="crm-section contact_type-section">
             <div class="label">
               {$form.contact_type.label}
@@ -63,7 +47,7 @@
           </div>
         {/if}
 
-        {if $form.group}
+        {if !empty($form.group)}
         <div class="crm-section group_selection-section">
           <div class="label">
             {if $context EQ 'smog'}
@@ -83,7 +67,7 @@
         </div>
         {/if}
 
-        {if $form.tag}
+        {if !empty($form.tag)}
             <div class="crm-section tag-section">
               <div class="label">
                 {$form.tag.label}
@@ -94,8 +78,8 @@
               <div class="clear"></div>
             </div>
         {/if}
-        <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl"}</div>
-    </div><!-- /.crm-accordion-body -->
-    </div><!-- /.crm-accordion-wrapper -->
+        <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="bottom"}</div>
+    </div>
+    </details>
 </div><!-- /.crm-form-block -->
 {/strip}

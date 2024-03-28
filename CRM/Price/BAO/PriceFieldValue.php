@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -40,112 +22,137 @@
 class CRM_Price_BAO_PriceFieldValue extends CRM_Price_DAO_PriceFieldValue {
 
   /**
-   * insert/update a new entry in the database.
+   * Insert/update a new entry in the database.
    *
-   * @param array $params (reference), array $ids
+   * @param array $params
    *
-   * @param $ids
-   *
-   * @return object CRM_Price_DAO_PriceFieldValue object
-   * @access public
-   * @static
+   * @return CRM_Price_DAO_PriceFieldValue
    */
-  static function &add(&$params, $ids) {
+  public static function add($params) {
+    $fieldValueBAO = self::writeRecord($params);
 
-    $fieldValueBAO = new CRM_Price_BAO_PriceFieldValue();
-    $fieldValueBAO->copyValues($params);
-
-    if ($id = CRM_Utils_Array::value('id', $ids)) {
-      $fieldValueBAO->id = $id;
-    }
     if (!empty($params['is_default'])) {
-      $query = 'UPDATE civicrm_price_field_value SET is_default = 0 WHERE  price_field_id = %1';
-      $p = array(1 => array($params['price_field_id'], 'Integer'));
+      $priceFieldID = $params['price_field_id'] ?? CRM_Core_DAO::getFieldValue('CRM_Price_BAO_PriceFieldValue', $fieldValueBAO->id, 'price_field_id');
+      $query = 'UPDATE civicrm_price_field_value SET is_default = 0 WHERE price_field_id = %1 and id != %2';
+      $p = [1 => [$priceFieldID, 'Integer'], 2 => [$fieldValueBAO->id, 'Integer']];
       CRM_Core_DAO::executeQuery($query, $p);
     }
 
-    $fieldValueBAO->save();
+    // Reset the cached values in this function.
+    CRM_Price_BAO_PriceField::getOptions(CRM_Utils_Array::value('price_field_id', $params), FALSE, TRUE);
     return $fieldValueBAO;
   }
 
   /**
    * Creates a new entry in the database.
    *
-   * @param array $params (reference), array $ids
+   * @param array $params
+   *   (reference), array $ids.
    *
    * @param $ids
    *
-   * @return object CRM_Price_DAO_PriceFieldValue object
-   * @access public
-   * @static
+   * @return CRM_Price_DAO_PriceFieldValue
+   *
+   * @throws \CRM_Core_Exception
    */
-  static function create(&$params, $ids) {
-
+  public static function create(&$params, $ids = []) {
+    $id = $params['id'] ?? $ids['id'] ?? NULL;
     if (!is_array($params) || empty($params)) {
-      return;
+      return NULL;
+    }
+    if (!$id && empty($params['name'])) {
+      $params['name'] = strtolower(CRM_Utils_String::munge(($params['label'] ?? '_'), '_', 242));
     }
 
-    if ($id = CRM_Utils_Array::value('id', $ids)) {
-      if (isset($params['name']))unset($params['name']);
+    if ($id && !empty($params['weight'])) {
+      if (isset($params['name'])) {
+        unset($params['name']);
+      }
 
       $oldWeight = NULL;
       if ($id) {
         $oldWeight = CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceFieldValue', $id, 'weight', 'id');
       }
-
-      $fieldValues = array('price_field_id' => CRM_Utils_Array::value('price_field_id', $params, 0));
+      $fieldValues = ['price_field_id' => CRM_Utils_Array::value('price_field_id', $params, 0)];
       $params['weight'] = CRM_Utils_Weight::updateOtherWeights('CRM_Price_DAO_PriceFieldValue', $oldWeight, $params['weight'], $fieldValues);
     }
-    else {
-      if (empty($params['name'])) {
-        $params['name'] = CRM_Utils_String::munge(CRM_Utils_Array::value('label', $params), '_', 64);
-      }
-      if (empty($params['weight'])) {
-        $params['weight'] = 1;
-      }
+    elseif (!$id) {
+      CRM_Core_DAO::setCreateDefaults($params, self::getDefaults());
     }
-    $params['is_active'] = CRM_Utils_Array::value('is_active', $params, 0);
 
-    return self::add($params, $ids);
+    $financialType = $params['financial_type_id'] ?? NULL;
+    if (!$financialType && $id) {
+      $financialType = CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceFieldValue', $id, 'financial_type_id', 'id');
+    }
+    CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes($financialTypes);
+    if (!empty($financialType) && !array_key_exists($financialType, $financialTypes) && $params['is_active']) {
+      throw new CRM_Core_Exception("Financial Type for Price Field Option is either disabled or does not exist");
+    }
+    $params['id'] = $id;
+    return self::add($params);
   }
 
   /**
-   * Takes a bunch of params that are needed to match certain criteria and
-   * retrieves the relevant objects.
-   *
-   * @param array $params   (reference ) an assoc array
-   * @param array $defaults (reference ) an assoc array to hold the flattened values
-   *
-   * @return object CRM_Price_DAO_PriceFieldValue object
-   * @access public
-   * @static
+   * Get defaults for new entity.
+   * @return array
    */
-  static function retrieve(&$params, &$defaults) {
-    return CRM_Core_DAO::commonRetrieve('CRM_Price_DAO_PriceFieldValue', $params, $defaults);
+  public static function getDefaults() {
+    return [
+      'is_active' => 1,
+      'weight' => 1,
+    ];
+
   }
 
   /**
-   * Retrive the all values for given field id
+   * @deprecated
+   * @param array $params
+   * @param array $defaults
+   * @return self|null
+   */
+  public static function retrieve($params, &$defaults) {
+    return self::commonRetrieve(self::class, $params, $defaults);
+  }
+
+  /**
+   * Retrieve all values for given field id.
    *
-   * @param int $fieldId price_field_id
-   * @param array $values (reference ) to hold the values
-   * @param string $orderBy for order by, default weight
+   * @param int $fieldId
+   *   Price_field_id.
+   * @param array $values
+   *   (reference ) to hold the values.
+   * @param string $orderBy
+   *   For order by, default weight.
    * @param bool|int $isActive is_active, default false
+   * @param bool $admin is this loading it for use on an admin page.
    *
-   * @return array $values
+   * @return array
    *
-   * @access public
-   * @static
    */
-  static function getValues($fieldId, &$values, $orderBy = 'weight', $isActive = FALSE) {
+  public static function getValues($fieldId, &$values, $orderBy = 'weight', $isActive = FALSE, $admin = FALSE) {
+    $sql = "SELECT cs.id FROM civicrm_price_set cs INNER JOIN civicrm_price_field cp ON cp.price_set_id = cs.id
+              WHERE cs.name IN ('default_contribution_amount', 'default_membership_type_amount') AND cp.id = {$fieldId} ";
+    $setId = CRM_Core_DAO::singleValueQuery($sql);
     $fieldValueDAO = new CRM_Price_DAO_PriceFieldValue();
     $fieldValueDAO->price_field_id = $fieldId;
+    $addWhere = '';
+    if (!$setId) {
+      CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes($financialTypes);
+      if (!$admin) {
+        $addWhere = "financial_type_id IN (0)";
+      }
+      if (!empty($financialTypes) && !$admin) {
+        $addWhere = "financial_type_id IN (" . implode(',', array_keys($financialTypes)) . ")";
+      }
+      if (!empty($addWhere)) {
+        $fieldValueDAO->whereAdd($addWhere);
+      }
+    }
     $fieldValueDAO->orderBy($orderBy, 'label');
     if ($isActive) {
       $fieldValueDAO->is_active = 1;
     }
     $fieldValueDAO->find();
-
     while ($fieldValueDAO->fetch()) {
       CRM_Core_DAO::storeValues($fieldValueDAO, $values[$fieldValueDAO->id]);
     }
@@ -156,12 +163,11 @@ class CRM_Price_BAO_PriceFieldValue extends CRM_Price_DAO_PriceFieldValue {
   /**
    * Get the price field option label.
    *
-   * @param int $id id of field option.
+   * @param int $id
+   *   Id of field option.
    *
-   * @return string name
-   *
-   * @access public
-   * @static
+   * @return string
+   *   name
    *
    */
   public static function getOptionLabel($id) {
@@ -169,33 +175,26 @@ class CRM_Price_BAO_PriceFieldValue extends CRM_Price_DAO_PriceFieldValue {
   }
 
   /**
-   * update the is_active flag in the db
-   *
-   * @param int      $id         Id of the database record
-   * @param boolean  $is_active  Value we want to set the is_active field
-   *
-   * @return   Object            DAO object on sucess, null otherwise
-   *
-   * @access public
-   * @static
+   * @deprecated - this bypasses hooks.
+   * @param int $id
+   * @param bool $is_active
+   * @return bool
    */
-  static function setIsActive($id, $is_active) {
+  public static function setIsActive($id, $is_active) {
     return CRM_Core_DAO::setFieldValue('CRM_Price_DAO_PriceFieldValue', $id, 'is_active', $is_active);
   }
 
   /**
-   * delete all values of the given field id
+   * Delete all values of the given field id.
    *
-   * @param  int    $fieldId    Price field id
+   * @param int $fieldId
+   *   Price field id.
    *
-   * @return boolean
    *
-   * @access public
-   * @static
    */
-  static function deleteValues($fieldId) {
+  public static function deleteValues($fieldId) {
     if (!$fieldId) {
-      return FALSE;
+      return;
     }
 
     $fieldValueDAO = new CRM_Price_DAO_PriceFieldValue();
@@ -206,44 +205,37 @@ class CRM_Price_BAO_PriceFieldValue extends CRM_Price_DAO_PriceFieldValue {
   /**
    * Delete the value.
    *
-   * @param   int   $id  Id
+   * @param int $id
    *
-   * @return  boolean
-   *
-   * @access public
-   * @static
+   * @deprecated
+   * @return bool
    */
-  static function del($id) {
-    if (!$id) {
-      return FALSE;
-    }
-
-    $fieldValueDAO = new CRM_Price_DAO_PriceFieldValue();
-    $fieldValueDAO->id = $id;
-    return $fieldValueDAO->delete();
+  public static function del($id) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    return (bool) self::deleteRecord(['id' => $id]);
   }
 
   /**
    * Update civicrm_price_field_value.financial_type_id
    * when financial_type_id of contribution_page or event is changed
    *
-   * @param   int $entityId Id
-   * @param   String $entityTable entity table
-   * @param   String $financialTypeID financial type id
+   * @param int $entityId
+   *   Id.
+   * @param string $entityTable table.
+   *   Entity table.
+   * @param string $financialTypeID type id.
+   *   Financial type id.
    *
-   * @return bool
-   * @access public
-   * @static
    */
-  static function updateFinancialType($entityId, $entityTable, $financialTypeID) {
+  public static function updateFinancialType($entityId, $entityTable, $financialTypeID) {
     if (!$entityId || !$entityTable || !$financialTypeID) {
-      return FALSE;
+      return;
     }
-    $params = array(
-      1 => array($entityId, 'Integer'),
-      2 => array($entityTable, 'String'),
-      3 => array($financialTypeID, 'Integer'),
-    );
+    $params = [
+      1 => [$entityId, 'Integer'],
+      2 => [$entityTable, 'String'],
+      3 => [$financialTypeID, 'Integer'],
+    ];
     // for event discount
     $join = $where = '';
     if ($entityTable == 'civicrm_event') {
@@ -265,5 +257,5 @@ WHERE cpse.id IS NOT NULL {$where}";
 
     CRM_Core_DAO::executeQuery($sql, $params);
   }
-}
 
+}

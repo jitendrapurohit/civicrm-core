@@ -1,183 +1,218 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * class to represent the actions that can be performed on a group of contacts
- * used by the search forms
+ * Class to represent the actions that can be performed on a group of contacts.
  *
+ * Used by the search forms.
  */
-class CRM_Contribute_Task {
-  CONST DELETE_CONTRIBUTIONS = 1, PRINT_CONTRIBUTIONS = 2, EXPORT_CONTRIBUTIONS = 3, BATCH_CONTRIBUTIONS = 4, EMAIL_CONTACTS = 5, UPDATE_STATUS = 6, PDF_RECEIPT = 7;
+class CRM_Contribute_Task extends CRM_Core_Task {
 
   /**
-   * the task array
-   *
-   * @var array
-   * @static
+   * Contribution tasks
    */
-  static $_tasks = NULL;
+  const
+    UPDATE_STATUS = 401,
+    PDF_RECEIPT = 402,
+    PDF_THANKYOU = 403,
+    PDF_INVOICE = 404;
 
   /**
-   * the optional task array
-   *
-   * @var array
-   * @static
+   * @var string
    */
-  static $_optionalTasks = NULL;
+  public static $objectType = 'contribution';
 
   /**
    * These tasks are the core set of tasks that the user can perform
    * on a contact / group of contacts
    *
-   * @return array the set of tasks for a group of contacts
-   * @static
-   * @access public
+   * @return array
+   *   the set of tasks for a group of contacts
    */
-  static function &tasks() {
+  public static function tasks() {
     if (!(self::$_tasks)) {
-      self::$_tasks = array(
-        1 => array(
-          'title' => ts('Delete Contributions'),
+      self::$_tasks = [
+        self::TASK_DELETE => [
+          'title' => ts('Delete contributions'),
           'class' => 'CRM_Contribute_Form_Task_Delete',
           'result' => FALSE,
-        ),
-        2 => array(
-          'title' => ts('Print Selected Rows'),
+          'weight' => CRM_Core_Action::getWeight(CRM_Core_Action::DELETE),
+        ],
+        self::TASK_PRINT => [
+          'title' => ts('Print selected rows'),
           'class' => 'CRM_Contribute_Form_Task_Print',
           'result' => FALSE,
-        ),
-        3 => array(
-          'title' => ts('Export Contributions'),
-          'class' => array(
-            'CRM_Export_Form_Select',
-            'CRM_Export_Form_Map',
-          ),
+          'weight' => 10,
+        ],
+        self::TASK_EXPORT => [
+          'title' => ts('Export contributions'),
+          'class' => [
+            'CRM_Contribute_Export_Form_Select',
+            'CRM_Contribute_Export_Form_Map',
+          ],
           'result' => FALSE,
-        ),
-        4 => array(
-          'title' => ts('Batch Update Contributions Via Profile'),
-          'class' => array(
+          'weight' => 20,
+        ],
+        self::BATCH_UPDATE => [
+          'title' => ts('Update multiple contributions'),
+          'class' => [
             'CRM_Contribute_Form_Task_PickProfile',
             'CRM_Contribute_Form_Task_Batch',
-          ),
+          ],
           'result' => TRUE,
-        ),
-        5 => array(
-          'title' => ts('Send Email to Contacts'),
+          'weight' => 30,
+        ],
+        self::TASK_EMAIL => [
+          'title' => ts('Email - send now (to %1 or less)', [
+            1 => Civi::settings()
+              ->get('simple_mail_limit'),
+          ]),
           'class' => 'CRM_Contribute_Form_Task_Email',
           'result' => TRUE,
-        ),
-        6 => array(
-          'title' => ts('Update Pending Contribution Status'),
+          'weight' => 40,
+        ],
+        self::UPDATE_STATUS => [
+          'title' => ts('Record payments for contributions'),
           'class' => 'CRM_Contribute_Form_Task_Status',
           'result' => TRUE,
-        ),
-        7 => array(
-          'title' => ts('Print or Email Contribution Receipts'),
+          'weight' => 50,
+        ],
+        self::PDF_RECEIPT => [
+          'title' => ts('Receipts - print or email'),
           'class' => 'CRM_Contribute_Form_Task_PDF',
           'result' => FALSE,
-        ),
-        8 => array(
-          'title' => ts('Thank-you Letters for Contributions'),
+          'title_single_mode' => ts('Send Receipt'),
+          'name' => ts('Send Receipt'),
+          'url' => 'civicrm/contribute/task?reset=1&task_item=receipt',
+          'key' => 'receipt',
+          'icon' => 'fa-envelope-o',
+          'filters' => ['contribution_status_id' => [CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Completed')]],
+          'is_single_mode' => TRUE,
+          'weight' => 60,
+        ],
+        self::PDF_THANKYOU => [
+          'title' => ts('Thank-you letters - print or email'),
           'class' => 'CRM_Contribute_Form_Task_PDFLetter',
           'result' => FALSE,
-        ),
-      );
+          'url' => 'civicrm/contribute/task?reset=1&task_item=letter',
+          'key' => 'letter',
+          'name' => ts('Send Letter'),
+          'is_single_mode' => TRUE,
+          'title_single_mode' => ts('Thank-you letter - print or email'),
+          'weight' => 70,
+        ],
+        self::PDF_INVOICE => [
+          'title' => ts('Invoices - print or email'),
+          'class' => 'CRM_Contribute_Form_Task_Invoice',
+          'result' => FALSE,
+          'weight' => 80,
+        ],
+      ];
 
       //CRM-4418, check for delete
       if (!CRM_Core_Permission::check('delete in CiviContribute')) {
-        unset(self::$_tasks[1]);
+        unset(self::$_tasks[self::TASK_DELETE]);
+      }
+      //CRM-12920 - check for edit permission
+      if (!CRM_Core_Permission::check('edit contributions')) {
+        unset(self::$_tasks[self::BATCH_UPDATE], self::$_tasks[self::UPDATE_STATUS]);
       }
 
-      CRM_Utils_Hook::searchTasks('contribution', self::$_tasks);
-      asort(self::$_tasks);
+      // remove action "Invoices - print or email"
+      $invoicing = \Civi::settings()->get('invoicing');
+      if (!$invoicing) {
+        unset(self::$_tasks[self::PDF_INVOICE]);
+      }
+
+      parent::tasks();
     }
 
     return self::$_tasks;
   }
 
   /**
-   * These tasks are the core set of task titles
-   * on contributors
+   * Get links appropriate to the context of the row.
    *
-   * @return array the set of task titles
-   * @static
-   * @access public
+   * @param array $row
+   *
+   * @return array
    */
-  static function &taskTitles() {
-    self::tasks();
-    $titles = array();
-    foreach (self::$_tasks as $id => $value) {
-      $titles[$id] = $value['title'];
+  public static function getContextualLinks($row) {
+    $tasks = self::tasks();
+    foreach ($tasks as $key => $task) {
+      if (empty($task['is_single_mode'])) {
+        unset($tasks[$key]);
+        continue;
+      }
+      if (!empty($task['filters'])) {
+        foreach ($task['filters'] as $filter => $values) {
+          if (!in_array($row[$filter], $values, FALSE)) {
+            unset($tasks[$key]);
+            continue 2;
+          }
+        }
+      }
+      $tasks[$key]['url'] = $task['url'];
+      $tasks[$key]['qs'] = ['id' => $row['contribution_id']];
+      $tasks[$key]['title'] = $task['title_single_mode'] ?? $task['title'];
     }
-    return $titles;
+    return $tasks;
   }
 
   /**
-   * show tasks selectively based on the permission level
+   * Show tasks selectively based on the permission level
    * of the user
    *
    * @param int $permission
    *
-   * @param bool $softCreditFiltering
+   * @param array $params
+   *              bool softCreditFiltering: derived from CRM_Contribute_BAO_Query::isSoftCreditOptionEnabled
    *
-   * @return array set of tasks that are valid for the user
-   * @access public
+   * @return array
+   *   set of tasks that are valid for the user
    */
-  static function &permissionedTaskTitles($permission, $softCreditFiltering = FALSE) {
-    $tasks = array();
+  public static function permissionedTaskTitles($permission, $params = []) {
+    if (!isset($params['softCreditFiltering'])) {
+      $params['softCreditFiltering'] = FALSE;
+    }
     if (($permission == CRM_Core_Permission::EDIT)
       || CRM_Core_Permission::check('edit contributions')
     ) {
       $tasks = self::taskTitles();
     }
     else {
-      $tasks = array(
-        3 => self::$_tasks[3]['title'],
-        5 => self::$_tasks[5]['title'],
-        7 => self::$_tasks[7]['title'],
-      );
+      // See https://lab.civicrm.org/dev/core/-/issues/3737
+      static::tasks();
+      $tasks = [
+        self::TASK_EXPORT => self::$_tasks[self::TASK_EXPORT]['title'],
+        self::TASK_EMAIL => self::$_tasks[self::TASK_EMAIL]['title'],
+        self::PDF_RECEIPT => self::$_tasks[self::PDF_RECEIPT]['title'],
+      ];
 
       //CRM-4418,
       if (CRM_Core_Permission::check('delete in CiviContribute')) {
-        $tasks[1] = self::$_tasks[1]['title'];
+        $tasks[self::TASK_DELETE] = self::$_tasks[self::TASK_DELETE]['title'];
       }
     }
-    if ($softCreditFiltering) {
-      unset($tasks[4], $tasks[7]);
+    if ($params['softCreditFiltering']) {
+      unset($tasks[self::BATCH_UPDATE], $tasks[self::PDF_RECEIPT]);
     }
+
+    $tasks = parent::corePermissionedTaskTitles($tasks, $permission, $params);
     return $tasks;
   }
 
@@ -187,25 +222,16 @@ class CRM_Contribute_Task {
    *
    * @param int $value
    *
-   * @return array the set of tasks for a group of contributors
-   * @static
-   * @access public
+   * @return array
+   *   the set of tasks for a group of contributors
    */
-  static function getTask($value) {
+  public static function getTask($value) {
     self::tasks();
-    if (!$value || !CRM_Utils_Array::value($value, self::$_tasks)) {
+    if (!$value || empty(self::$_tasks[$value])) {
       // make the print task by default
-      $value = 2;
+      $value = self::TASK_PRINT;
     }
-    // this is possible since hooks can inject a task
-    // CRM-13697
-    if (!isset(self::$_tasks[$value]['result'])) {
-      self::$_tasks[$value]['result'] = NULL;
-    }
-    return array(
-      self::$_tasks[$value]['class'],
-      self::$_tasks[$value]['result'],
-    );
+    return parent::getTask($value);
   }
-}
 
+}

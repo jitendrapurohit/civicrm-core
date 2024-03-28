@@ -2,17 +2,19 @@
 require_once '../civicrm.config.php';
 require_once 'CRM/Core/Config.php';
 require_once 'CRM/Core/Error.php';
-require_once 'CRM/Utils/Array.php';
+require_once 'CRM/Utils/Type.php';
+require_once 'CRM/Utils/Rule.php';
+require_once 'CRM/Utils/Request.php';
 
-$config = CRM_Core_Config::singleton();
-$queue_id = CRM_Utils_Array::value('q', $_GET);
+CRM_Core_Config::singleton();
+$queue_id = CRM_Utils_Request::retrieveValue('q', 'Positive', NULL, FALSE, 'GET');
 if (!$queue_id) {
   echo "Missing input parameters\n";
   exit();
 }
 
 require_once 'CRM/Mailing/Event/BAO/Opened.php';
-CRM_Mailing_Event_BAO_Opened::open($queue_id);
+CRM_Mailing_Event_BAO_MailingEventOpened::open($queue_id);
 
 $filename = "../i/tracker.gif";
 

@@ -1,32 +1,16 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
-<div class="crm-accordion-wrapper crm-demographics-accordion collapsed">
- <div class="crm-accordion-header">
+<details class="crm-accordion-bold crm-demographics-accordion">
+ <summary>
     {$title}
-  </div><!-- /.crm-accordion-header -->
+  </summary>
   <div id="demographics" class="crm-accordion-body">
   <div class="form-item">
         <span class="label">{$form.gender_id.label}</span>
@@ -37,7 +21,7 @@
   </div>
   <div class="form-item">
         <span class="label">{$form.birth_date.label}</span>
-        <span class="value">{include file="CRM/common/jcalendar.tpl" elementName=birth_date}</span>
+        <span class="fields">{$form.birth_date.html}</span>
   </div>
   <div class="form-item">
        {$form.is_deceased.html}
@@ -45,10 +29,10 @@
   </div>
   <div id="showDeceasedDate" class="form-item">
        <span class="label">{$form.deceased_date.label}</span>
-       <span class="value">{include file="CRM/common/jcalendar.tpl" elementName=deceased_date}</span>
+       <span class="fields">{$form.deceased_date.html}</span>
   </div>
- </div><!-- /.crm-accordion-body -->
-</div><!-- /.crm-accordion-wrapper -->
+ </div>
+</details>
 
 {literal}
 <script type="text/javascript">

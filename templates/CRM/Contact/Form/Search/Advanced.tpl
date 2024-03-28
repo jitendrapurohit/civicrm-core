@@ -1,26 +1,10 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* Master tpl for Advanced Search *}
@@ -29,27 +13,21 @@
 
   {include file="CRM/Contact/Form/Search/Intro.tpl"}
 
-  <div class="crm-accordion-wrapper crm-advanced_search_form-accordion {if !empty($ssID) or $rows}collapsed{/if}">
-    <div class="crm-accordion-header crm-master-accordion-header">
-      {if !empty($ssID) or $rows}
-        {if $savedSearch}
-          {ts 1=$savedSearch.name}Edit %1 Smart Group Criteria{/ts}
-        {else}
-          {ts}Edit Search Criteria{/ts}
-        {/if}
+  <details class="crm-accordion-light crm-advanced_search_form-accordion" {if !$rows}open{/if} >
+    <summary>
+      {if !empty($savedSearch)}
+        {ts 1=$savedSearch.name}Edit %1 Smart Group Criteria{/ts}
+      {elseif !empty($ssID) or $rows}
+        {ts}Edit Search Criteria{/ts}
       {else}
-        {if $savedSearch}
-          {ts 1=$savedSearch.name}Edit %1 Smart Group Criteria{/ts}
-        {else}
-          {ts}Search Criteria{/ts}
-        {/if}
+        {ts}Search Criteria{/ts}
       {/if}
       {help id='id-advanced-intro'}
-    </div>
+    </summary>
     <div class="crm-accordion-body">
       {include file="CRM/Contact/Form/Search/AdvancedCriteria.tpl"}
     </div>
-  </div>
+  </details>
 </div>
 
 {if $rowsEmpty}
@@ -77,7 +55,7 @@
         {include file="CRM/Contact/Form/Search/ResultTasks.tpl"}
       {/if}
     </div>
-    
+
     {* This section displays the rows along and includes the paging controls *}
     <div class="crm-search-results">
       {if $resultFile}

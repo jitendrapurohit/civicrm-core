@@ -1,181 +1,225 @@
 <?php
-
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
- * File for the CiviCRM APIv3 custom group functions
+ * This api exposes CiviCRM custom field.
  *
  * @package CiviCRM_APIv3
- * @subpackage API_CustomField
- *
- * @copyright CiviCRM LLC (c) 2004-2014
- * @version $Id: CustomField.php 30879 2010-11-22 15:45:55Z shot $
- */
-
-/**
- * Most API functions take in associative arrays ( name => value pairs
- * as parameters. Some of the most commonly used parameters are
- * described below
- *
- * @param array $params           an associative array used in construction
- * retrieval of the object
- *
  */
 
 /**
  * Create a 'custom field' within a custom field group.
+ *
  * We also empty the static var in the getfields
- * function after deletion so that the field is available for us (getfields manages date conversion
- * among other things
+ * function after deletion so that the field is available for us (getfields
+ * manages date conversion among other things
  *
- * @param $params array  Associative array of property name/value pairs to create new custom field.
+ * @param array $params
+ *   Array per getfields metadata.
  *
- * @return Newly API success object
- *
- * @access public
- *
- * @example CustomFieldCreate.php
- * {@getfields CustomField_create}
- * {@example CustomFieldCreate.php 0}
- *
+ * @return array
+ *   API success array
+ * @throws \CRM_Core_Exception
  */
-function civicrm_api3_custom_field_create($params) {
+function civicrm_api3_custom_field_create(array $params): array {
 
-  // Array created for passing options in params
+  // Legacy handling for old way of naming serialized fields
+  if (!empty($params['html_type'])) {
+    if ($params['html_type'] === 'CheckBox' || strpos($params['html_type'], 'Multi-') === 0) {
+      $params['serialize'] = 1;
+    }
+    $params['html_type'] = str_replace(['Multi-Select', 'Select Country', 'Select State/Province'], 'Select', $params['html_type']);
+  }
+
+  // Array created for passing options in params.
   if (isset($params['option_values']) && is_array($params['option_values'])) {
+    $weight = 0;
     foreach ($params['option_values'] as $key => $value) {
+      // Translate simple key/value pairs into full-blown option values
+      if (!is_array($value)) {
+        $value = [
+          'label' => $value,
+          'value' => $key,
+          'is_active' => 1,
+          'weight' => $weight,
+        ];
+        $key = $weight++;
+      }
       $params['option_label'][$key] = $value['label'];
       $params['option_value'][$key] = $value['value'];
       $params['option_status'][$key] = $value['is_active'];
       $params['option_weight'][$key] = $value['weight'];
     }
   }
-  $values = array();
+  elseif (
+    // Legacy handling for historical apiv3 behaviour.
+    empty($params['id'])
+    && !empty($params['html_type'])
+    && $params['html_type'] !== 'Text'
+    && empty($params['option_group_id'])
+    && empty($params['option_value'])
+    && in_array($params['data_type'] ?? '', ['String', 'Int', 'Float', 'Money'])) {
+    // Trick the BAO into creating an option group even though no option values exist
+    // because that odd behaviour is locked in via a test.
+    $params['option_value'] = 1;
+  }
+  $values = [];
   $customField = CRM_Core_BAO_CustomField::create($params);
   _civicrm_api3_object_to_array_unique_fields($customField, $values[$customField->id]);
   _civicrm_api3_custom_field_flush_static_caches();
-  return civicrm_api3_create_success($values, $params, 'custom_field', $customField);
+  return civicrm_api3_create_success($values, $params, 'CustomField', $customField);
 }
 
 /**
- * Flush static caches in functions that might have stored available custom fields
+ * Flush static caches in functions that might have stored available custom fields.
  */
-function _civicrm_api3_custom_field_flush_static_caches(){
-  civicrm_api('custom_field', 'getfields', array('version' => 3, 'cache_clear' => 1));
+function _civicrm_api3_custom_field_flush_static_caches() {
+  if (isset(\Civi::$statics['CRM_Core_BAO_OptionGroup']['titles_by_name'])) {
+    unset(\Civi::$statics['CRM_Core_BAO_OptionGroup']['titles_by_name']);
+  }
+  civicrm_api('CustomField', 'getfields', ['version' => 3, 'cache_clear' => 1]);
   CRM_Core_BAO_UFField::getAvailableFieldsFlat(TRUE);
 }
+
 /**
- * Adjust Metadata for Create action
+ * Adjust Metadata for Create action.
  *
- * @param array $params array or parameters determined by getfields
+ * @param array $params
+ *   Array of parameters determined by getfields.
  */
 function _civicrm_api3_custom_field_create_spec(&$params) {
   $params['label']['api.required'] = 1;
   $params['custom_group_id']['api.required'] = 1;
   $params['is_active']['api.default'] = 1;
-  $params['option_type'] = array(
-    'title' => 'This (boolean) field tells the BAO to create an option group for the field if the field type is appropriate',
-    'api.default' => 1,
-    'type' => CRM_Utils_Type::T_BOOLEAN,
-  );
+  $params['option_values'] = [
+    'title' => 'Option Values',
+    'description' => "Pass an array of options (value => label) to create this field's option values",
+  ];
   $params['data_type']['api.default'] = 'String';
   $params['is_active']['api.default'] = 1;
 }
 
 /**
- * Use this API to delete an existing custom group field.
+ * Use this API to delete an existing custom field.
  *
- * @param $params     Array id of the field to be deleted
+ * @param array $params
+ *   Array id of the field to be deleted.
  *
  * @return array
- * @example CustomFieldDelete.php
- *
- * {@example CustomFieldDelete.php 0}
- * {@getfields CustomField_delete}
- * @access public
- **/
+ */
 function civicrm_api3_custom_field_delete($params) {
-
   $field = new CRM_Core_BAO_CustomField();
   $field->id = $params['id'];
   $field->find(TRUE);
   $customFieldDelete = CRM_Core_BAO_CustomField::deleteField($field);
-  civicrm_api('custom_field', 'getfields', array('version' => 3, 'cache_clear' => 1));
+  civicrm_api('CustomField', 'getfields', ['version' => 3, 'cache_clear' => 1]);
   return $customFieldDelete ? civicrm_api3_create_error('Error while deleting custom field') : civicrm_api3_create_success();
 }
 
 /**
  * Use this API to get existing custom fields.
  *
- * @param array $params Array to search on
- *{*
+ * @param array $params
+ *   Array to search on.
  *
  * @return array
-@getfields CustomField_get}
- * @access public
- *
- **/
+ */
 function civicrm_api3_custom_field_get($params) {
-  return _civicrm_api3_basic_get(_civicrm_api3_get_BAO(__FUNCTION__), $params);
+  // Legacy handling for serialize property
+  $handleLegacy = (($params['legacy_html_type'] ?? !isset($params['serialize'])) && CRM_Core_BAO_Domain::isDBVersionAtLeast('5.27.alpha1'));
+  if ($handleLegacy && !empty($params['return'])) {
+    if (!is_array($params['return'])) {
+      $params['return'] = explode(',', str_replace(' ', '', $params['return']));
+    }
+    if (!in_array('serialize', $params['return'])) {
+      $params['return'][] = 'serialize';
+    }
+    if (!in_array('data_type', $params['return'])) {
+      $params['return'][] = 'data_type';
+    }
+  }
+  $legacyDataTypes = [
+    'Select State/Province' => 'StateProvince',
+    'Select Country' => 'Country',
+  ];
+  if ($handleLegacy && !empty($params['html_type'])) {
+    $serializedTypes = ['CheckBox', 'Multi-Select', 'Multi-Select Country', 'Multi-Select State/Province'];
+    if (is_string($params['html_type'])) {
+      if (strpos($params['html_type'], 'Multi-Select') === 0) {
+        $params['html_type'] = str_replace('Multi-Select', 'Select', $params['html_type']);
+        $params['serialize'] = 1;
+      }
+      elseif (!in_array($params['html_type'], $serializedTypes)) {
+        $params['serialize'] = 0;
+      }
+      if (isset($legacyDataTypes[$params['html_type']])) {
+        $params['data_type'] = $legacyDataTypes[$params['html_type']];
+        unset($params['html_type']);
+      }
+    }
+    elseif (is_array($params['html_type']) && !empty($params['html_type']['IN'])) {
+      $excludeNonSerialized = !array_diff($params['html_type']['IN'], $serializedTypes);
+      $onlyNonSerialized = !array_intersect($params['html_type']['IN'], $serializedTypes);
+      $params['html_type']['IN'] = array_map(function($val) {
+        return str_replace(['Multi-Select', 'Select Country', 'Select State/Province'], 'Select', $val);
+      }, $params['html_type']['IN']);
+      if ($excludeNonSerialized) {
+        $params['serialize'] = 1;
+      }
+      if ($onlyNonSerialized) {
+        $params['serialize'] = 0;
+      }
+    }
+  }
+
+  $results = _civicrm_api3_basic_get(_civicrm_api3_get_BAO(__FUNCTION__), $params);
+
+  if ($handleLegacy && !empty($results['values']) && is_array($results['values'])) {
+    foreach ($results['values'] as $id => &$result) {
+      if (!empty($result['html_type'])) {
+        if (in_array($result['data_type'], $legacyDataTypes)) {
+          $result['html_type'] = array_search($result['data_type'], $legacyDataTypes);
+        }
+        if (!empty($result['serialize']) && $result['html_type'] !== 'Autocomplete-Select') {
+          $result['html_type'] = str_replace('Select', 'Multi-Select', $result['html_type']);
+        }
+      }
+    }
+  }
+
+  return $results;
 }
 
-/*
- * Helper function to validate custom field values
- *
- * @params Array   $params             Custom fields with values
- * @params Array   $errors             Reference fields to be check with
- * @params Boolean $checkForDisallowed Check for disallowed elements
- *                                     in params
- * @params Boolean $checkForRequired   Check for non present required elements
- *                                     in params
- * @return Array  Validation errors
- */
-
 /**
- * Helper function to validate custom field value
+ * Helper function to validate custom field value.
  *
- * @params String $fieldName    Custom field name (eg: custom_8 )
- * @params Mixed  $value        Field value to be validate
- * @params Array  $fieldDetails Field Details
- * @params Array  $errors       Collect validation  errors
+ * @deprecated
  *
- * @param $fieldName
- * @param $value
- * @param $fieldDetails
+ * @param string $fieldName
+ *   Custom field name (eg: custom_8 ).
+ * @param mixed $value
+ *   Field value to be validate.
+ * @param array $fieldDetails
+ *   Field Details.
  * @param array $errors
+ *   Collect validation errors.
  *
- * @return Array  Validation errors
+ * @return array|NULL
+ *   Validation errors
  * @todo remove this function - not in use but need to review functionality before
  * removing as it might be useful in wrapper layer
  */
-function _civicrm_api3_custom_field_validate_field($fieldName, $value, $fieldDetails, &$errors = array(
-  )) {
-    return;
-    //see comment block
+function _civicrm_api3_custom_field_validate_field($fieldName, $value, $fieldDetails, &$errors = []) {
+  return NULL;
+  //see comment block
   if (!$value) {
     return $errors;
   }
@@ -224,7 +268,7 @@ function _civicrm_api3_custom_field_validate_field($fieldName, $value, $fieldDet
       }
 
       if (!is_array($value)) {
-        $value = array($value);
+        $value = [$value];
       }
 
       $query = "SELECT count(*) FROM civicrm_country WHERE id IN (" . implode(',', $value) . ")";
@@ -244,7 +288,7 @@ function _civicrm_api3_custom_field_validate_field($fieldName, $value, $fieldDet
       }
 
       if (!is_array($value)) {
-        $value = array($value);
+        $value = [$value];
       }
 
       $query = "
@@ -261,13 +305,12 @@ SELECT count(*)
       break;
   }
 
-  if (in_array($htmlType, array(
-    'Select', 'Multi-Select', 'CheckBox', 'Radio', 'AdvMulti-Select')) &&
-    !isset($errors[$fieldName])
+  if (in_array($htmlType, ['Select', 'Multi-Select', 'CheckBox', 'Radio'])
+    && !isset($errors[$fieldName])
   ) {
     $options = CRM_Core_OptionGroup::valuesByID($fieldDetails['option_group_id']);
     if (!is_array($value)) {
-      $value = array($value);
+      $value = [$value];
     }
 
     $invalidOptions = array_diff($value, array_keys($options));
@@ -279,3 +322,19 @@ SELECT count(*)
   return $errors;
 }
 
+/**
+ * CRM-15191 - Hack to ensure the cache gets cleared after updating a custom field.
+ *
+ * @param array $params
+ *   Array per getfields metadata.
+ *
+ * @return array
+ */
+function civicrm_api3_custom_field_setvalue($params) {
+  require_once 'api/v3/Generic/Setvalue.php';
+  $result = civicrm_api3_generic_setValue(["entity" => 'CustomField', 'params' => $params]);
+  if (empty($result['is_error'])) {
+    CRM_Utils_System::flushCache();
+  }
+  return $result;
+}

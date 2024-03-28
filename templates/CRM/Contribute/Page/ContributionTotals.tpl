@@ -1,62 +1,42 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {*Table displays contribution totals for a contact or search result-set *}
-{if $annual.count OR $contributionSummary}
+{if !empty($annual.count) OR $contributionSummary.total.count OR $contributionSummary.cancel.count OR $contributionSummary.soft_credit.count}
     <table class="form-layout-compressed">
-    
-    {if $annual.count}
+
+    {if !empty($annual.count)}
         <tr>
-            <th class="contriTotalLeft right">{ts}Current Year-to-Date{/ts} - {$annual.amount}</th>
-            <th class="right"> &nbsp; {ts}#  Completed Contributions{/ts} - {$annual.count}</th>
-            <th class="right contriTotalRight"> &nbsp; {ts}Avg Amount{/ts} - {$annual.avg}</th>
-            {if $contributionSummary.cancel.amount}
+            <th class="contriTotalLeft right">{ts}Current Year-to-Date{/ts} &ndash; {$annual.amount|smarty:nodefaults}</th>
+            <th class="right"> &nbsp; {ts}# Completed Contributions{/ts} &ndash; {$annual.count|smarty:nodefaults}</th>
+            <th class="right contriTotalRight"> &nbsp; {ts}Avg Amount{/ts} &ndash; {$annual.avg|smarty:nodefaults}</th>
+            {if $contributionSummary.cancel.amount|smarty:nodefaults}
                 <td>&nbsp;</td>
             {/if}
         </tr>
     {/if}
 
-    {if $contributionSummary }
+    {if $contributionSummary}
       <tr>
           {if $contributionSummary.total.amount}
-            <th class="contriTotalLeft right">{ts}Total Amount{/ts} - {$contributionSummary.total.amount}</th>
-            <th class="right"> &nbsp; {ts}# Completed Contributions{/ts} - {$contributionSummary.total.count}</th>
-            <th class="right contriTotalRight"> &nbsp; {ts}Avg Amount{/ts} - {$contributionSummary.total.avg}</th>
+            <th class="contriTotalLeft right">{ts}Total{/ts} &ndash; {$contributionSummary.total.amount|smarty:nodefaults}</th>
+            <th class="right"> &nbsp; {ts}# Completed{/ts} &ndash; {$contributionSummary.total.count|smarty:nodefaults}</th>
+            <th class="right contriTotalRight"> &nbsp; {ts}Avg{/ts} &ndash; {$contributionSummary.total.avg|smarty:nodefaults}</th>
           {/if}
-          {if $contributionSummary.cancel.amount}
-            <th class="disabled right contriTotalRight"> &nbsp; {ts}Total Cancelled Amount{/ts} - {$contributionSummary.cancel.amount}</th>
+          {if $contributionSummary.cancel.amount|smarty:nodefaults}
+            <th class="disabled right contriTotalRight"> &nbsp; {ts}Cancelled/Refunded{/ts} &ndash; {$contributionSummary.cancel.amount|smarty:nodefaults}</th>
           {/if}
-      </tr>  
-      {if $contributionSummary.soft_credit.count}
-      <tr>
-        <th class="contriTotalLeft right">{ts}Total Soft Credit Amount{/ts} - {$contributionSummary.soft_credit.amount}</th>
-        <th class="right"> &nbsp; {ts}# Completed Soft Credits{/ts} - {$contributionSummary.soft_credit.count}</th>
-        <th class="right contriTotalRight"> &nbsp; {ts}Avg Soft Credit Amount{/ts} - {$contributionSummary.soft_credit.avg}</th>
-      </tr>  
+      </tr>
+      {if $contributionSummary.soft_credit.count|smarty:nodefaults}
+        {include file="CRM/Contribute/Page/ContributionSoftTotals.tpl" softCreditTotals=$contributionSummary.soft_credit|smarty:nodefaults}
       {/if}
     {/if}
-    
+
     </table>
 {/if}

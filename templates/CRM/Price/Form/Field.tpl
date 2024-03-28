@@ -1,26 +1,10 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {*Javascript function controls showing and hiding of form elements based on html type.*}
@@ -65,19 +49,44 @@
     }
 
   }
+
+  var adminVisibilityID = 0;
+  cj('#visibility_id').on('change', function () {
+    if (adminVisibilityID == 0) {
+      CRM.api3('OptionValue', 'getvalue', {
+        'sequential': 1,
+        'return': 'value',
+        'option_group_id': 'visibility',
+        'name': 'admin'
+      }).done(function(result) {
+        adminVisibilityID = result.result;
+        if (cj('#visibility_id').val() == adminVisibilityID) {
+          updateVisibilitySelects(adminVisibilityID);
+        }
+      });
+    } else {
+      if (cj('#visibility_id').val() == adminVisibilityID) {
+        updateVisibilitySelects(adminVisibilityID);
+      }
+    }
+  });
+
+  function updateVisibilitySelects(value) {
+    for (var i=1; i<=15; i++) {
+      cj('#option_visibility_id_' + i).val(value);
+    }
+  }
 </script>
 {/literal}
-<h3>{if $action eq 1}{ts}Add Field{/ts}{elseif $action eq 2}{ts}Edit Field{/ts}{/if}</h3>
 <div class="crm-block crm-form-block crm-price-field-form-block">
-  <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
   <table class="form-layout">
     <tr class="crm-price-field-form-block-label">
-      <td class="label">{$form.label.label}</td>
+      <td class="label">{$form.label.label|smarty:nodefaults|purify}</td>
       <td>{if $action == 2}{include file='CRM/Core/I18n/Dialog.tpl' table='civicrm_price_field' field='label' id=$fid}{/if}{$form.label.html}
       </td>
     </tr>
     <tr class="crm-price-field-form-block-html_type">
-      <td class="label">{$form.html_type.label}</td>
+      <td class="label">{$form.html_type.label|smarty:nodefaults|purify}</td>
       <td>{$form.html_type.html}
       </td>
     </tr>
@@ -91,32 +100,36 @@
   </table>
 
   <div class="spacer"></div>
-  <div id="price-block" {if $action eq 2 && $form.html_type.value.0 eq 'Text'} class="show-block" {else} class="hide-block" {/if}>
+  <div id="price-block" {if $action eq 2 && $form.html_type.value.0 eq 'Text'} class="show-block" {else} class="hiddenElement" {/if}>
     <table class="form-layout">
       <tr class="crm-price-field-form-block-price">
-        <td class="label">{$form.price.label} <span class="crm-marker" title="{ts}This field is required.{/ts}">*</span></td>
+        <td class="label">{$form.price.label|smarty:nodefaults|purify} <span class="crm-marker" title="{ts}This field is required.{/ts}">*</span></td>
         <td>{$form.price.html}
         {if $action neq 4}
           <br /><span class="description">{ts}Unit price.{/ts}</span> {help id="id-negative"}
         {/if}
         </td>
       </tr>
+      <tr class="crm-price-field-form-block-non-deductible-amount">
+        <td class="label">{$form.non_deductible_amount.label|smarty:nodefaults|purify}</td>
+        <td>{$form.non_deductible_amount.html}</td>
+      </tr>
     {if $useForEvent}
       <tr class="crm-price-field-form-block-count">
-        <td class="label">{$form.count.label}</td>
+        <td class="label">{$form.count.label|smarty:nodefaults|purify}</td>
         <td>{$form.count.html}<br />
           <span class="description">{ts}Enter a value here if you want to increment the number of registered participants per unit against the maximum number of participants allowed for this event.{/ts}</span>
           {help id="id-participant-count"}
         </td>
       </tr>
       <tr class="crm-price-field-form-block-max_value">
-        <td class="label">{$form.max_value.label}</td>
+        <td class="label">{$form.max_value.label|smarty:nodefaults|purify}</td>
         <td>{$form.max_value.html}
         </td>
       </tr>
     {/if}
       <tr class="crm-price-field-form-block-financial_type">
-        <td class="label">{$form.financial_type_id.label}<span class="crm-marker" title="{ts}This field is required.{/ts}">*</span></td></td>
+        <td class="label">{$form.financial_type_id.label|smarty:nodefaults|purify}<span class="crm-marker" title="{ts}This field is required.{/ts}">*</span></td></td>
         <td>
         {if !$financialType}
           {capture assign=ftUrl}{crmURL p='civicrm/admin/financial/financialType' q="reset=1"}{/capture}
@@ -131,7 +144,7 @@
 
 {if $action eq 1}
 {* Conditionally show table for setting up selection options - for field types = radio, checkbox or select *}
-  <div id='showoption' class="hide-block">{ include file="CRM/Price/Form/OptionFields.tpl"}</div>
+  <div id='showoption' class="hiddenElement">{include file="CRM/Price/Form/OptionFields.tpl"}</div>
 {/if}
   <table class="form-layout">
     <tr id="optionsPerLine" class="crm-price-field-form-block-options_per_line">
@@ -142,7 +155,7 @@
       <td class="label">{$form.is_display_amounts.label}</td>
       <td>{$form.is_display_amounts.html}
       {if $action neq 4}
-        <div class="description">{ts}Display amount next to each option? If no, then the amount should be in the option description.{/ts}</div>
+        <div class="description">{ts}Display amount next to each option?{/ts}</div>
       {/if}
       </td>
     </tr>
@@ -155,18 +168,27 @@
       </td>
     </tr>
 
+    <tr class="crm-price-field-form-block-help_pre">
+      <td class="label">{$form.help_pre.label|smarty:nodefaults|purify}</td>
+      <td>{if $action == 2}{include file='CRM/Core/I18n/Dialog.tpl' table='civicrm_price_field' field='help_pre' id=$fid}{/if}{$form.help_pre.html|crmAddClass:huge}&nbsp;
+      {if $action neq 4}
+        <div class="description">{ts}Explanatory text displayed to users at the beginning of this field.{/ts}</div>
+      {/if}
+      </td>
+    </tr>
+
     <tr class="crm-price-field-form-block-help_post">
-      <td class="label">{$form.help_post.label}</td>
+      <td class="label">{$form.help_post.label|smarty:nodefaults|purify}</td>
       <td>{if $action == 2}{include file='CRM/Core/I18n/Dialog.tpl' table='civicrm_price_field' field='help_post' id=$fid}{/if}{$form.help_post.html|crmAddClass:huge}&nbsp;
       {if $action neq 4}
-        <div class="description">{ts}Explanatory text displayed to users for this field.{/ts}</div>
+        <div class="description">{ts}Explanatory text displayed to users below this field.{/ts}</div>
       {/if}
       </td>
     </tr>
 
     <tr class="crm-price-field-form-block-active_on">
       <td class="label">{$form.active_on.label}</td>
-      <td>{include file="CRM/common/jcalendar.tpl" elementName=active_on}
+      <td>{$form.active_on.html}
       {if $action neq 4}
         <br /><span class="description">{ts}Date this field becomes effective (optional).  Used for price set fields that are made available starting on a specific date.{/ts}</span>
       {/if}
@@ -175,7 +197,7 @@
 
     <tr class="crm-price-field-form-block-expire_on">
       <td class="label">{$form.expire_on.label}</td>
-      <td>{include file="CRM/common/jcalendar.tpl" elementName=expire_on}
+      <td>{$form.expire_on.html}
       {if $action neq 4}
         <br /><span class="description">{ts}Date this field expires (optional).  Used for price set fields that are no longer available after a specific date (e.g. early-bird pricing).{/ts}</span>
       {/if}
@@ -221,7 +243,7 @@
 {/literal}
 
 {* Give link to view/edit choice options if in edit mode and html_type is one of the multiple choice types *}
-{if $action eq 2 AND ($form.data_type.value.1.0 eq 'CheckBox' OR $form.data_type.value.1.0 eq 'Radio' OR $form.data_type.value.1.0 eq 'Select') }
+{if $action eq 2 AND array_key_exists('data_type', $form) && ($form.data_type.value.1.0 eq 'CheckBox' OR $form.data_type.value.1.0 eq 'Radio' OR $form.data_type.value.1.0 eq 'Select')}
 <div class="action-link">
   <a href="{crmURL p="civicrm/admin/event/field/option" q="reset=1&action=browse&fid=`$fid`"}" class="button"><span>{ts}Multiple Choice Options{/ts}</span></a>
 </div>

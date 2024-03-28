@@ -95,6 +95,9 @@
      * @return {CRM.Designer.PaletteFieldModel}
      */
     getFieldByName: function(entityName, fieldName) {
+      if (fieldName.indexOf('formatting') === 0) {
+        fieldName = 'formatting';
+      }
       return this.find(function(paletteFieldModel) {
         return ((!entityName || paletteFieldModel.get('entityName') == entityName) && paletteFieldModel.get('fieldName') == fieldName);
       });

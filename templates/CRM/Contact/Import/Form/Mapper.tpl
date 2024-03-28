@@ -1,37 +1,21 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 <div class="crm-block crm-form-block">
 
-<h3>Mapper - 4 Selectors</h3>
+<h3>{ts}Mapper - 4 Selectors{/ts}</h3>
 
 <div class="form-item">
    <dl>
      {section name=count start=1 loop=`$maxMapper`}
      {assign var='i' value=$smarty.section.count.index}
-       <dt>{$form.mapper[$i].label}</dt><dd>{$form.mapper[$i].html}<span class="tundra" id="id_map_mapper[{$i}]_1"><span id="id_mapper[{$i}]_1"></span></span><span class="tundra" id="id_map_mapper[{$i}]_2"><span id="id_mapper[{$i}]_2"></span></span><span class="tundra" id="id_map_mapper[{$i}]_3"><span id="id_mapper[{$i}]_3"></span></span></dd>
+       <dt>{$form.mapper[$i].label}</dt><dd>{$form.mapper[$i].html|smarty:nodefaults}<span class="tundra" id="id_map_mapper[{$i}]_1"><span id="id_mapper[{$i}]_1"></span></span><span class="tundra" id="id_map_mapper[{$i}]_2"><span id="id_mapper[{$i}]_2"></span></span><span class="tundra" id="id_map_mapper[{$i}]_3"><span id="id_mapper[{$i}]_3"></span></span></dd>
 
        {literal}
         <script type="text/javascript">
@@ -45,9 +29,9 @@
        {/literal}
 
      {/section}
-   </dl>    
+   </dl>
 </div>
-    
+
 <div id="crm-submit-buttons" class="form-item">
 <dl>
    <dt>&nbsp;</dt><dd>{$form.buttons.html}</dd>

@@ -1,54 +1,57 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
-/*
+
+/**
  * Settings metadata file
  */
-return array (
-  'event_enable_cart' =>
-    array (
-      'name' => 'enable_cart',
-      'group_name' => 'Event Preferences',
-      'group' => 'event',
-      'type' => 'String',
-      'quick_form_type' => 'Element',
-      'default' => 0,
-      'add' => 4.1,
-      'title' => 'Enable Event Cart',
-      'is_domain' => 1,
-      'is_contact' => 1,
-      'description' => "WRITE ME",
-      'help_text' => 'WRITE ME'
-  ),
-);
+return [
+  'show_events' => [
+    'name' => 'show_events',
+    'group_name' => 'Event Preferences',
+    'group' => 'event',
+    'settings_pages' => ['event' => ['weight' => 20]],
+    'type' => 'Integer',
+    'quick_form_type' => 'Select',
+    'default' => 10,
+    'add' => '4.5',
+    'title' => ts('Dashboard entries'),
+    'html_type' => 'select',
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'description' => ts('Configure how many events should be shown on the dashboard. This overrides the default value of 10 entries.'),
+    'help_text' => NULL,
+    'pseudoconstant' => ['callback' => 'CRM_Core_SelectValues::getDashboardEntriesCount'],
+  ],
+  'event_show_payment_on_confirm' => [
+    'name' => 'event_show_payment_on_confirm',
+    'settings_pages' => ['event' => ['weight' => 100]],
+    'type' => 'Array',
+    'default' => [],
+    'add' => '5.58',
+    'title' => ts('EXPERIMENTAL: Show Event Payment on Confirm?'),
+    'html_type' => 'select',
+    'html_attributes' => [
+      'class' => 'crm-select2',
+      'multiple' => TRUE,
+    ],
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'description' => ts('Should payment element be shown on the confirmation page instead of the first page?'),
+    'help_text' => NULL,
+    'pseudoconstant' => ['callback' => 'CRM_Event_BAO_Event::getEventsForSelect2'],
+  ],
+];

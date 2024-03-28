@@ -1,42 +1,27 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 
 {* Financial search component. *}
 <div id="enableDisableStatusMsg" class="crm-container" style="display:none"></div>
-<div class="crm-submit-buttons">
-  <a accesskey="N" href="{crmURL p='civicrm/financial/batch' q="reset=1&action=add&context=$batchStatus"}" id="newBatch" class="button"><span><div class="icon add-icon"></div>{ts}New Accounting Batch{/ts}</span></a>
+<div class="action-link">
+  <a accesskey="N" href="{crmURL p='civicrm/financial/batch' q="reset=1&action=add&context=$batchStatus"}" id="newBatch" class="button"><span><i class="crm-i fa-plus-circle" aria-hidden="true"></i> {ts}New Accounting Batch{/ts}</span></a>
 </div>
 <div class="crm-form-block crm-search-form-block">
-  <div class="crm-accordion-wrapper crm-activity_search-accordion">
-    <div class="crm-accordion-header">
+  <details class="crm-accordion-bold crm-activity_search-accordion" open>
+    <summary>
       {ts}Filter Results{/ts}
-    </div>
+    </summary>
     <div class="crm-accordion-body">
       <div id="financial-search-form" class="crm-block crm-form-block">
         <table class="form-layout-compressed">
+          {if !empty($elements)}
           {* Loop through all defined search criteria fields (defined in the buildForm() function). *}
           {foreach from=$elements item=element}
             <tr class="crm-financial-search-form-block-{$element}">
@@ -44,18 +29,19 @@
               <td>{$form.$element.html}</td>
             </tr>
           {/foreach}
+          {/if}
         </table>
       </div>
     </div>
-  </div>
+  </details>
 </div>
-<div class="form-layout-compressed">{$form.batch_update.html}&nbsp;{$form.submit.html}</div><br/>
-<table id="crm-batch-selector" class="row-highlight">
+{if !empty($form.batch_update)}<div class="form-layout-compressed">{$form.batch_update.html}&nbsp;{$form.submit.html}</div><br/>{/if}
+<table id="crm-batch-selector-{$batchStatus}" class="row-highlight">
   <thead>
     <tr>
-      <th class="crm-batch-checkbox">{$form.toggleSelect.html}</th>
+      <th class="crm-batch-checkbox">{if !empty($form.toggleSelect.html)}{$form.toggleSelect.html}{/if}</th>
       <th class="crm-batch-name">{ts}Batch Name{/ts}</th>
-      <th class="crm-batch-payment_instrument">{ts}Payment Instrument{/ts}</th>
+      <th class="crm-batch-payment_instrument">{ts}Payment Method{/ts}</th>
       <th class="crm-batch-item_count">{ts}Item Count{/ts}</th>
       <th class="crm-batch-total">{ts}Total Amount{/ts}</th>
       <th class="crm-batch-status">{ts}Status{/ts}</th>
@@ -91,7 +77,7 @@ CRM.$(function($) {
     var ZeroRecordText = {/literal}'<div class="status messages">{ts escape="js"}No Accounting Batches match your search criteria.{/ts}</div>'{literal};
     var sourceUrl = {/literal}'{crmURL p="civicrm/ajax/batchlist" h=0 q="snippet=4&context=financialBatch"}'{literal};
 
-    batchSelector = $('#crm-batch-selector').dataTable({
+    batchSelector = $('#crm-batch-selector-{/literal}{$batchStatus}{literal}').dataTable({
       "bFilter" : false,
       "bAutoWidth" : false,
       "aaSorting" : [],
@@ -99,8 +85,8 @@ CRM.$(function($) {
         {sClass:'crm-batch-checkbox', bSortable:false},
         {sClass:'crm-batch-name'},
         {sClass:'crm-batch-payment_instrument'},
-        {sClass:'crm-batch-item_count right'},
-        {sClass:'crm-batch-total right'},
+        {sClass:'crm-batch-item_count right', bSortable:false},
+        {sClass:'crm-batch-total right', bSortable:false},
         {sClass:'crm-batch-status'},
         {sClass:'crm-batch-created_by'},
         {sClass:'crm-batch-links', bSortable:false},
@@ -137,7 +123,7 @@ CRM.$(function($) {
           }
         });
         checkedRows = [];
-        $("#crm-batch-selector input.select-row:checked").each(function() {
+        $("#crm-batch-selector-{/literal}{$batchStatus}{literal} input.select-row:checked").each(function() {
           checkedRows.push('#' + $(this).attr('id'));
         });
       },
@@ -149,7 +135,7 @@ CRM.$(function($) {
         return nRow;
       },
       "fnDrawCallback": function(oSettings) {
-        $('.crm-editable', '#crm-batch-selector').crmEditable();
+        $(this).trigger('crmLoad');
         $("#toggleSelect").prop('checked', false);
         if (checkedRows.length) {
           $(checkedRows.join(',')).prop('checked', true).change();
@@ -230,36 +216,21 @@ CRM.$(function($) {
   }
 
   function saveRecords(records, op) {
-    if (op == 'export') {
-      return exportRecords(records);
-    }
     var postUrl = CRM.url('civicrm/ajax/rest', 'className=CRM_Financial_Page_AJAX&fnName=assignRemove');
     //post request and get response
-    $.post(postUrl, {records: records, recordBAO: 'CRM_Batch_BAO_Batch', op: op, key: {/literal}"{crmKey name='civicrm/ajax/ar'}"{literal}},
+    $.post(postUrl, {records: records, recordBAO: 'CRM_Batch_BAO_Batch', op: op},
       function(response) {
         //this is custom status set when record update success.
         if (response.status == 'record-updated-success') {
+	  //Redirect CRM-18169
+          window.location.href = CRM.url('civicrm/financial/financialbatches', 'reset=1&batchStatus=' + response.status_id);
           CRM.alert(listRecords(records), op == 'delete' ? {/literal}'{ts escape="js"}Deleted{/ts}' : '{ts escape="js"}Updated{/ts}'{literal}, 'success');
-          batchSelector.fnDraw();
         }
         else {
           CRM.alert({/literal}'{ts escape="js"}An error occurred while processing your request.{/ts}', $("#batch_update option[value=" + op + "]").text() + ' {ts escape="js"}Error{/ts}'{literal}, 'error');
         }
       },
-      'json').error(serverError);
-  }
-
-  function exportRecords(records) {
-    var query = {'batch_id': records, 'export_format': $('select.export-format').val()};
-    var exportUrl = CRM.url('civicrm/financial/batch/export', 'reset=1');
-    // jQuery redirect expects all query args as an object, so extract them from crm url
-    var urlParts = exportUrl.split('?');
-    $.each(urlParts[1].split('&'), function(key, val) {
-      var q = val.split('=');
-      query[q[0]] = q[1];
-    });
-    $().redirect(urlParts[0], query, 'GET');
-    setTimeout(function() {batchSelector.fnDraw();}, 4000);
+      'json').fail(serverError);
   }
 
   function validateOp(records, op) {
@@ -317,6 +288,11 @@ CRM.$(function($) {
       $("input.select-row:checked").each(function() {
         records.push($(this).attr('id').replace('check_', ''));
       });
+      if (op == 'export') {
+        // No need for the modal pop-up, just proceed to the next screen.
+        window.location = CRM.url("civicrm/financial/batch/export", {reset: 1, id: records[0], status: 1});
+        return false;
+      }
       editRecords(records, op);
     }
     return false;

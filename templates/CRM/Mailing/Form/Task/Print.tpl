@@ -1,31 +1,15 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 <p>
 
-{if $rows} 
+{if $rows}
 <div class="form-item crm-block crm-form-block crm-mailing-form-block">
      <span class="element-right">{$form.buttons.html}</span>
 </div>
@@ -42,7 +26,7 @@
     <th>{ts}Completed Date{/ts}</th>
   </tr>
 {foreach from=$rows item=row}
-    <tr class="{cycle values="odd-row,even-row"} crm-mailing">       
+    <tr class="{cycle values="odd-row,even-row"} crm-mailing">
       <td class='crm-mailing-sort_name'>{$row.sort_name}</td>
       <td {if ($row.email_on_hold eq 1) or ($row.contact_opt_out eq 1)}class='font-red'{/if}>{$row.email}</td>
       <td class='crm-mailing-mailing_name'>{$row.mailing_name}</td>
@@ -59,7 +43,7 @@
 
 {else}
    <div class="messages status no-popup">
-     <div class="icon inform-icon"/>
+     {icon icon="fa-info-circle"}{/icon}
         {ts}There are no records selected for Print.{/ts}
    </div>
 {/if}

@@ -9,9 +9,13 @@
   <log>true</log>
   <field>
     <name>id</name>
+    <title>Group Organization ID</title>
     <type>int unsigned</type>
     <required>true</required>
     <comment>Relationship ID</comment>
+    <html>
+      <type>Number</type>
+    </html>
     <add>2.0</add>
   </field>
   <primaryKey>
@@ -20,6 +24,7 @@
   </primaryKey>
   <field>
     <name>group_id</name>
+    <title>Group ID</title>
     <type>int unsigned</type>
     <required>true</required>
     <comment>ID of the group</comment>
@@ -31,6 +36,7 @@
     </pseudoconstant>
     <html>
       <type>Select</type>
+      <label>Group</label>
     </html>
   </field>
   <foreignKey>
@@ -42,9 +48,13 @@
   </foreignKey>
   <field>
     <name>organization_id</name>
+    <title>Organization ID</title>
     <type>int unsigned</type>
     <required>true</required>
     <comment>ID of the Organization Contact</comment>
+    <html>
+      <label>Organization</label>
+    </html>
     <add>2.0</add>
   </field>
   <foreignKey>

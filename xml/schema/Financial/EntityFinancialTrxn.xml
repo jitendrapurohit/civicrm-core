@@ -5,11 +5,16 @@
   <class>EntityFinancialTrxn</class>
   <name>civicrm_entity_financial_trxn</name>
   <add>3.2</add>
+  <component>CiviContribute</component>
   <field>
     <name>id</name>
+    <title>Entity Financial Transaction ID</title>
     <type>int unsigned</type>
     <required>true</required>
     <comment>ID</comment>
+    <html>
+      <type>Number</type>
+    </html>
     <add>3.2</add>
   </field>
   <primaryKey>
@@ -18,15 +23,20 @@
   </primaryKey>
   <field>
     <name>entity_table</name>
+    <title>Entity Table</title>
     <type>varchar</type>
     <length>64</length>
     <required>true</required>
     <import>true</import>
+    <pseudoconstant>
+      <callback>CRM_Financial_BAO_EntityFinancialTrxn::entityTables</callback>
+    </pseudoconstant>
     <add>3.2</add>
     <comment>May contain civicrm_financial_item, civicrm_contribution, civicrm_financial_trxn, civicrm_grant, etc</comment>
   </field>
   <field>
     <name>entity_id</name>
+    <title>Entity ID</title>
     <type>int unsigned</type>
     <required>true</required>
     <add>3.2</add>
@@ -38,7 +48,11 @@
   </dynamicForeignKey>
   <field>
     <name>financial_trxn_id</name>
+    <title>Financial Transaction ID</title>
     <type>int unsigned</type>
+    <html>
+      <label>Financial Transaction</label>
+    </html>
     <add>3.2</add>
   </field>
   <foreignKey>
@@ -50,6 +64,7 @@
   </foreignKey>
   <field>
     <name>amount</name>
+    <title>Amount</title>
     <type>decimal</type>
     <required>true</required>
     <import>true</import>
@@ -57,15 +72,6 @@
     <dataPattern>/^\d+(\.\d{2})?$/</dataPattern>
     <comment>allocated amount of transaction to this entity</comment>
     <add>3.2</add>
-  </field>
-  <field>
-    <name>currency</name>
-    <type>varchar</type>
-    <length>3</length>
-    <default>NULL</default>
-    <comment>3 character string, value from config setting or input via user.</comment>
-    <add>3.2</add>
-    <drop>4.3</drop>
   </field>
   <index>
     <name>UI_entity_financial_trxn_entity_table</name>

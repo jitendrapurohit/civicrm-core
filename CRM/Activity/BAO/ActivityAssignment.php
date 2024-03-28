@@ -1,126 +1,43 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class is for activity assignment functions
- *
+ * This class is for activity assignment functions.
  */
 class CRM_Activity_BAO_ActivityAssignment extends CRM_Activity_DAO_ActivityContact {
 
   /**
-   * class constructor
-   */
-  function __construct() {
-    parent::__construct();
-  }
-
-  /**
-   * Add activity assignment.
+   * Retrieve assignee names by activity_id.
    *
-   * @param array $params (reference ) an assoc array of name/value pairs
-   *
-   * @internal param array $ids (reference ) the array that holds all the db ids
-   *
-   * @return object activity type of object that is added
-   * @access public
-   */
-  public static function create(&$params) {
-    $assignment = new CRM_Activity_BAO_ActivityContact();
-    $activityContacts = CRM_Core_OptionGroup::values('activity_contacts', FALSE, FALSE, FALSE, NULL, 'name');
-    $assigneeID = CRM_Utils_Array::key('Activity Assignees', $activityContacts);
-
-    $assignment->copyValues($params);
-    $assignment->record_type_id = $assigneeID;
-
-    return $assignment->save();
-  }
-
-  /**
-   * Retrieve assignee_id by activity_id
-   *
-   * @param $activity_id
-   *
-   * @internal param int $id ID of the activity
-   *
-   * @return void
-   *
-   * @access public
-   */
-  static function retrieveAssigneeIdsByActivityId($activity_id) {
-    $assigneeArray = array();
-    if (!CRM_Utils_Rule::positiveInteger($activity_id)) {
-      return $assigneeArray;
-    }
-
-    $activityContacts = CRM_Core_OptionGroup::values('activity_contacts', FALSE, FALSE, FALSE, NULL, 'name');
-    $assigneeID = CRM_Utils_Array::key('Activity Assignees', $activityContacts);
-
-    $sql = "
-SELECT     contact_id
-FROM       civicrm_activity_contact
-INNER JOIN civicrm_contact ON contact_id = civicrm_contact.id
-WHERE      activity_id = %1
-AND        record_type_id = $assigneeID
-AND        civicrm_contact.is_deleted = 0
-";
-    $assignment = CRM_Core_DAO::executeQuery($sql, array(1 => array($activity_id, 'Integer')));
-    while ($assignment->fetch()) {
-      $assigneeArray[] = $assignment->contact_id;
-    }
-
-    return $assigneeArray;
-  }
-
-  /**
-   * Retrieve assignee names by activity_id
-   *
-   * @param array    $activityIDs    IDs of the activities
-   * @param boolean  $isDisplayName  if set returns display names of assignees
-   * @param boolean  $skipDetails    if false returns all details of assignee contact.
+   * @param array $activityIDs
+   *   IDs of the activities.
+   * @param bool $isDisplayName
+   *   If set returns display names of assignees.
+   * @param bool $skipDetails
+   *   If false returns all details of assignee contact.
    *
    * @return array
-   *
-   * @access public
-   *
    */
-  static function getAssigneeNames($activityIDs, $isDisplayName = FALSE, $skipDetails = TRUE) {
-    $assigneeNames = array();
+  public static function getAssigneeNames($activityIDs, $isDisplayName = FALSE, $skipDetails = TRUE) {
+    $assigneeNames = [];
     if (empty($activityIDs)) {
       return $assigneeNames;
     }
-    $activityContacts = CRM_Core_OptionGroup::values('activity_contacts', FALSE, FALSE, FALSE, NULL, 'name');
+    $activityContacts = CRM_Activity_BAO_ActivityContact::buildOptions('record_type_id', 'validate');
     $assigneeID = CRM_Utils_Array::key('Activity Assignees', $activityContacts);
 
     $whereClause = "";
@@ -162,5 +79,5 @@ AND        civicrm_activity_contact.record_type_id = $assigneeID
     }
     return $assigneeNames;
   }
-}
 
+}

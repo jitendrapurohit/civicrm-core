@@ -1,38 +1,20 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* this template is used for adding/editing ACL  *}
-<h3>{if $action eq 1}{ts}New ACL{/ts}{elseif $action eq 2}{ts}Edit ACL{/ts}{else}{ts}Delete ACL{/ts}{/if}</h3>
 <div class="crm-block crm-form-block crm-acl-form-block">
 {if $action eq 8}
   <div class="messages status no-popup">
-    <div class="icon inform-icon"></div>&nbsp;
-        {ts}WARNING: Delete will remove this permission from the specified ACL Role.{/ts} {ts}Do you want to continue?{/ts}
+    {icon icon="fa-info-circle"}{/icon}
+    {ts}WARNING: Delete will remove this permission from the specified ACL Role.{/ts} {ts}Do you want to continue?{/ts}
   </div>
 {else}
-   <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
    <table class="form-layout-compressed">
      <tr class="crm-acl-form-block-name">
         <td class="label">{$form.name.label}</td>
@@ -49,7 +31,7 @@
      <tr class="crm-acl-form-block-operation">
          <td class="label">{$form.operation.label}</td>
          <td>{$form.operation.html}<br />
-            <span class="description">{ts}What type of operation (action) is being permitted?{/ts}</span>
+            <span class="description">{ts}What type of operation (action) is being referenced?{/ts}</span>
          </td>
      </tr>
      <tr class="crm-acl-form-block-object_type">
@@ -61,6 +43,16 @@
         {if $config->userSystem->is_drupal EQ '1'}
            <div class="status description">{ts}IMPORTANT: The Drupal permissions for 'access all custom data' and 'profile listings and forms' override and disable specific ACL settings for custom field groups and profiles respectively. Do not enable those Drupal permissions for a Drupal role if you want to use CiviCRM ACL's to control access.{/ts}</div></td>
         {/if}
+     </tr>
+     <tr class="crm-acl-form-block-deny">
+       <td class="label">{$form.deny.label}</td>
+       <td>{$form.deny.html}</td>
+     </tr>
+     <tr class="crm-acl-form-block-priority">
+       <td class="label">{$form.priority.label}</td>
+       <td>{$form.priority.html}<br />
+         <span class="description">{ts}Higher priority ACL rules will override lower priority rules{/ts}</span>
+       </td>
      </tr>
   </table>
   <div id="id-group-acl">
@@ -93,7 +85,6 @@
          </td>
      </tr>
    </table>
-  <div class="status message">{ts}NOTE: For Custom Data ACLs, the 'View' and 'Edit' operations currently do the same thing. Either option grants the right to view AND / OR edit custom data fields (in all groups, or in a specific custom data group). Neither option grants access to administration of custom data fields.{/ts}</div>
   </div>
   <div id="id-event-acl">
    <table  class="form-layout-compressed">

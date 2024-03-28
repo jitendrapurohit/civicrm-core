@@ -1,55 +1,38 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright (C) 2011 Marty Wright                                    |
- | Licensed to CiviCRM under the Academic Free License version 3.0.   |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class generates form components for PDF Page Format Settings
- *
+ * This class generates form components for PDF Page Format Settings.
  */
 class CRM_Admin_Form_PdfFormats extends CRM_Admin_Form {
 
   /**
-   * PDF Page Format ID
+   * PDF Page Format ID.
+   * @var int
    */
-  protected $_id = NULL;
+  public $_id = NULL;
 
   /**
-   * Function to build the form
-   *
-   * @return void
-   * @access public
+   * @var bool
+   */
+  public $submitOnce = TRUE;
+
+  /**
+   * Build the form object.
    */
   public function buildQuickForm() {
     parent::buildQuickForm();
@@ -62,29 +45,33 @@ class CRM_Admin_Form_PdfFormats extends CRM_Admin_Form {
 
     $attributes = CRM_Core_DAO::getAttribute('CRM_Core_BAO_PdfFormat');
     $this->add('text', 'name', ts('Name'), $attributes['name'], TRUE);
-    $this->add('text', 'description', ts('Description'), array('size' => CRM_Utils_Type::HUGE));
+    $this->add('text', 'description', ts('Description'), ['size' => CRM_Utils_Type::HUGE]);
     $this->add('checkbox', 'is_default', ts('Is this PDF Page Format the default?'));
 
     $this->add('select', 'paper_size', ts('Paper Size'),
-      array(
-        0 => ts('- default -')) + CRM_Core_BAO_PaperSize::getList(TRUE), FALSE,
-      array('onChange' => "selectPaper( this.value );")
+      [
+        0 => ts('- default -'),
+      ] + CRM_Core_BAO_PaperSize::getList(TRUE), FALSE,
+      ['onChange' => "selectPaper( this.value );"]
     );
 
-    $this->add('static', 'paper_dimensions', NULL, ts('Width x Height'));
+    $this->add('static', 'paper_dimensions', ts('Width x Height'));
     $this->add('select', 'orientation', ts('Orientation'), CRM_Core_BAO_PdfFormat::getPageOrientations(), FALSE,
-      array('onChange' => "updatePaperDimensions();")
+      ['onChange' => "updatePaperDimensions();"]
     );
     $this->add('select', 'metric', ts('Unit of Measure'), CRM_Core_BAO_PdfFormat::getUnits(), FALSE,
-      array('onChange' => "selectMetric( this.value );")
+      ['onChange' => "selectMetric( this.value );"]
     );
-    $this->add('text', 'margin_left', ts('Left Margin'), array('size' => 8, 'maxlength' => 8), TRUE);
-    $this->add('text', 'margin_right', ts('Right Margin'), array('size' => 8, 'maxlength' => 8), TRUE);
-    $this->add('text', 'margin_top', ts('Top Margin'), array('size' => 8, 'maxlength' => 8), TRUE);
-    $this->add('text', 'margin_bottom', ts('Bottom Margin'), array('size' => 8, 'maxlength' => 8), TRUE);
-    $this->add('text', 'weight', ts('Weight'), CRM_Core_DAO::getAttribute('CRM_Core_BAO_PdfFormat', 'weight'), TRUE);
+    $this->add('text', 'margin_left', ts('Left Margin'), ['size' => 8, 'maxlength' => 8], TRUE);
+    $this->add('text', 'margin_right', ts('Right Margin'), ['size' => 8, 'maxlength' => 8], TRUE);
+    $this->add('text', 'margin_top', ts('Top Margin'), ['size' => 8, 'maxlength' => 8], TRUE);
+    $this->add('text', 'margin_bottom', ts('Bottom Margin'), ['size' => 8, 'maxlength' => 8], TRUE);
+    $this->add('number', 'weight', ts('Order'), CRM_Core_DAO::getAttribute('CRM_Core_BAO_PdfFormat', 'weight'), TRUE);
 
-    $this->addRule('name', ts('Name already exists in Database.'), 'objectExists', array('CRM_Core_BAO_PdfFormat', $this->_id));
+    $this->addRule('name', ts('Name already exists in Database.'), 'objectExists', [
+      'CRM_Core_BAO_PdfFormat',
+      $this->_id,
+    ]);
     $this->addRule('margin_left', ts('Margin must be numeric'), 'numeric');
     $this->addRule('margin_right', ts('Margin must be numeric'), 'numeric');
     $this->addRule('margin_top', ts('Margin must be numeric'), 'numeric');
@@ -92,7 +79,10 @@ class CRM_Admin_Form_PdfFormats extends CRM_Admin_Form {
     $this->addRule('weight', ts('Weight must be integer'), 'integer');
   }
 
-  function setDefaultValues() {
+  /**
+   * @return int
+   */
+  public function setDefaultValues() {
     if ($this->_action & CRM_Core_Action::ADD) {
       $defaults['weight'] = CRM_Utils_Array::value('weight', CRM_Core_BAO_PdfFormat::getDefaultValues(), 0);
     }
@@ -103,11 +93,7 @@ class CRM_Admin_Form_PdfFormats extends CRM_Admin_Form {
   }
 
   /**
-   * Function to process the form
-   *
-   * @access public
-   *
-   * @return void
+   * Process the form submission.
    */
   public function postProcess() {
     if ($this->_action & CRM_Core_Action::DELETE) {
@@ -122,10 +108,11 @@ class CRM_Admin_Form_PdfFormats extends CRM_Admin_Form {
     $bao = new CRM_Core_BAO_PdfFormat();
     $bao->savePdfFormat($values, $this->_id);
 
-    $status = ts('Your new PDF Page Format titled <strong>%1</strong> has been saved.', array(1 => $values['name']), ts('Saved'), 'success');
+    $status = ts('Your new PDF Page Format titled <strong>%1</strong> has been saved.', [1 => $values['name']]);
     if ($this->_action & CRM_Core_Action::UPDATE) {
-      $status = ts('Your PDF Page Format titled <strong>%1</strong> has been updated.', array(1 => $values['name']), ts('Saved'), 'success');
+      $status = ts('Your PDF Page Format titled <strong>%1</strong> has been updated.', [1 => $values['name']]);
     }
-    CRM_Core_Session::setStatus($status);
+    CRM_Core_Session::setStatus($status, ts('Saved'), 'success');
   }
+
 }

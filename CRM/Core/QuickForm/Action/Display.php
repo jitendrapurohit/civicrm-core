@@ -1,79 +1,62 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  * Redefine the display action.
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Core_QuickForm_Action_Display extends CRM_Core_QuickForm_Action {
 
   /**
-   * the template to display the required "red" asterick
+   * The template to display the required "red" asterick.
    * @var string
    */
-  static $_requiredTemplate = NULL;
+  public static $_requiredTemplate = NULL;
 
   /**
-   * the template to display error messages inline with the form element
+   * The template to display error messages inline with the form element.
    * @var string
    */
-  static $_errorTemplate = NULL;
+  public static $_errorTemplate = NULL;
 
   /**
-   * class constructor
+   * Class constructor.
    *
-   * @param object $stateMachine reference to state machine object
+   * @param object $stateMachine
+   *   Reference to state machine object.
    *
    * @return \CRM_Core_QuickForm_Action_Display
-  @access public
    */
-  function __construct(&$stateMachine) {
+  public function __construct(&$stateMachine) {
     parent::__construct($stateMachine);
   }
 
   /**
    * Processes the request.
    *
-   * @param  object    $page       CRM_Core_Form the current form-page
-   * @param  string    $actionName Current action name, as one Action object can serve multiple actions
+   * @param CRM_Core_Form $page
+   *   CRM_Core_Form the current form-page.
+   * @param string $actionName
+   *   Current action name, as one Action object can serve multiple actions.
    *
-   * @return void
-   * @access public
+   * @return object|void
    */
-  function perform(&$page, $actionName) {
+  public function perform(&$page, $actionName) {
     $pageName = $page->getAttribute('id');
 
     // If the original action was 'display' and we have values in container then we load them
     // BTW, if the page was invalid, we should later call validate() to get the errors
-    list(, $oldName) = $page->controller->getActionName();
+    [, $oldName] = $page->controller->getActionName();
     if ('display' == $oldName) {
       // If the controller is "modal" we should not allow direct access to a page
       // unless all previous pages are valid (see also bug #2323)
@@ -101,26 +84,20 @@ class CRM_Core_QuickForm_Action_Display extends CRM_Core_QuickForm_Action {
   }
 
   /**
-   * render the page using a custom templating
-   * system
+   * Render the page using a custom templating system.
    *
-   * @param object $page the CRM_Core_Form page
-   *
-   * @internal param bool $ret should we echo or return output
-   *
-   * @return void
-   * @access public
+   * @param CRM_Core_Form $page
+   *   The CRM_Core_Form page.
    */
-  function renderForm(&$page) {
+  public function renderForm(&$page) {
     $this->_setRenderTemplates($page);
     $template = CRM_Core_Smarty::singleton();
     $form = $page->toSmarty();
 
     // Deprecated - use snippet=6 instead of json=1
-    $json = CRM_Utils_Request::retrieve('json', 'Boolean', CRM_Core_DAO::$_nullObject);
+    $json = CRM_Utils_Request::retrieve('json', 'Boolean');
     if ($json) {
-      echo json_encode($form);
-      CRM_Utils_System::civiExit();
+      CRM_Utils_JSON::output($form);
     }
 
     $template->assign('form', $form);
@@ -159,7 +136,7 @@ class CRM_Core_QuickForm_Action_Display extends CRM_Core_QuickForm_Action {
     }
 
     if ($controller->_QFResponseType == 'json') {
-      $response = array('content' => $html);
+      $response = ['content' => $html];
       if (!empty($page->ajaxResponse)) {
         $response += $page->ajaxResponse;
       }
@@ -176,7 +153,7 @@ class CRM_Core_QuickForm_Action_Display extends CRM_Core_QuickForm_Action {
           $content,
           "{$page->_name}.pdf",
           FALSE,
-          array('paper_size' => 'a3', 'orientation' => 'landscape')
+          ['paper_size' => 'a3', 'orientation' => 'landscape']
         );
       }
       else {
@@ -189,14 +166,12 @@ class CRM_Core_QuickForm_Action_Display extends CRM_Core_QuickForm_Action {
   }
 
   /**
-   * set the various rendering templates
+   * Set the various rendering templates.
    *
-   * @param object  $page the CRM_Core_Form page
-   *
-   * @return void
-   * @access public
+   * @param CRM_Core_Form $page
+   *   The CRM_Core_Form page.
    */
-  function _setRenderTemplates(&$page) {
+  public function _setRenderTemplates(&$page) {
     if (self::$_requiredTemplate === NULL) {
       $this->initializeTemplates();
     }
@@ -208,14 +183,9 @@ class CRM_Core_QuickForm_Action_Display extends CRM_Core_QuickForm_Action {
   }
 
   /**
-   * initialize the various templates
-   *
-   * @internal param object $page the CRM_Core_Form page
-   *
-   * @return void
-   * @access public
+   * Initialize the various templates.
    */
-  function initializeTemplates() {
+  public function initializeTemplates() {
     if (self::$_requiredTemplate !== NULL) {
       return;
     }
@@ -230,5 +200,5 @@ class CRM_Core_QuickForm_Action_Display extends CRM_Core_QuickForm_Action {
     self::$_requiredTemplate = file_get_contents($templateDir . '/CRM/Form/label.tpl');
     self::$_errorTemplate = file_get_contents($templateDir . '/CRM/Form/error.tpl');
   }
-}
 
+}

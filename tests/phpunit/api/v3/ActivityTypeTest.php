@@ -5,7 +5,7 @@
  *
  *  (PHP 5)
  *
- *   @package   CiviCRM
+ * @package   CiviCRM
  *
  *   This file is part of CiviCRM
  *
@@ -24,87 +24,73 @@
  *   <http://www.gnu.org/licenses/>.
  */
 
-require_once 'CiviTest/CiviUnitTestCase.php';
-
 /**
  *  Test APIv3 civicrm_activity_* functions
  *
- *  @package CiviCRM_APIv3
- *  @subpackage API_Activity
+ * @package CiviCRM_APIv3
+ * @subpackage API_Activity
+ * @group headless
  */
-
 class api_v3_ActivityTypeTest extends CiviUnitTestCase {
   protected $_apiversion;
 
-
-  function get_info() {
-    return array(
-      'name' => 'Activity Type',
-      'description' => 'Test all ActivityType Get/Create/Delete methods.',
-      'group' => 'CiviCRM API Tests',
-    );
-  }
-
-  function setUp() {
+  public function setUp(): void {
     $this->_apiversion = 3;
     CRM_Core_PseudoConstant::activityType(TRUE, TRUE, TRUE, 'name');
     parent::setUp();
+    $this->useTransaction(TRUE);
   }
 
   /**
-   *  Test civicrm_activity_type_get()
+   * Test civicrm_activity_type_get().
    */
-  function testActivityTypeGet() {
-    $params = array();
-    $result = $this->callAPIAndDocument('activity_type', 'get', $params, __FUNCTION__, __FILE__);
-    $this->assertEquals($result['values']['1'], 'Meeting', 'In line ' . __LINE__);
-    $this->assertEquals($result['values']['13'], 'Open Case', 'In line ' . __LINE__);
+  public function testActivityTypeGet(): void {
+    $params = [];
+    $result = $this->callAPISuccess('activity_type', 'get', $params);
+    $this->assertEquals($result['values']['1'], 'Meeting');
   }
 
   /**
-   *  Test civicrm_activity_type_create()
+   * Test civicrm_activity_type_create().
    */
-  function testActivityTypeCreate() {
-
-    $params = array(
+  public function testActivityTypeCreate(): void {
+    $params = [
       'weight' => '2',
       'label' => 'send out letters',
       'filter' => 0,
       'is_active' => 1,
       'is_optgroup' => 1,
       'is_default' => 0,
-    );
-    $result = $this->callAPIAndDocument('activity_type', 'create', $params, __FUNCTION__, __FILE__);
+    ];
+    $result = $this->callAPISuccess('activity_type', 'create', $params);
   }
 
   /**
-   *  Test civicrm_activity_type_create - check id
+   * Test civicrm_activity_type_create - check id
    */
-  function testActivityTypecreatecheckId() {
-
-    $params = array(
+  public function testActivityTypecreatecheckId(): void {
+    $params = [
       'label' => 'type_create',
       'weight' => '2',
-    );
+    ];
     $activitycreate = $this->callAPISuccess('activity_type', 'create', $params);
     $this->assertArrayHasKey('id', $activitycreate);
     $this->assertArrayHasKey('option_group_id', $activitycreate['values'][$activitycreate['id']]);
   }
 
   /**
-   *  Test civicrm_activity_type_delete()
+   * Test civicrm_activity_type_delete()
    */
-  function testActivityTypeDelete() {
-
-    $params = array(
+  public function testActivityTypeDelete(): void {
+    $params = [
       'label' => 'type_create_delete',
       'weight' => '2',
-    );
+    ];
     $activitycreate = $this->callAPISuccess('activity_type', 'create', $params);
-    $params = array(
+    $params = [
       'activity_type_id' => $activitycreate['id'],
-    );
+    ];
     $result = $this->callAPISuccess('activity_type', 'delete', $params, __FUNCTION__, __FILE__);
   }
-}
 
+}

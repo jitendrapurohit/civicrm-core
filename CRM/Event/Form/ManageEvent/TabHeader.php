@@ -1,117 +1,120 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
  * Helper class to build navigation links
+ *
+ * @deprecated since 5.72 will be removed around 5.78.
  */
 class CRM_Event_Form_ManageEvent_TabHeader {
 
-  static function build(&$form) {
+  /**
+   * @param CRM_Event_Form_ManageEvent $form
+   *
+   * @return array
+   * @throws \CRM_Core_Exception
+   *
+   * @deprecated since 5.72 will be removed around 5.78.
+   */
+  public static function build(&$form) {
+    CRM_Core_Error::deprecatedWarning('no alternative');
     $tabs = $form->get('tabHeader');
     if (!$tabs || empty($_GET['reset'])) {
       $tabs = self::process($form);
       $form->set('tabHeader', $tabs);
     }
-    $form->assign_by_ref('tabHeader', $tabs);
+    $form->assign('tabHeader', $tabs);
     CRM_Core_Resources::singleton()
-      ->addScriptFile('civicrm', 'templates/CRM/common/TabHeader.js')
-      ->addSetting(array('tabSettings' => array(
-        'active' => self::getCurrentTab($tabs),
-      )));
-
-    // Preload libraries required by Online Registration Include Profiles
-    $schemas = array('IndividualModel', 'ParticipantModel');
-    if (in_array('CiviMember', CRM_Core_Config::singleton()->enableComponents)) {
-      $schemas[] = 'MembershipModel';
-    }
-    CRM_UF_Page_ProfileEditor::registerProfileScripts();
-    CRM_UF_Page_ProfileEditor::registerSchemas($schemas);
-
+      ->addScriptFile('civicrm', 'templates/CRM/common/TabHeader.js', 1, 'html-header')
+      ->addSetting([
+        'tabSettings' => [
+          'active' => self::getCurrentTab($tabs),
+        ],
+      ]);
+    CRM_Event_Form_ManageEvent::addProfileEditScripts();
     return $tabs;
   }
 
-  static function process(&$form) {
+  /**
+   * @param CRM_Event_Form_ManageEvent $form
+   *
+   * @return array
+   * @throws Exception
+   *
+   * @deprecated since 5.72 will be removed around 5.78.
+   */
+  public static function process(&$form) {
+    CRM_Core_Error::deprecatedWarning('no alternative');
     if ($form->getVar('_id') <= 0) {
       return NULL;
     }
 
-    $default = array(
+    $default = [
       'link' => NULL,
       'valid' => TRUE,
       'active' => TRUE,
       'current' => FALSE,
       'class' => 'ajaxForm',
-    );
+    ];
 
-    $tabs = array();
-    $tabs['settings'] = array('title' => ts('Info and Settings'), 'class' => 'ajaxForm livePage') + $default;
-    $tabs['location'] = array('title' => ts('Event Location')) + $default;
-    $tabs['fee'] = array('title' => ts('Fees')) + $default;
-    $tabs['registration'] = array('title' => ts('Online Registration')) + $default;
-    if (CRM_Core_Permission::check('administer CiviCRM')) {
-      $tabs['reminder'] = array('title' => ts('Schedule Reminders'), 'class' => 'livePage') + $default;
+    $tabs = [];
+    $tabs['settings'] = ['title' => ts('Info and Settings'), 'class' => 'ajaxForm livePage'] + $default;
+    $tabs['location'] = ['title' => ts('Event Location')] + $default;
+    // If CiviContribute is active, create the Fees tab.
+    if (CRM_Core_Component::isEnabled('CiviContribute')) {
+      $tabs['fee'] = ['title' => ts('Fees')] + $default;
     }
-    $tabs['conference'] = array('title' => ts('Conference Slots')) + $default;
-    $tabs['friend'] = array('title' => ts('Tell a Friend')) + $default;
-    $tabs['pcp'] = array('title' => ts('Personal Campaigns')) + $default;
+    $tabs['registration'] = ['title' => ts('Online Registration')] + $default;
+    // @fixme I don't understand the event permissions check here - can we just get rid of it?
+    $permissions = CRM_Event_BAO_Event::getAllPermissions();
+    if (CRM_Core_Permission::check('administer CiviCRM data') || !empty($permissions[CRM_Core_Permission::EDIT])) {
+      $tabs['reminder'] = ['title' => ts('Schedule Reminders'), 'class' => 'livePage'] + $default;
+    }
 
+    $tabs['friend'] = ['title' => ts('Tell a Friend')] + $default;
+    $tabs['pcp'] = ['title' => ts('Personal Campaigns')] + $default;
+    $tabs['repeat'] = ['title' => ts('Repeat')] + $default;
 
-    // check if we're in shopping cart mode for events
-    $enableCart = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::EVENT_PREFERENCES_NAME,
-      'enable_cart'
-    );
-    if (!$enableCart) {
-      unset($tabs['conference']);
+    // Repeat tab must refresh page when switching repeat mode so js & vars will get set-up
+    if (!$form->_isRepeatingEvent) {
+      unset($tabs['repeat']['class']);
     }
 
     $eventID = $form->getVar('_id');
     if ($eventID) {
-      // disable tabs based on their configuration status 
+      // disable tabs based on their configuration status
       $sql = "
-SELECT     e.loc_block_id as is_location, e.is_online_registration, e.is_monetary, taf.is_active, pcp.is_active as is_pcp, sch.id as is_reminder
+SELECT     e.loc_block_id as is_location, e.is_online_registration, e.is_monetary, taf.is_active, pcp.is_active as is_pcp, sch.id as is_reminder, re.id as is_repeating_event
 FROM       civicrm_event e
 LEFT JOIN  civicrm_tell_friend taf ON ( taf.entity_table = 'civicrm_event' AND taf.entity_id = e.id )
 LEFT JOIN  civicrm_pcp_block pcp   ON ( pcp.entity_table = 'civicrm_event' AND pcp.entity_id = e.id )
-LEFT JOIN  civicrm_action_mapping  map ON ( map.entity_value = 'civicrm_event' )
-LEFT JOIN  civicrm_action_schedule sch ON ( sch.mapping_id = map.id AND sch.entity_value = %1 )
+LEFT JOIN  civicrm_action_schedule sch ON ( sch.mapping_id = %2 AND sch.entity_value = %1 )
+LEFT JOIN  civicrm_recurring_entity re ON ( e.id = re.entity_id AND re.entity_table = 'civicrm_event' )
 WHERE      e.id = %1
 ";
-      $params = array(1 => array($eventID, 'Integer'));
+      //Check if repeat is configured
+      CRM_Core_BAO_RecurringEntity::getParentFor($eventID, 'civicrm_event');
+      $params = [
+        1 => [$eventID, 'Integer'],
+        2 => [CRM_Event_ActionMapping::EVENT_NAME_MAPPING_ID, 'Integer'],
+      ];
       $dao = CRM_Core_DAO::executeQuery($sql, $params);
       if (!$dao->fetch()) {
-        CRM_Core_Error::fatal();
+        throw new CRM_Core_Exception('Unable to determine Event information');
       }
       if (!$dao->is_location) {
         $tabs['location']['valid'] = FALSE;
@@ -131,21 +134,25 @@ WHERE      e.id = %1
       if (!$dao->is_reminder) {
         $tabs['reminder']['valid'] = FALSE;
       }
+      if (!$dao->is_repeating_event) {
+        $tabs['repeat']['valid'] = FALSE;
+      }
     }
 
     // see if any other modules want to add any tabs
     // note: status of 'valid' flag of any injected tab, needs to be taken care in the hook implementation.
     CRM_Utils_Hook::tabset('civicrm/event/manage', $tabs,
-      array('event_id' => $eventID));
+      ['event_id' => $eventID]);
 
-    $fullName  = $form->getVar('_name');
+    $fullName = $form->getVar('_name');
     $className = CRM_Utils_String::getClassName($fullName);
-    $new       = '';
+    $new = '';
+
     // hack for special cases.
     switch ($className) {
       case 'Event':
         $attributes = $form->getVar('_attributes');
-        $class = strtolower(basename(CRM_Utils_Array::value('action', $attributes)));
+        $class = CRM_Utils_Request::retrieveComponent($attributes);
         break;
 
       case 'EventInfo':
@@ -154,7 +161,6 @@ WHERE      e.id = %1
 
       case 'ScheduleReminders':
         $class = 'reminder';
-        $new = !empty($_GET['new']) ? '&new=1' : '';
         break;
 
       default:
@@ -178,21 +184,42 @@ WHERE      e.id = %1
           $tabs[$key]['qfKey'] = NULL;
         }
 
-        $tabs[$key]['link'] = CRM_Utils_System::url("civicrm/event/manage/{$key}",
-          "{$reset}action=update&id={$eventID}&component=event{$new}{$tabs[$key]['qfKey']}"
-        );
+        $action = 'update';
+        if ($key == 'reminder') {
+          $action = 'browse';
+        }
+
+        $link = "civicrm/event/manage/{$key}";
+        $query = "{$reset}action={$action}&id={$eventID}&component=event{$tabs[$key]['qfKey']}";
+
+        $tabs[$key]['link'] = (isset($value['link']) ? $value['link'] :
+          CRM_Utils_System::url($link, $query));
       }
     }
 
     return $tabs;
   }
 
-  static function reset(&$form) {
+  /**
+   * @param CRM_Event_Form_ManageEvent $form
+   *
+   * @deprecated since 5.72 will be removed around 5.78.
+   */
+  public static function reset(&$form) {
+    CRM_Core_Error::deprecatedWarning('no alternative');
     $tabs = self::process($form);
     $form->set('tabHeader', $tabs);
   }
 
-  static function getCurrentTab($tabs) {
+  /**
+   * @param $tabs
+   *
+   * @return int|string
+   *
+   * @deprecated since 5.72 will be removed around 5.78.
+   */
+  public static function getCurrentTab($tabs) {
+    CRM_Core_Error::deprecatedWarning('no alternative');
     static $current = FALSE;
 
     if ($current) {
@@ -201,15 +228,15 @@ WHERE      e.id = %1
 
     if (is_array($tabs)) {
       foreach ($tabs as $subPage => $pageVal) {
-        if ($pageVal['current'] === TRUE) {
+        if (($pageVal['current'] ?? NULL) === TRUE) {
           $current = $subPage;
           break;
         }
       }
     }
 
-    $current = $current ? $current : 'settings';
+    $current = $current ?: 'settings';
     return $current;
   }
-}
 
+}

@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!--  $Id: mailing_delivered.xml 30511 2013-04-30 11:36:36Z shot $  -->
 <dataset>
   <table name="civicrm_mailing">
   <column>id</column>
@@ -60,7 +59,7 @@
     <value>1</value> <!--  is_completed       -->
     <null /> <!--  msg_template_id    -->
     <null /> <!--  override_verp      -->
-    <value>1</value> <!--  created_id         -->
+    <value>3</value> <!--  created_id         -->
     <null /> <!--  created_date       -->
     <null /> <!--  scheduled_id       -->
     <null /> <!--  scheduled_date     -->

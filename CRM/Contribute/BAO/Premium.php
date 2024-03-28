@@ -1,142 +1,117 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
 
   /**
-   * product information
+   * Product information.
+   *
    * @var array
-   * @static
    */
   private static $productInfo;
 
   /**
-   * class constructor
+   * Retrieve DB object and copy to defaults array.
+   *
+   * @deprecated
+   * @param array $params
+   * @param array $defaults
+   *
+   * @return CRM_Contribute_DAO_Product|NULL
    */
-  function __construct() {
-    parent::__construct();
+  public static function retrieve($params, &$defaults) {
+    return self::commonRetrieve('CRM_Contribute_DAO_Product', $params, $defaults);
   }
 
   /**
-   * Takes a bunch of params that are needed to match certain criteria and
-   * retrieves the relevant objects. Typically the valid params are only
-   * contact_id. We'll tweak this function to be more full featured over a period
-   * of time. This is the inverse function of create. It also stores all the retrieved
-   * values in the default array
-   *
-   * @param array $params   (reference ) an assoc array of name/value pairs
-   * @param array $defaults (reference ) an assoc array to hold the flattened values
-   *
-   * @return object CRM_Contribute_BAO_ManagePremium object
-   * @access public
-   * @static
+   * @deprecated - this bypasses hooks.
+   * @param int $id
+   * @param bool $is_active
+   * @return bool
    */
-  static function retrieve(&$params, &$defaults) {
-    $premium = new CRM_Contribute_DAO_Product();
-    $premium->copyValues($params);
-    if ($premium->find(TRUE)) {
-      CRM_Core_DAO::storeValues($premium, $defaults);
-      return $premium;
-    }
-    return NULL;
-  }
-
-  /**
-   * update the is_active flag in the db
-   *
-   * @param int      $id        id of the database record
-   * @param boolean  $is_active value we want to set the is_active field
-   *
-   * @return Object             DAO object on sucess, null otherwise
-   * @static
-   */
-  static function setIsActive($id, $is_active) {
+  public static function setIsActive($id, $is_active) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
     return CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Premium', $id, 'premiums_active ', $is_active);
   }
 
   /**
-   * Function to delete financial Types
+   * Delete financial Types.
    *
-   * @param $premiumID
+   * @param int $premiumID
    *
-   * @internal param int $contributionTypeId
-   * @static
+   * @deprecated
    */
-  static function del($premiumID) {
-    //check dependencies
-
-        //delete from financial Type table
-    $premium = new CRM_Contribute_DAO_Premium();
-    $premium->id = $premiumID;
-    $premium->delete();
+  public static function del($premiumID) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    return static::deleteRecord(['id' => $premiumID]);
   }
 
   /**
-   * Function to build Premium Block im Contribution Pages
+   * Whitelist of possible values for the entity_table field
    *
-   * @param $form CRM_Core_Form
-   * @param $pageID
-   * @param bool $formItems
-   * @param null $selectedProductID
-   * @param null $selectedOption
-   *
-   * @internal param int $pageId
-   * @static
+   * @return array
    */
-  static function buildPremiumBlock(&$form, $pageID, $formItems = FALSE, $selectedProductID = NULL, $selectedOption = NULL) {
-    $form->add('hidden', "selectProduct", $selectedProductID, array('id' => 'selectProduct'));
+  public static function entityTables(): array {
+    return [
+      'civicrm_contribution_page' => ts('Contribution Page'),
+    ];
+  }
 
-    $dao = new CRM_Contribute_DAO_Premium();
-    $dao->entity_table = 'civicrm_contribution_page';
-    $dao->entity_id = $pageID;
-    $dao->premiums_active = 1;
+  /**
+   * Build Premium Block im Contribution Pages.
+   *
+   * @deprecated since 5.69 will be removed around 5.75
+   *
+   * @param CRM_Core_Form $form
+   * @param int $pageID
+   * @param bool $formItems
+   * @param int $selectedProductID
+   * @param string $selectedOption
+   */
+  public static function buildPremiumBlock(&$form, $pageID, $formItems = FALSE, $selectedProductID = NULL, $selectedOption = NULL) {
+    CRM_Core_Error::deprecatedFunctionWarning('no alternative');
+    $form->add('hidden', "selectProduct", $selectedProductID, ['id' => 'selectProduct']);
 
-    if ($dao->find(TRUE)) {
-      $premiumID = $dao->id;
-      $premiumBlock = array();
-      CRM_Core_DAO::storeValues($dao, $premiumBlock);
+    $premiumDao = new CRM_Contribute_DAO_Premium();
+    $premiumDao->entity_table = 'civicrm_contribution_page';
+    $premiumDao->entity_id = $pageID;
+    $premiumDao->premiums_active = 1;
 
-      $dao = new CRM_Contribute_DAO_PremiumsProduct();
-      $dao->premiums_id = $premiumID;
-      $dao->orderBy('weight');
-      $dao->find();
+    if ($premiumDao->find(TRUE)) {
+      $premiumID = $premiumDao->id;
+      $premiumBlock = [];
+      CRM_Core_DAO::storeValues($premiumDao, $premiumBlock);
 
-      $products = array();
-      $radio = array();
-      while ($dao->fetch()) {
+      CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes($financialTypes, CRM_Core_Action::ADD);
+      $addWhere = "financial_type_id IN (0)";
+      if (!empty($financialTypes)) {
+        $addWhere = "financial_type_id IN (" . implode(',', array_keys($financialTypes)) . ")";
+      }
+      $addWhere = "{$addWhere} OR financial_type_id IS NULL";
+
+      $premiumsProductDao = new CRM_Contribute_DAO_PremiumsProduct();
+      $premiumsProductDao->premiums_id = $premiumID;
+      $premiumsProductDao->whereAdd($addWhere);
+      $premiumsProductDao->orderBy('weight');
+      $premiumsProductDao->find();
+
+      $products = [];
+      while ($premiumsProductDao->fetch()) {
         $productDAO = new CRM_Contribute_DAO_Product();
-        $productDAO->id = $dao->product_id;
+        $productDAO->id = $premiumsProductDao->product_id;
         $productDAO->is_active = 1;
         if ($productDAO->find(TRUE)) {
           if ($selectedProductID != NULL) {
@@ -151,10 +126,11 @@ class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
             }
           }
           else {
+            // Why? should we not skip if not found?
             CRM_Core_DAO::storeValues($productDAO, $products[$productDAO->id]);
           }
         }
-        $options = $temp = array();
+        $options = $temp = [];
         $temp = explode(',', $productDAO->options);
         foreach ($temp as $value) {
           $options[trim($value)] = trim($value);
@@ -164,40 +140,34 @@ class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
         }
       }
       if (count($products)) {
-        $form->assign('showPremium', $formItems);
+        $form->assign('showPremiumSelectionFields', $formItems);
         $form->assign('showSelectOptions', $formItems);
-        $form->assign('products', $products);
         $form->assign('premiumBlock', $premiumBlock);
       }
     }
+    $form->assign('products', $products ?? NULL);
   }
 
   /**
-   * Function to build Premium B im Contribution Pages
+   * Build Premium Preview block for Contribution Pages.
    *
-   * @param $form CRM_Core_Form
-   * @param $productID
-   * @param null $premiumProductID
+   * @param CRM_Core_Form $form
+   * @param int|null $productID
    *
-   * @internal param int $pageId
-   * @static
+   * @return void
    */
-  function buildPremiumPreviewBlock($form, $productID, $premiumProductID = NULL) {
-    if ($premiumProductID) {
-      $dao = new CRM_Contribute_DAO_PremiumsProduct();
-      $dao->id = $premiumProductID;
-      $dao->find(TRUE);
-      $productID = $dao->product_id;
-    }
+  public static function buildPremiumPreviewBlock($form, $productID) {
     $productDAO = new CRM_Contribute_DAO_Product();
     $productDAO->id = $productID;
     $productDAO->is_active = 1;
+    $products = [];
+
     if ($productDAO->find(TRUE)) {
       CRM_Core_DAO::storeValues($productDAO, $products[$productDAO->id]);
     }
 
-    $radio[$productDAO->id] = $form->createElement('radio', NULL, NULL, NULL, $productDAO->id, NULL);
-    $options = $temp = array();
+    $radio[$productDAO->id] = NULL;
+    $options = $temp = [];
     $temp = explode(',', $productDAO->options);
     foreach ($temp as $value) {
       $options[$value] = $value;
@@ -206,7 +176,7 @@ class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
       $form->add('select', 'options_' . $productDAO->id, NULL, $options);
     }
 
-    $form->addGroup($radio, 'selectProduct', NULL);
+    $form->addRadio('selectProduct', NULL, $radio);
 
     $form->assign('showRadio', TRUE);
     $form->assign('showSelectOptions', TRUE);
@@ -215,14 +185,11 @@ class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
   }
 
   /**
-   * Function to delete premium associated w/ contribution page.
+   * Delete premium associated w/ contribution page.
    *
-   * @param $contributionPageID
-   *
-   * @internal param int $contribution page id
-   * @static
+   * @param int $contributionPageID
    */
-  static function deletePremium($contributionPageID) {
+  public static function deletePremium($contributionPageID) {
     if (!$contributionPageID) {
       return;
     }
@@ -230,10 +197,10 @@ class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
     //need to delete entries from civicrm_premiums
     //as well as from civicrm_premiums_product, CRM-4586
 
-    $params = array(
+    $params = [
       'entity_id' => $contributionPageID,
       'entity_table' => 'civicrm_contribution_page',
-    );
+    ];
 
     $premium = new CRM_Contribute_DAO_Premium();
     $premium->copyValues($params);
@@ -250,15 +217,14 @@ class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
   }
 
   /**
-   * Function to retrieve premium product and their options
+   * Retrieve premium product and their options.
    *
-   * @return array product and option arrays
-   * @static
-   * @access public
+   * @return array
+   *   product and option arrays
    */
-  static function getPremiumProductInfo() {
+  public static function getPremiumProductInfo() {
     if (!self::$productInfo) {
-      $products = $options = array();
+      $products = $options = [];
 
       $dao = new CRM_Contribute_DAO_Product();
       $dao->is_active = 1;
@@ -275,9 +241,9 @@ class CRM_Contribute_BAO_Premium extends CRM_Contribute_DAO_Premium {
         }
       }
 
-      self::$productInfo = array($products, $options);
+      self::$productInfo = [$products, $options];
     }
     return self::$productInfo;
   }
-}
 
+}

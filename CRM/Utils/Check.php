@@ -1,48 +1,43 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.4                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id: $
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Utils_Check {
-  CONST
-    // How often to run checks and notify admins about issues.
-    CHECK_TIMER = 86400;
+  // How often to run checks and notify admins about issues.
+  const CHECK_TIMER = 86400;
+
+  /**
+   * @var array
+   * @link https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-3-logger-interface.md
+   */
+  protected static $severityList = [
+    \Psr\Log\LogLevel::DEBUG,
+    \Psr\Log\LogLevel::INFO,
+    \Psr\Log\LogLevel::NOTICE,
+    \Psr\Log\LogLevel::WARNING,
+    \Psr\Log\LogLevel::ERROR,
+    \Psr\Log\LogLevel::CRITICAL,
+    \Psr\Log\LogLevel::ALERT,
+    \Psr\Log\LogLevel::EMERGENCY,
+  ];
 
   /**
    * We only need one instance of this object, so we use the
    * singleton pattern and cache the instance in this variable
    *
    * @var object
-   * @static
    */
   static private $_singleton = NULL;
 
@@ -51,7 +46,7 @@ class CRM_Utils_Check {
    *
    * @return CRM_Utils_Check
    */
-  static function &singleton() {
+  public static function &singleton() {
     if (!isset(self::$_singleton)) {
       self::$_singleton = new CRM_Utils_Check();
     }
@@ -59,14 +54,33 @@ class CRM_Utils_Check {
   }
 
   /**
-   * Execute "checkAll"
-   *
-   * @param array|NULL $messages list of CRM_Utils_Check_Message; or NULL if the default list should be fetched
+   * @return array
    */
-  public function showPeriodicAlerts($messages = NULL) {
-    if (CRM_Core_Permission::check('administer CiviCRM')
-      && CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'securityAlert', NULL, TRUE)
-    ) {
+  public static function getSeverityList() {
+    return self::$severityList;
+  }
+
+  /**
+   * @return array[]
+   */
+  public static function getSeverityOptions() {
+    return [
+      ['id' => 0, 'name' => \Psr\Log\LogLevel::DEBUG, 'label' => ts('Debug')],
+      ['id' => 1, 'name' => \Psr\Log\LogLevel::INFO, 'label' => ts('Info')],
+      ['id' => 2, 'name' => \Psr\Log\LogLevel::NOTICE, 'label' => ts('Notice')],
+      ['id' => 3, 'name' => \Psr\Log\LogLevel::WARNING, 'label' => ts('Warning')],
+      ['id' => 4, 'name' => \Psr\Log\LogLevel::ERROR, 'label' => ts('Error')],
+      ['id' => 5, 'name' => \Psr\Log\LogLevel::CRITICAL, 'label' => ts('Critical')],
+      ['id' => 6, 'name' => \Psr\Log\LogLevel::ALERT, 'label' => ts('Alert')],
+      ['id' => 7, 'name' => \Psr\Log\LogLevel::EMERGENCY, 'label' => ts('Emergency')],
+    ];
+  }
+
+  /**
+   * Display daily system status alerts (admin only).
+   */
+  public function showPeriodicAlerts() {
+    if (CRM_Core_Permission::check('administer CiviCRM system')) {
       $session = CRM_Core_Session::singleton();
       if ($session->timer('check_' . __CLASS__, self::CHECK_TIMER)) {
 
@@ -74,58 +88,156 @@ class CRM_Utils_Check {
         $config = CRM_Core_Config::singleton();
         $config->cleanup(0, FALSE);
 
-        if ($messages === NULL) {
-          $messages = $this->checkAll();
+        $statusMessages = [];
+        $maxSeverity = 0;
+        foreach ($this->checkAll() as $message) {
+          if (!$message->isVisible()) {
+            continue;
+          }
+          if ($message->getLevel() >= 3) {
+            $maxSeverity = max($maxSeverity, $message->getLevel());
+            $statusMessage = $message->getMessage();
+            $statusMessages[] = $statusTitle = $message->getTitle();
+          }
         }
-        foreach ($messages as $message) {
-          CRM_Core_Session::setStatus($message->getMessage(), $message->getTitle());
+
+        if ($statusMessages) {
+          if (count($statusMessages) > 1) {
+            $statusTitle = self::toStatusLabel($maxSeverity);
+            $statusMessage = '<ul><li>' . implode('</li><li>', $statusMessages) . '</li></ul>';
+          }
+
+          $statusMessage .= '<p><a href="' . CRM_Utils_System::url('civicrm/a/#/status') . '">' . ts('View details and manage alerts') . '</a></p>';
+
+          $statusType = $maxSeverity >= 4 ? 'error' : 'alert';
+          CRM_Core_Session::setStatus($statusMessage, $statusTitle, $statusType);
         }
       }
     }
   }
 
   /**
-   * Throw an exception if any of the checks fail
+   * Get the integer value (useful for thresholds) of the severity.
    *
-   * @param array|NULL $messages list of CRM_Utils_Check_Message; or NULL if the default list should be fetched
-   *
-   * @throws Exception
+   * @param int|string $severity
+   *   the value to look up
+   * @param bool $reverse
+   *   whether to find the constant from the integer
+   * @return string|int
+   * @throws \CRM_Core_Exception
    */
-  public function assertValid($messages = NULL) {
+  public static function severityMap($severity, $reverse = FALSE) {
+    if ($reverse) {
+      if (isset(self::$severityList[$severity])) {
+        return self::$severityList[$severity];
+      }
+    }
+    else {
+      // Lowercase string-based severities
+      $severity = strtolower($severity);
+      if (in_array($severity, self::$severityList)) {
+        return array_search($severity, self::$severityList);
+      }
+    }
+    throw new CRM_Core_Exception('Invalid PSR Severity Level');
+  }
+
+  /**
+   * Throw an exception if any of the checks fail.
+   *
+   * @param array|null $messages
+   *   [CRM_Utils_Check_Message]
+   * @param string $threshold
+   *
+   * @throws \CRM_Core_Exception
+   * @throws \Exception
+   */
+  public function assertValid($messages = NULL, $threshold = \Psr\Log\LogLevel::ERROR) {
     if ($messages === NULL) {
       $messages = $this->checkAll();
     }
-    if (!empty($messages)) {
-      $messagesAsArray = array();
-      foreach ($messages as $message) {
-        $messagesAsArray[] = $message->toArray();
+    $minLevel = self::severityMap($threshold);
+    $errors = [];
+    foreach ($messages as $message) {
+      if ($message->getLevel() >= $minLevel) {
+        $errors[] = $message->toArray();
       }
-      throw new Exception('There are configuration problems with this installation: ' . print_r($messagesAsArray, TRUE));
+    }
+    if ($errors) {
+      throw new Exception("System $threshold: " . print_r($errors, TRUE));
     }
   }
 
   /**
-   * Run some sanity checks.
+   * Run all enabled system checks.
    *
-   * This could become a hook so that CiviCRM can run both built-in
-   * configuration & sanity checks, and modules/extensions can add
-   * their own checks.
+   * This functon is wrapped by the System.check api.
    *
-   * We might even expose the results of these checks on the Wordpress
-   * plugin status page or the Drupal admin/reports/status path.
+   * Calls hook_civicrm_check() for extensions to add or modify messages.
+   * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_check/
    *
-   * @return array of messages
-   * @see Drupal's hook_requirements() -
-   * https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_requirements
+   * @param bool $max
+   *   Whether to return just the maximum non-hushed severity
+   *
+   * @return CRM_Utils_Check_Message[]
    */
-  public function checkAll() {
-    $security = new CRM_Utils_Check_Security();
-    $env = new CRM_Utils_Check_Env();
-    $messages = array_merge(
-      $security->checkAll(),
-      $env->checkAll()
-    );
+  public static function checkAll($max = FALSE) {
+    $messages = self::checkStatus();
+
+    $maxSeverity = 1;
+    foreach ($messages as $message) {
+      if ($message->isVisible()) {
+        $maxSeverity = max($maxSeverity, $message->getLevel());
+      }
+    }
+
+    Civi::cache('checks')->set('systemStatusCheckResult', $maxSeverity);
+
+    return ($max) ? $maxSeverity : $messages;
+  }
+
+  /**
+   * @param array $statusNames
+   *   Optionally specify the names of specific checks to run, or leave empty to run all
+   * @param bool $includeDisabled
+   *   Run checks that have been explicitly disabled (default false)
+   *
+   * @return CRM_Utils_Check_Message[]
+   */
+  public static function checkStatus($statusNames = [], $includeDisabled = FALSE) {
+    $messages = [];
+    $checksNeeded = $statusNames;
+    foreach (glob(__DIR__ . '/Check/Component/*.php') as $filePath) {
+      $className = 'CRM_Utils_Check_Component_' . basename($filePath, '.php');
+      /** @var CRM_Utils_Check_Component $component */
+      $component = new $className();
+      if ($includeDisabled || $component->isEnabled()) {
+        $messages = array_merge($messages, $component->checkAll($statusNames, $includeDisabled));
+      }
+      if ($statusNames) {
+        // Early return if we have already run (or skipped) all the requested checks.
+        $checksNeeded = array_diff($checksNeeded, $component->getAllChecks());
+        if (!$checksNeeded) {
+          return $messages;
+        }
+      }
+    }
+
+    CRM_Utils_Hook::check($messages, $statusNames, $includeDisabled);
+
     return $messages;
+  }
+
+  /**
+   * @param int $level
+   * @return string
+   */
+  public static function toStatusLabel($level) {
+    if ($level > 1) {
+      $options = array_column(self::getSeverityOptions(), 'label', 'id');
+      return ts('System Status: %1', [1 => $options[$level]]);
+    }
+    return ts('System Status: Ok');
   }
 
 }

@@ -1,200 +1,149 @@
 <?php
 /*
  +--------------------------------------------------------------------+
-| CiviCRM version 4.5                                                |
-+--------------------------------------------------------------------+
-| Copyright CiviCRM LLC (c) 2004-2014                                |
-+--------------------------------------------------------------------+
-| This file is a part of CiviCRM.                                    |
-|                                                                    |
-| CiviCRM is free software; you can copy, modify, and distribute it  |
-| under the terms of the GNU Affero General Public License           |
-| Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
-|                                                                    |
-| CiviCRM is distributed in the hope that it will be useful, but     |
-| WITHOUT ANY WARRANTY; without even the implied warranty of         |
-| MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
-| See the GNU Affero General Public License for more details.        |
-|                                                                    |
-| You should have received a copy of the GNU Affero General Public   |
-| License and the CiviCRM Licensing Exception along                  |
-| with this program; if not, contact CiviCRM LLC                     |
-| at info[AT]civicrm[DOT]org. If you have questions about the        |
-| GNU Affero General Public License or the licensing of CiviCRM,     |
-| see the CiviCRM license FAQ at http://civicrm.org/licensing        |
-+--------------------------------------------------------------------+
-*/
-
-require_once 'CiviTest/CiviUnitTestCase.php';
+ | Copyright CiviCRM LLC. All rights reserved.                        |
+ |                                                                    |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
+ +--------------------------------------------------------------------+
+ */
 
 /**
  *  Test APIv3 civicrm_mailing_group_* functions
  *
- *  @package   CiviCRM
+ * @package   CiviCRM
+ * @group headless
  */
 class api_v3_MailingGroupTest extends CiviUnitTestCase {
-  protected $_groupID;
-  protected $_email;
-  protected $_apiversion;
 
-
-  function get_info() {
-    return array(
-      'name' => 'Mailer Group',
-      'description' => 'Test all Mailer Group methods.',
-      'group' => 'CiviCRM API Tests',
-    );
-  }
-
-  function setUp() {
+  public function setUp(): void {
     parent::setUp();
-    $this->_apiversion = 3;
-    $this->_groupID = $this->groupCreate();
-    $this->_email = 'test@test.test';
-  }
-
-  function tearDown() {
-    $this->groupDelete($this->_groupID);
-  }
-
-  //---------- civicrm_mailing_event_subscribe methods ---------
-
-  /**
-   * Test civicrm_mailing_group_event_subscribe with wrong params.
-   */
-  public function testMailerGroupSubscribeWrongParams() {
-    $params = array(
-      'email' => $this->_email,
-      'group_id' => 'Wrong Group ID',
-      'contact_id' => '2121',
-      'time_stamp' => '20111111010101',
-      'hash' => 'sasa',
-    );
-    $result = $this->callAPIFailure('mailing_event_subscribe', 'create', $params);
-    if ($result['error_message'] != 'Subscription failed') {
-      $this->assertEquals($result['error_message'], 'Invalid Group id', 'In line ' . __LINE__);
-    }
-    else {
-      $this->assertEquals($result['error_message'], 'Subscription failed', 'In line ' . __LINE__);
-    }
+    $this->useTransaction();
   }
 
   /**
    * Test civicrm_mailing_group_event_subscribe with given contact ID.
    */
-  public function testMailerGroupSubscribeGivenContactId() {
-    $params = array(
+  public function testMailerGroupSubscribeGivenContactID(): void {
+    $mailUtil = new CiviMailUtils($this);
+    $email = 'test@example.org';
+    $params = [
       'first_name' => 'Test',
       'last_name' => 'Test',
-      'email' => $this->_email,
+      'email' => $email,
       'contact_type' => 'Individual',
-    );
+    ];
     $contactID = $this->individualCreate($params);
 
-    $params = array(
-      'email' => $this->_email,
-      'group_id' => $this->_groupID,
+    $params = [
+      'email' => $email,
+      'group_id' => $this->groupCreate(),
       'contact_id' => $contactID,
       'hash' => 'b15de8b64e2cec34',
       'time_stamp' => '20101212121212',
-    );
-    $result = $this->callAPIAndDocument('mailing_event_subscribe', 'create', $params, __FUNCTION__, __FILE__);
+    ];
+    $result = $this->callAPISuccess('MailingEventSubscribe', 'create', $params);
     $this->assertEquals($result['values'][$result['id']]['contact_id'], $contactID);
-
-    $this->contactDelete($contactID);
+    $mailUtil->checkAllMailLog(['You have a pending subscription to the Public group name mailing list']);
   }
-
-  //-------- civicrm_mailing_group_event_unsubscribe methods-----------
 
   /**
    * Test civicrm_mailing_group_event_unsubscribe with wrong params.
    */
-  public function testMailerGroupUnsubscribeWrongParams() {
-    $params = array(
+  public function testMailerGroupUnsubscribeWrongParams(): void {
+    $this->callAPIFailure('MailingEventUnsubscribe', 'create', [
       'job_id' => 'Wrong ID',
       'event_queue_id' => 'Wrong ID',
       'hash' => 'Wrong Hash',
       'time_stamp' => '20101212121212',
-    );
-
-    $result = $this->callAPIFailure('mailing_event_unsubscribe', 'create', $params);
-    $this->assertEquals($result['error_message'], 'Queue event could not be found', 'In line ' . __LINE__);
+    ]);
   }
-
-  //--------- civicrm_mailing_group_event_domain_unsubscribe methods -------
 
   /**
    * Test civicrm_mailing_group_event_domain_unsubscribe with wrong params.
    */
-  public function testMailerGroupDomainUnsubscribeWrongParams() {
-    $params = array(
+  public function testMailerGroupDomainUnsubscribeWrongParams(): void {
+    $this->callAPIFailure('MailingEventUnsubscribe', 'create', [
       'job_id' => 'Wrong ID',
       'event_queue_id' => 'Wrong ID',
       'hash' => 'Wrong Hash',
       'org_unsubscribe' => 1,
       'time_stamp' => '20101212121212',
-    );
-
-    $result = $this->callAPIFailure('mailing_event_unsubscribe', 'create', $params);
-    $this->assertEquals($result['error_message'], 'Domain Queue event could not be found', 'In line ' . __LINE__);
+    ]);
   }
-
-  //----------- civicrm_mailing_group_event_resubscribe methods--------
-
-  /**
-   * Test civicrm_mailing_group_event_resubscribe with wrong params type.
-   */
 
   /**
    * Test civicrm_mailing_group_event_resubscribe with wrong params.
    */
-  public function testMailerGroupResubscribeWrongParams() {
-    $params = array(
+  public function testMailerGroupResubscribeWrongParams(): void {
+    $params = [
       'job_id' => 'Wrong ID',
       'event_queue_id' => 'Wrong ID',
       'hash' => 'Wrong Hash',
       'org_unsubscribe' => 'test',
       'time_stamp' => '20101212121212',
-    );
-    $result = $this->callAPIFailure('mailing_event_resubscribe', 'create', $params);
-    $this->assertEquals($result['error_message'], 'Queue event could not be found', 'In line ' . __LINE__);
+    ];
+    $this->callAPIFailure('mailing_event_resubscribe', 'create', $params);
   }
 
-  //------------------------ success case ---------------------
-
   /**
-   * Test civicrm_mailing_group_event_subscribe and civicrm_mailing_event_confirm functions - success expected.
+   * Test civicrm_mailing_group_event_subscribe and
+   * civicrm_mailing_event_confirm functions - success expected.
+   *
+   * @throws \CRM_Core_Exception
    */
-  public function testMailerProcess() {
-    $params = array(
+  public function testMailerProcess(): void {
+    $email = 'test@example.org';
+    $this->callAPISuccess('MailSettings', 'create', [
+      'domain_id' => 1,
+      'name' => 'my mail setting',
+      'domain' => 'setting.com',
+      'localpart' => 'civicrm+',
+      'server' => 'localhost',
+      'username' => 'sue',
+      'password' => 'pass',
+      'is_default' => 1,
+    ]);
+    $mut = new CiviMailUtils($this, TRUE);
+    Civi::settings()->set('include_message_id', 1);
+    $params = [
       'first_name' => 'Test',
       'last_name' => 'Test',
-      'email' => $this->_email,
+      'email' => $email,
       'contact_type' => 'Individual',
-    );
+    ];
     $contactID = $this->individualCreate($params);
 
-    $params = array(
-      'email' => $this->_email,
-      'group_id' => $this->_groupID,
+    $params = [
+      'email' => $email,
+      'group_id' => $this->groupCreate(),
       'contact_id' => $contactID,
       'hash' => 'b15de8b64e2cec34',
       'time_stamp' => '20101212121212',
-    );
+    ];
     $result = $this->callAPISuccess('mailing_event_subscribe', 'create', $params);
+    // Check that subscription email has been sent.
+    $msgs = $mut->getAllMessages();
+    $this->assertCount(1, $msgs, 'Subscription email failed to send');
+    $mut->checkMailLog([
+      'Message-ID: <civicrm+s',
+      'To confirm this subscription, reply to this email or click',
+    ]);
 
     $this->assertEquals($result['values'][$result['id']]['contact_id'], $contactID);
 
-    $params = array(
+    $params = [
       'contact_id' => $result['values'][$result['id']]['contact_id'],
       'subscribe_id' => $result['values'][$result['id']]['subscribe_id'],
       'hash' => $result['values'][$result['id']]['hash'],
       'time_stamp' => '20101212121212',
       'event_subscribe_id' => $result['values'][$result['id']]['subscribe_id'],
-    );
+    ];
 
-    $result = $this->callAPISuccess('mailing_event_confirm', 'create', $params);
+    $this->callAPISuccess('mailing_event_confirm', 'create', $params);
     $this->contactDelete($contactID);
+    Civi::settings()->set('include_message_id', 0);
   }
-}
 
+}

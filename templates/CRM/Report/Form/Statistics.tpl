@@ -1,67 +1,53 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {if $top}
-    {if $printOnly}
-        <h1>{$reportTitle}</h1>
-        <div id="report-date">{$reportDate}</div>
-    {/if}
-    {if $statistics and $outputMode}
-        <table class="report-layout statistics-table">
-            {foreach from=$statistics.groups item=row}
-                <tr>
-                   <th class="statistics" scope="row">{$row.title}</th>
-                   <td>{$row.value}</td>
-                </tr>
-            {/foreach}
-            {foreach from=$statistics.filters item=row}
-                <tr>
-                    <th class="statistics" scope="row">{$row.title}</th>
-                    <td>{$row.value}</td>
-                </tr>
-            {/foreach}
-        </table>
-    {/if}
+  {if !empty($printOnly)}
+    <h1>{$reportTitle}</h1>
+    <div id="report-date">{if !empty($reportDate)}{$reportDate}{/if}</div>
+  {/if}
+  {if !empty($statistics)}
+    <table class="report-layout statistics-table">
+      {foreach from=$statistics.groups item=row}
+        <tr>
+          <th class="statistics" scope="row">{$row.title}</th>
+          <td>{$row.value|escape}</td>
+        </tr>
+      {/foreach}
+      {foreach from=$statistics.filters item=row}
+        <tr>
+          <th class="statistics" scope="row">{$row.title}</th>
+          <td>{$row.value|escape}</td>
+        </tr>
+      {/foreach}
+    </table>
+  {/if}
 {/if}
 
-{if $bottom and $rows and $statistics}
-    <table class="report-layout">
-        {foreach from=$statistics.counts item=row}
-            <tr>
-                <th class="statistics" scope="row">{$row.title}</th>
-                <td>
-                   {if $row.type eq 1024}
-                       {$row.value|crmMoney}
-                   {elseif $row.type eq 2}
-                       {$row.value}
-                   {else}
-                       {$row.value|crmNumberFormat}
-                   {/if}
+{if $bottom and !empty($rows) and !empty($statistics)}
+  <table class="report-layout">
+    {if $statistics.counts}
+      {foreach from=$statistics.counts item=row}
+        <tr>
+          <th class="statistics" scope="row">{$row.title}</th>
+          <td>
+            {if array_key_exists('type', $row) && $row.type eq 1024}
+              {$row.value|crmMoney|escape}
+            {elseif array_key_exists('type', $row) && $row.type eq 2}
+              {$row.value|purify}
+            {else}
+               {$row.value|crmNumberFormat|escape}
+            {/if}
 
-                </td>
-            </tr>
-        {/foreach}
-    </table>
+          </td>
+        </tr>
+      {/foreach}
+    {/if}
+  </table>
 {/if}

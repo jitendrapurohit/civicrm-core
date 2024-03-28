@@ -1,29 +1,13 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  * The basic state element. Each state element is linked to a form and
@@ -32,39 +16,37 @@
  * things like going back / stepping forward / process etc
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Core_State {
 
   /**
-   * state name
+   * State name.
    * @var string
    */
   protected $_name;
 
   /**
-   * this is a combination "OR" of the STATE_* constants defined below
+   * This is a combination "OR" of the STATE_* constants defined below
    * @var int
    */
   protected $_type;
 
   /**
-   * the state that precedes this state
-   * @var object
+   * The state that precedes this state.
+   * @var CRM_Core_State
    */
   protected $_back;
 
   /**
-   * the state that succeeds this state
-   * @var object
+   * The state that succeeds this state.
+   * @var CRM_Core_State
    */
   protected $_next;
 
   /**
-   * The state machine that this state is part of
-   * @var object
+   * The state machine that this state is part of.
+   * @var CRM_Core_StateMachine
    */
   protected $_stateMachine;
 
@@ -74,27 +56,25 @@ class CRM_Core_State {
    * bring in more complexity to the framework. For now, lets keep it simple
    * @var int
    */
-  CONST START = 1, FINISH = 2, SIMPLE = 4;
+  const START = 1, FINISH = 2, SIMPLE = 4;
 
   /**
-   * constructor
+   * Constructor.
    *
-   * @param $name
-   * @param $type
-   * @param $back
-   * @param $next
-   * @param $stateMachine
+   * @param string $name
+   *   Internal name of the state.
+   * @param int $type
+   *   State type.
+   * @param CRM_Core_State $back
+   *   State that precedes this state.
+   * @param CRM_Core_State $next
+   *   State that follows this state.
+   * @param CRM_Core_StateMachine $stateMachine
+   *   Statemachine that this states belongs to.
    *
-   * @internal param \the $string internal name of the state
-   * @internal param \the $int state type
-   * @internal param \the $object state that precedes this state
-   * @internal param \the $object state that follows  this state
-   * @internal param \the $object statemachine that this states belongs to
-   *
-   * @return \CRM_Core_State
-  @access public
+   * @return CRM_Core_State
    */
-  function __construct($name, $type, $back, $next, &$stateMachine) {
+  public function __construct($name, $type, $back, $next, &$stateMachine) {
     $this->_name = $name;
     $this->_type = $type;
     $this->_back = $back;
@@ -103,19 +83,15 @@ class CRM_Core_State {
     $this->_stateMachine = &$stateMachine;
   }
 
-  function debugPrint() {
-    CRM_Core_Error::debug("{$this->_name}, {$this->_type}", "{$this->_back}, {$this->_next}");
-  }
-
   /**
-   * Given an CRM Form, jump to the previous page
+   * Given an CRM Form, jump to the previous page.
    *
-   * @param object the CRM_Core_Form element under consideration
+   * @param CRM_Core_Form $page
    *
-   * @return mixed does a jump to the back state
-   * @access public
+   * @return mixed
+   *   does a jump to the back state
    */
-  function handleBackState(&$page) {
+  public function handleBackState(&$page) {
     if ($this->_type & self::START) {
       $page->handle('display');
     }
@@ -126,14 +102,14 @@ class CRM_Core_State {
   }
 
   /**
-   * Given an CRM Form, jump to the next page
+   * Given an CRM Form, jump to the next page.
    *
-   * @param object the CRM_Core_Form element under consideration
+   * @param CRM_Core_Form $page
    *
-   * @return mixed does a jump to the nextstate
-   * @access public
+   * @return mixed
+   *   Does a jump to the nextstate
    */
-  function handleNextState(&$page) {
+  public function handleNextState(&$page) {
     if ($this->_type & self::FINISH) {
       $page->handle('process');
     }
@@ -144,78 +120,48 @@ class CRM_Core_State {
   }
 
   /**
-   * Determine the name of the next state. This is useful when we want
-   * to display the navigation labels or potential path
+   * Mark this page as valid for the QFC framework.
    *
-   * @return string
-   * @access public
+   * @param array $data
    */
-  function getNextState() {
-    if ($this->_type & self::FINISH) {
-      return NULL;
-    }
-    else {
-      $next = &$page->controller->getPage($this->_next);
-      return $next;
-    }
-  }
-
-  /**
-   * Mark this page as valid for the QFC framework. This is needed as
-   * we build more advanced functionality into the StateMachine
-   *
-   * @param object the QFC data container
-   *
-   * @return void
-   * @access public
-   */
-  function validate(&$data) {
+  public function validate(&$data) {
     $data['valid'][$this->_name] = TRUE;
   }
 
   /**
-   * Mark this page as invalid for the QFC framework. This is needed as
-   * we build more advanced functionality into the StateMachine
+   * Mark this page as invalid for the QFC framework.
    *
-   * @param object the QFC data container
-   *
-   * @return void
-   * @access public
+   * @param array $data
    */
-  function invalidate(&$data) {
+  public function invalidate(&$data) {
     $data['valid'][$this->_name] = NULL;
   }
 
   /**
-   * getter for name
+   * Getter for name.
    *
    * @return string
-   * @access public
    */
-  function getName() {
+  public function getName() {
     return $this->_name;
   }
 
   /**
-   * setter for name
+   * Setter for name.
    *
-   * @param string
-   *
-   * @return void
-   * @access public
+   * @param string $name
    */
-  function setName($name) {
+  public function setName($name) {
     $this->_name = $name;
   }
 
   /**
-   * getter for type
+   * Getter for type.
    *
    * @return int
-   * @access public
    */
-  function getType() {
+  public function getType() {
     return $this->_type;
   }
-}
 
+}

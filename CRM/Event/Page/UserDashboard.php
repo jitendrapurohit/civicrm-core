@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -39,37 +21,43 @@
 class CRM_Event_Page_UserDashboard extends CRM_Contact_Page_View_UserDashBoard {
 
   /**
-   * Function to list participations for the UF user
+   * List participations for the UF user.
    *
-   * return null
-   * @access public
    */
-  function listParticipations() {
-    $controller = new CRM_Core_Controller_Simple(
-      'CRM_Event_Form_Search',
-      ts('Events'),
-      NULL,
-      FALSE, FALSE, TRUE, FALSE
-    );
-    $controller->setEmbedded(TRUE);
-    $controller->reset();
-    $controller->set('context', 'user');
-    $controller->set('cid', $this->_contactId);
-    $controller->set('force', 1);
-    $controller->process();
-    $controller->run();
+  public function listParticipations() {
+    $event_rows = [];
+
+    $participants = \Civi\Api4\Participant::get(FALSE)
+      ->addSelect('id', 'contact_id', 'status_id:name', 'status_id:label', 'event_id', 'event_id.title', 'event_id.start_date', 'event_id.end_date')
+      ->addWhere('contact_id', '=', $this->_contactId)
+      ->addOrderBy('event_id.start_date', 'DESC')
+      ->execute()
+      ->indexBy('id');
+
+    // Flatten the results in the format expected by the template
+    foreach ($participants as $p) {
+      $p['participant_id'] = $p['id'];
+      $p['status'] = $p['status_id:name'];
+      $p['participant_status'] = $p['status_id:label'];
+      $p['event_id'] = $p['event_id'];
+      $p['event_title'] = $p['event_id.title'];
+      $p['event_start_date'] = $p['event_id.start_date'];
+      $p['event_end_date'] = $p['event_id.end_date'];
+
+      $event_rows[] = $p;
+    }
+
+    $this->assign('event_rows', $event_rows);
   }
 
   /**
-   * This function is the main function that is called when the page
+   * the main function that is called when the page
    * loads, it decides the which action has to be taken for the page.
    *
-   * return null
-   * @access public
    */
-  function run() {
+  public function run() {
     parent::preProcess();
     $this->listParticipations();
   }
-}
 
+}

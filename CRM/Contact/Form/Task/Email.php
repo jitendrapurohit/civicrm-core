@@ -1,162 +1,84 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class provides the functionality to email a group of
- * contacts.
+ * This class provides the functionality to email a group of contacts.
  */
 class CRM_Contact_Form_Task_Email extends CRM_Contact_Form_Task {
 
+  use CRM_Contact_Form_Task_EmailTrait;
+
   /**
-   * Are we operating in "single mode", i.e. sending email to one
-   * specific contact?
+   * Build all the data structures needed to build the form.
    *
-   * @var boolean
+   * @throws \CRM_Core_Exception
    */
-  public $_single = FALSE;
-
-  /**
-   * Are we operating in "single mode", i.e. sending email to one
-   * specific contact?
-   *
-   * @var boolean
-   */
-  public $_noEmails = FALSE;
-
-  /**
-   * all the existing templates in the system
-   *
-   * @var array
-   */
-  public $_templates = NULL;
-
-  /**
-   * store "to" contact details
-   * @var array
-   */
-  public $_toContactDetails = array();
-
-  /**
-   * store all selected contact id's, that includes to, cc and bcc contacts
-   * @var array
-   */
-  public $_allContactIds = array();
-
-  /**
-   * store only "to" contact ids
-   * @var array
-   */
-  public $_toContactIds = array();
-
-  /**
-   * store only "cc" contact ids
-   * @var array
-   */
-  public $_ccContactIds = array();
-
-  /**
-   * store only "bcc" contact ids
-   * @var array
-   */
-  public $_bccContactIds = array();
-
-  /**
-   * build all the data structures needed to build the form
-   *
-   * @return void
-   * @access public
-   */
-  function preProcess() {
+  public function preProcess() {
+    // @todo - more of the handling in this function should be move to the trait. Notably the title part is
+    //  not set on other forms that share the trait.
     // store case id if present
     $this->_caseId = CRM_Utils_Request::retrieve('caseid', 'String', $this, FALSE);
-    $this->_context = CRM_Utils_Request::retrieve('context', 'String', $this);
+    $this->_context = CRM_Utils_Request::retrieve('context', 'Alphanumeric', $this);
 
     $cid = CRM_Utils_Request::retrieve('cid', 'String', $this, FALSE);
-    if ($cid){
-      $cid = explode(',',$cid);
 
-      foreach ($cid as $key => $val) {
+    // Allow request to specify email id rather than contact id
+    $toEmailId = CRM_Utils_Request::retrieve('email_id', 'String', $this);
+    if ($toEmailId) {
+      $toEmail = civicrm_api('email', 'getsingle', ['version' => 3, 'id' => $toEmailId]);
+      if (!empty($toEmail['email']) && !empty($toEmail['contact_id'])) {
+        $this->_toEmail = $toEmail;
+      }
+      if (!$cid) {
+        $cid = $toEmail['contact_id'];
+        $this->set('cid', $cid);
+      }
+    }
+
+    if ($cid) {
+      $cid = explode(',', $cid);
+      $displayName = [];
+
+      foreach ($cid as $val) {
         $displayName[] = CRM_Contact_BAO_Contact::displayName($val);
       }
 
-      CRM_Utils_System::setTitle(implode(',',$displayName) . ' - ' . ts('Email'));
+      $this->setTitle(implode(',', $displayName) . ' - ' . ts('Email'));
     }
-    else{
-      CRM_Utils_System::setTitle(ts('New Email'));          
+    else {
+      $this->setTitle(ts('New Email'));
     }
-    CRM_Contact_Form_Task_EmailCommon::preProcessFromAddress($this);
-
-    if (!$cid && $this->_context != 'standalone') {
-      parent::preProcess();
+    if ($this->_context === 'search') {
+      $this->_single = TRUE;
     }
-
-    //early prevent, CRM-6209
-    if (count($this->_contactIds) > CRM_Contact_Form_Task_EmailCommon::MAX_EMAILS_KILL_SWITCH) {
-      CRM_Core_Error::statusBounce(ts('Please do not use this task to send a lot of emails (greater than %1). We recommend using CiviMail instead.', array(1 => CRM_Contact_Form_Task_EmailCommon::MAX_EMAILS_KILL_SWITCH)));
+    if ($cid || $this->_context === 'standalone') {
+      // When search context is false the parent pre-process is not set. That avoids it changing the
+      // redirect url & attempting to set the search params of the form. It may have only
+      // historical significance.
+      $this->setIsSearchContext(FALSE);
     }
-
-    $this->assign('single', $this->_single);
-    if (CRM_Core_Permission::check('administer CiviCRM')) {
-      $this->assign('isAdmin', 1);
-    }
+    $this->traitPreProcess();
   }
 
   /**
-   * Build the form
+   * Stub function  as EmailTrait calls this.
    *
-   * @access public
-   *
-   * @return void
+   * @todo move some code from preProcess into here.
    */
-  public function buildQuickForm() {
-    //enable form element
-    $this->assign('suppressForm', FALSE);
-    $this->assign('emailTask', TRUE);
+  public function setContactIDs() {}
 
-    CRM_Contact_Form_Task_EmailCommon::buildQuickForm($this);
-  }
-
-  /**
-   * process the form after the input has been submitted and validated
-   *
-   * @access public
-   *
-   * @return void
-   */
-  public function postProcess() {
-    CRM_Contact_Form_Task_EmailCommon::postProcess($this);
-  }
 }
-

@@ -1,26 +1,10 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* template for building communication preference block*}
@@ -28,7 +12,7 @@
   <div class="crm-clear crm-inline-block-content"{if $permission EQ 'edit'} title="{ts}Edit communication preferences{/ts}"{/if}>
     {if $permission EQ 'edit'}
     <div class="crm-edit-help">
-      <span class="batch-edit"></span>{ts}Edit communication preferences{/ts}
+      <span class="crm-i fa-pencil" aria-hidden="true"></span> {ts}Edit communication preferences{/ts}
     </div>
     {/if}
     <div class="crm-summary-row">
@@ -46,7 +30,7 @@
         {$preferred_communication_method_display}
       </div>
     </div>
-    {if $preferred_language}
+    {if !empty($preferred_language)}
     <div class="crm-summary-row">
       <div class="crm-label">{ts}Preferred Language{/ts}</div>
       <div class="crm-content crm-contact-preferred_language">
@@ -54,13 +38,7 @@
       </div>
     </div>
     {/if}
-    <div class="crm-summary-row">
-      <div class="crm-label">{ts}Email Format{/ts}</div>
-      <div class="crm-content crm-contact-preferred_mail_format">
-        {$preferred_mail_format}
-      </div>
-    </div>
-    {if isset($communication_style_display)}
+    {if $communication_style_display}
     <div class="crm-summary-row">
       <div class="crm-label">{ts}Communication Style{/ts}</div>
       <div class="crm-content crm-contact-communication_style_display">

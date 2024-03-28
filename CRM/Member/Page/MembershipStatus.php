@@ -1,130 +1,35 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * Page for displaying list of membership types
+ * Page for displaying list of membership statuses
  */
 class CRM_Member_Page_MembershipStatus extends CRM_Core_Page_Basic {
 
   public $useLivePageJS = TRUE;
 
   /**
-   * The action links that we need to display for the browse screen
+   * Get BAO Name.
    *
-   * @var array
-   * @static
+   * @return string
+   *   Classname of BAO.
    */
-  static $_links = NULL;
-
-  /**
-   * Get BAO Name
-   *
-   * @return string Classname of BAO.
-   */
-  function getBAOName() {
+  public function getBAOName() {
     return 'CRM_Member_BAO_MembershipStatus';
-  }
-
-  /**
-   * Get action Links
-   *
-   * @return array (reference) of action links
-   */
-  function &links() {
-    if (!(self::$_links)) {
-      self::$_links = array(
-        CRM_Core_Action::UPDATE => array(
-          'name' => ts('Edit'),
-          'url' => 'civicrm/admin/member/membershipStatus',
-          'qs' => 'action=update&id=%%id%%&reset=1',
-          'title' => ts('Edit Membership Status'),
-        ),
-        CRM_Core_Action::DISABLE => array(
-          'name' => ts('Disable'),
-          'ref' => 'crm-enable-disable',
-          'title' => ts('Disable Membership Status'),
-        ),
-        CRM_Core_Action::ENABLE => array(
-          'name' => ts('Enable'),
-          'ref' => 'crm-enable-disable',
-          'title' => ts('Enable Membership Status'),
-        ),
-        CRM_Core_Action::DELETE => array(
-          'name' => ts('Delete'),
-          'url' => 'civicrm/admin/member/membershipStatus',
-          'qs' => 'action=delete&id=%%id%%',
-          'title' => ts('Delete Membership Status'),
-        ),
-      );
-    }
-    return self::$_links;
-  }
-
-  /**
-   * Run the page.
-   *
-   * This method is called after the page is created. It checks for the
-   * type of action and executes that action.
-   * Finally it calls the parent's run method.
-   *
-   * @return void
-   * @access public
-   *
-   */
-  function run() {
-    // get the requested action
-    $action = CRM_Utils_Request::retrieve('action', 'String',
-      // default to 'browse'
-      $this, FALSE, 'browse'
-    );
-
-    // assign vars to templates
-    $this->assign('action', $action);
-    $id = CRM_Utils_Request::retrieve('id', 'Positive',
-      $this, FALSE, 0
-    );
-
-    // what action to take ?
-    if ($action & (CRM_Core_Action::UPDATE | CRM_Core_Action::ADD)) {
-      $this->edit($action, $id);
-    }
-    // finally browse the custom groups
-    $this->browse();
-
-    // parent run
-    return parent::run();
   }
 
   /**
@@ -132,19 +37,17 @@ class CRM_Member_Page_MembershipStatus extends CRM_Core_Page_Basic {
    *
    *
    * @return void
-   * @access public
-   * @static
    */
-  function browse() {
+  public function browse() {
     // get all custom groups sorted by weight
-    $membershipStatus = array();
+    $membershipStatus = [];
     $dao = new CRM_Member_DAO_MembershipStatus();
 
     $dao->orderBy('weight');
     $dao->find();
 
     while ($dao->fetch()) {
-      $membershipStatus[$dao->id] = array();
+      $membershipStatus[$dao->id] = [];
       CRM_Core_DAO::storeValues($dao, $membershipStatus[$dao->id]);
 
       // form all action links
@@ -158,7 +61,7 @@ class CRM_Member_Page_MembershipStatus extends CRM_Core_Page_Basic {
           $action -= CRM_Core_Action::DISABLE;
         }
         $membershipStatus[$dao->id]['action'] = CRM_Core_Action::formLink(self::links(), $action,
-          array('id' => $dao->id),
+          ['id' => $dao->id],
           ts('more'),
           FALSE,
           'membershipStatus.manage.action',
@@ -166,11 +69,24 @@ class CRM_Member_Page_MembershipStatus extends CRM_Core_Page_Basic {
           $dao->id
         );
       }
-      if ($startEvent = CRM_Utils_Array::value('start_event', $membershipStatus[$dao->id])) {
+      $startEvent = $membershipStatus[$dao->id]['start_event'] ?? NULL;
+      $endEvent = $membershipStatus[$dao->id]['end_event'] ?? NULL;
+      $startEventUnit = $membershipStatus[$dao->id]['start_event_adjust_unit'] ?? NULL;
+      $endEventUnit = $membershipStatus[$dao->id]['end_event_adjust_unit'] ?? NULL;
+      $startEventInterval = $membershipStatus[$dao->id]['start_event_adjust_interval'] ?? NULL;
+      $endEventInterval = $membershipStatus[$dao->id]['end_event_adjust_interval'] ?? NULL;
+
+      if ($startEvent) {
         $membershipStatus[$dao->id]['start_event'] = ($startEvent == 'join_date') ? 'member since' : str_replace("_", " ", $startEvent);
       }
-      if ($endEvent = CRM_Utils_Array::value('end_event', $membershipStatus[$dao->id])) {
+      if ($endEvent) {
         $membershipStatus[$dao->id]['end_event'] = ($endEvent == 'join_date') ? 'member since' : str_replace("_", " ", $endEvent);
+      }
+      if ($startEventUnit && $startEventInterval) {
+        $membershipStatus[$dao->id]['start_event_adjust_unit_interval'] = "{$startEventInterval} {$startEventUnit}";
+      }
+      if ($endEventUnit && $endEventInterval) {
+        $membershipStatus[$dao->id]['end_event_adjust_interval'] = "{$endEventInterval} {$endEventUnit}";
       }
     }
     // Add order changing widget to selector
@@ -183,20 +99,22 @@ class CRM_Member_Page_MembershipStatus extends CRM_Core_Page_Basic {
   }
 
   /**
-   * Get name of edit form
+   * Get name of edit form.
    *
-   * @return string Classname of edit form.
+   * @return string
+   *   Classname of edit form.
    */
-  function editForm() {
+  public function editForm() {
     return 'CRM_Member_Form_MembershipStatus';
   }
 
   /**
-   * Get edit form name
+   * Get edit form name.
    *
-   * @return string name of this page.
+   * @return string
+   *   name of this page.
    */
-  function editName() {
+  public function editName() {
     return 'Membership Status';
   }
 
@@ -205,10 +123,11 @@ class CRM_Member_Page_MembershipStatus extends CRM_Core_Page_Basic {
    *
    * @param null $mode
    *
-   * @return string user context.
+   * @return string
+   *   user context.
    */
-  function userContext($mode = NULL) {
+  public function userContext($mode = NULL) {
     return 'civicrm/admin/member/membershipStatus';
   }
-}
 
+}

@@ -1,138 +1,125 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
-
-
-require_once 'CiviTest/CiviUnitTestCase.php';
-require_once 'CiviTest/Contact.php';
+ */
 
 /**
  * Test class for CRM_Pledge_BAO_Pledge BAO
  *
- *  @package   CiviCRM
+ * @package   CiviCRM
+ * @group headless
  */
 class CRM_Pledge_BAO_PledgeTest extends CiviUnitTestCase {
 
   /**
-   * Sets up the fixture, for example, opens a network connection.
-   * This method is called before a test is executed.
-   *
-   * @access protected
+   * Sets up the test data.
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
-    $this->_contactId = Contact::createIndividual();
+    $this->ids['Contact'][0] = $this->individualCreate();
+    $this->_params = [
+      'contact_id' => $this->ids['Contact'][0],
+      'frequency_unit' => 'month',
+      'original_installment_amount' => 25.00,
+      'frequency_interval' => 1,
+      'frequency_day' => 1,
+      'installments' => 12,
+      'financial_type_id' => 1,
+      'create_date' => '2010-05-13 00:00:00',
+      'acknowledge_date' => '2010-05-13 00:00:00',
+      'start_date' => '2010-05-13 00:00:00',
+      'status_id' => 2,
+      'currency' => 'USD',
+      'amount' => 300,
+    ];
   }
-
-  /**
-   * Tears down the fixture, for example, closes a network connection.
-   * This method is called after a test is executed.
-   *
-   * @access protected
-   */
-  protected function tearDown() {}
 
   /**
    *  Test for Add/Update Pledge.
    */
-  function testAdd() {
-    $params = array(
-      'contact_id' => $this->_contactId,
-      'frequency_unit' => 'month',
-      'original_installment_amount' => 25.00,
-      'frequency_interval' => 1,
-      'frequency_day' => 1,
-      'installments' => 12,
-      'financial_type_id' => 1,
-      'create_date' => '20100513000000',
-      'acknowledge_date' => '20100513000000',
-      'start_date' => '20100513000000',
-      'status_id' => 2,
-      'currency' => 'USD',
-      'amount' => 300,
-    );
-
+  public function testAdd(): void {
     //do test for normal add.
-    $pledge = CRM_Pledge_BAO_Pledge::add($params);
-
-    foreach ($params as $param => $value) {
-      $this->assertEquals($value, $pledge->$param);
+    $pledgeID = $this->callAPISuccess('Pledge', 'create', $this->_params)['id'];
+    $pledge = new CRM_Pledge_DAO_Pledge();
+    $pledge->id = $pledgeID;
+    $pledge->find(TRUE);
+    unset($this->_params['status_id']);
+    foreach ($this->_params as $param => $value) {
+      $this->assertEquals($value, $pledge->$param, $param);
     }
   }
 
   /**
-   *  Retrieve a pledge based on a pledge id = 0
+   * Test Pledge Payment Status with 1 installment
+   * and not passing status id.
    */
-  function testRetrieveZeroPledeID() {
-    $defaults = array();
-    $params   = array('pledge_id' => 0);
-    $pledgeId = CRM_Pledge_BAO_Pledge::retrieve($params, $defaults);
+  public function testPledgePaymentStatus(): void {
+    $scheduledDate = date('Ymd', mktime(0, 0, 0, date('m'), date('d') + 2, date('y')));
+    $this->_params['installments'] = 1;
+    $this->_params['scheduled_date'] = $scheduledDate;
 
-    $this->assertEquals(count($pledgeId), 0, "Pledge Id must be greater than 0");
+    unset($this->_params['status_id']);
+    $pledge = $this->callAPISuccess('Pledge', 'create', $this->_params);
+    $pledgePayment = CRM_Pledge_BAO_PledgePayment::getPledgePayments($pledge['id']);
+
+    $this->assertCount(1, $pledgePayment);
+    $payment = array_pop($pledgePayment);
+    // Assert that we actually have no pledge Payments
+    $this->assertEquals(0, CRM_Pledge_BAO_Pledge::pledgeHasFinancialTransactions($pledge['id'], array_search('Pending', CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name'), TRUE)));
+    $this->assertEquals('Pending', $payment['status']);
+    $this->assertEquals($payment['scheduled_date'], date('Y-m-d 00:00:00', strtotime($scheduledDate)));
   }
 
   /**
-   *  Retrieve a payment based on a Null pledge id random string
+   *  Test build recur params.
    */
-  function testRetrieveStringPledgeID() {
-    $defaults = array();
-    $params   = array('pledge_id' => 'random text');
-    $pledgeId = CRM_Pledge_BAO_Pledge::retrieve($params, $defaults);
+  public function testGetPledgeStartDate(): void {
+    $startDate = json_encode(['calendar_month' => 6]);
 
-    $this->assertEquals(count($pledgeId), 0, "Pledge Id must be a string");
+    $params = [
+      'pledge_start_date' => $startDate,
+      'is_pledge_start_date_editable' => TRUE,
+      'is_pledge_start_date_visible' => TRUE,
+    ];
+
+    // Try with relative date
+    $date = CRM_Pledge_BAO_Pledge::getPledgeStartDate(6, $params);
+    $paymentDate = CRM_Pledge_BAO_Pledge::getPaymentDate(6);
+
+    $this->assertEquals(date('m/d/Y', strtotime($date)), $paymentDate, 'The two dates do not match');
+
+    // Try with fixed date
+    $date = NULL;
+    $params = [
+      'pledge_start_date' => json_encode(['calendar_date' => '06/10/2016']),
+      'is_pledge_start_date_visible' => FALSE,
+    ];
+
+    $date = CRM_Pledge_BAO_Pledge::getPledgeStartDate($date, $params);
+    $this->assertEquals('06/10/2016', date('m/d/Y', strtotime($date)), 'The two dates do not match');
   }
 
   /**
-   *  Test that payment retrieve wrks based on known pledge id
+   * Test the job that updates pledge.
    */
-  function testRetrieveKnownPledgeID() {
-    $params = array(
-      'contact_id' => $this->_contactId,
-      'frequency_unit' => 'month',
-      'frequency_interval' => 1,
-      'frequency_day' => 1,
-      'original_installment_amount' => 25.00,
-      'installments' => 12,
-      'financial_type_id' => 1,
-      'create_date' => '20100513000000',
-      'acknowledge_date' => '20100513000000',
-      'start_date' => '20100513000000',
-      'status_id' => 2,
-      'currency' => 'USD',
-      'amount' => 300,
-    );
-
-    $pledge = CRM_Pledge_BAO_Pledge::add($params);
-
-    $defaults = array();
-    $pledgeParams = array('pledge_id' => $pledge->id);
-
-    $pledgeId = CRM_Pledge_BAO_Pledge::retrieve($pledgeParams, $defaults);
-
-    $this->assertEquals(count($pledgeId), 1, "Pledge was retrieved");
+  public function testPledgeUpdate(): void {
+    $this->pledgeCreate($this->_params);
+    $this->addLocationBlockToDomain();
+    $mut = new CiviMailUtils($this);
+    CRM_Pledge_BAO_Pledge::updatePledgeStatus(['send_reminders' => TRUE]);
+    $mut->checkAllMailLog([
+      'Dear Anthony,',
+      '123',
+      'fixme.domainemail@example.org',
+      '10 Downing Street
+London,',
+    ]);
   }
+
 }
-

@@ -1,84 +1,68 @@
 <?php
-
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
- * File for the CiviCRM APIv3 product functions
+ * This api exposes CiviCRM premium products.
+ *
+ * Premiums are used as incentive gifts on contribution pages.
+ * Use chaining to create a premium and related products in one api call.
  *
  * @package CiviCRM_APIv3
- * @subpackage API_product
- *
  */
 
 /**
- * Save a product
+ * Save a product.
  *
- * Allowed @params array keys are:
- * {@getfields product_create}
- * @example productCreate.php
+ * @param array $params
  *
- * @param $params
- *
- * @throws API_Exception
- * @return array of newly created product property values.
- * @access public
+ * @throws CRM_Core_Exception
+ * @return array
  */
 function civicrm_api3_product_create($params) {
-  return _civicrm_api3_basic_create(_civicrm_api3_get_BAO(__FUNCTION__), $params);
+  return _civicrm_api3_basic_create(_civicrm_api3_get_BAO(__FUNCTION__), $params, 'Product');
 }
 
 /**
- * Get a product
+ * Adjust Metadata for Create action.
  *
- * Allowed @params array keys are:
- * {@getfields product_get}
- * @example productCreate.php
+ * The metadata is used for setting defaults, documentation & validation.
  *
- * @param $params
+ * @param array $params
+ *   Array of parameters determined by getfields.
+ */
+function _civicrm_api3_product_create_spec(&$params) {
+  $params['is_active']['api.default'] = 1;
+  $params['name']['api.required'] = 1;
+}
+
+/**
+ * Get a product.
  *
- * @return array of retrieved product property values.
- * @access public
+ * @param array $params
+ *
+ * @return array
+ *   Array of retrieved product property values.
  */
 function civicrm_api3_product_get($params) {
   return _civicrm_api3_basic_get(_civicrm_api3_get_BAO(__FUNCTION__), $params);
 }
 
 /**
- * Delete a product
+ * Delete a product.
  *
- * Allowed @params array keys are:
- * {@getfields product_delete}
- * @example productCreate.php
+ * @param array $params
  *
- * @param $params
- *
- * @throws API_Exception
- * @return array of deleted values.
- * @access public
+ * @throws CRM_Core_Exception
+ * @return array
+ *   Array of deleted values.
  */
 function civicrm_api3_product_delete($params) {
   return _civicrm_api3_basic_delete(_civicrm_api3_get_BAO(__FUNCTION__), $params);

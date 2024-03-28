@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Event_Page_ParticipantListing_Simple extends CRM_Core_Page {
 
@@ -40,9 +22,12 @@ class CRM_Event_Page_ParticipantListing_Simple extends CRM_Core_Page {
 
   protected $_eventTitle;
 
+  /**
+   * @var CRM_Utils_Pager
+   */
   protected $_pager;
 
-  function preProcess() {
+  public function preProcess() {
     $this->_id = CRM_Utils_Request::retrieve('id', 'Integer', $this, TRUE);
 
     // retrieve Event Title and include it in page title
@@ -50,13 +35,16 @@ class CRM_Event_Page_ParticipantListing_Simple extends CRM_Core_Page {
       $this->_id,
       'title'
     );
-    CRM_Utils_System::setTitle(ts('%1 - Participants', array(1 => $this->_eventTitle)));
+    CRM_Utils_System::setTitle(ts('%1 - Participants', [1 => $this->_eventTitle]));
 
     // we do not want to display recently viewed contacts since this is potentially a public page
     $this->assign('displayRecent', FALSE);
   }
 
-  function run() {
+  /**
+   * @return string
+   */
+  public function run() {
     $this->preProcess();
 
     $fromClause = "
@@ -71,7 +59,7 @@ LEFT JOIN  civicrm_email       ON ( civicrm_contact.id = civicrm_email.contact_i
 WHERE    civicrm_event.id = %1
 AND      civicrm_participant.is_test = 0
 AND      civicrm_participant.status_id IN ( 1, 2 )";
-    $params = array(1 => array($this->_id, 'Integer'));
+    $params = [1 => [$this->_id, 'Integer']];
     $this->pager($fromClause, $whereClause, $params);
     $orderBy = $this->orderBy();
 
@@ -88,25 +76,30 @@ SELECT   civicrm_contact.id           as contact_id    ,
 ORDER BY $orderBy
 LIMIT    $offset, $rowCount";
 
-    $rows = array();
+    $rows = [];
     $object = CRM_Core_DAO::executeQuery($query, $params);
     while ($object->fetch()) {
-      $row = array(
+      $row = [
         'id' => $object->contact_id,
         'participantID' => $object->participant_id,
         'name' => $object->name,
         'email' => $object->email,
-      );
+      ];
       $rows[] = $row;
     }
-    $this->assign_by_ref('rows', $rows);
+    $this->assign('rows', $rows);
 
     return parent::run();
   }
 
-  function pager($fromClause, $whereClause, $whereParams) {
+  /**
+   * @param $fromClause
+   * @param $whereClause
+   * @param array $whereParams
+   */
+  public function pager($fromClause, $whereClause, $whereParams) {
 
-    $params = array();
+    $params = [];
 
     $params['status'] = ts('Group') . ' %%StatusMessage%%';
     $params['csvString'] = NULL;
@@ -114,7 +107,7 @@ LIMIT    $offset, $rowCount";
     $params['buttonBottom'] = 'PagerBottomButton';
     $params['rowCount'] = $this->get(CRM_Utils_Pager::PAGE_ROWCOUNT);
     if (!$params['rowCount']) {
-      $params['rowCount'] = CRM_Utils_Pager::ROWCOUNT;
+      $params['rowCount'] = Civi::settings()->get('default_pager_size');
     }
 
     $query = "
@@ -125,22 +118,27 @@ SELECT count( civicrm_contact.id )
 
     $params['total'] = CRM_Core_DAO::singleValueQuery($query, $whereParams);
     $this->_pager = new CRM_Utils_Pager($params);
-    $this->assign_by_ref('pager', $this->_pager);
+    $this->assign('pager', $this->_pager);
   }
 
-  function orderBy() {
+  /**
+   * @return string
+   */
+  public function orderBy() {
     static $headers = NULL;
     if (!$headers) {
-      $headers = array();
-      $headers[1] = array('name' => ts('Name'),
+      $headers = [];
+      $headers[1] = [
+        'name' => ts('Name'),
         'sort' => 'civicrm_contact.sort_name',
         'direction' => CRM_Utils_Sort::ASCENDING,
-      );
+      ];
       if ($this->_participantListingType == 'Name and Email') {
-        $headers[2] = array('name' => ts('Email'),
+        $headers[2] = [
+          'name' => ts('Email'),
           'sort' => 'civicrm_email.email',
           'direction' => CRM_Utils_Sort::DONTCARE,
-        );
+        ];
       }
     }
     $sortID = NULL;
@@ -150,8 +148,8 @@ SELECT count( civicrm_contact.id )
       );
     }
     $sort = new CRM_Utils_Sort($headers, $sortID);
-    $this->assign_by_ref('headers', $headers);
-    $this->assign_by_ref('sort', $sort);
+    $this->assign('headers', $headers);
+    $this->assign('sort', $sort);
     $this->set(CRM_Utils_Sort::SORT_ID,
       $sort->getCurrentSortID()
     );
@@ -161,5 +159,5 @@ SELECT count( civicrm_contact.id )
 
     return $sort->orderBy();
   }
-}
 
+}

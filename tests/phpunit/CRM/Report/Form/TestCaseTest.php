@@ -1,31 +1,15 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
-require_once 'CiviTest/CiviReportTestCase.php';
+use Civi\Test\Invasive;
 
 /**
  * Verify that the CiviReportTestCase provides a working set of
@@ -38,35 +22,47 @@ require_once 'CiviTest/CiviReportTestCase.php';
  * @package CiviCRM
  */
 class CRM_Report_Form_TestCaseTest extends CiviReportTestCase {
-  protected $_tablesToTruncate = array(
+  protected $_tablesToTruncate = [
     'civicrm_contact',
     'civicrm_email',
     'civicrm_phone',
     'civicrm_address',
     'civicrm_contribution',
-  );
+  ];
 
-  public function dataProvider() {
-    $testCaseA = array(
+  /**
+   * Financial data used in these tests is invalid - do not validate.
+   *
+   * Note ideally it would be fixed and we would always use valid data.
+   *
+   * @var bool
+   */
+  protected $isValidateFinancialsOnPostAssert = FALSE;
+
+  /**
+   * @return array
+   */
+  public function dataProvider(): array {
+    $testCaseA = [
       'CRM_Report_Form_Contribute_Detail',
-      array(
-        'fields' => array(
+      [
+        'fields' => [
           'sort_name',
           'first_name',
           'email',
           'total_amount',
-        ),
-        'filters' => array(
+        ],
+        'filters' => [
           'total_amount_op' => 'gte',
           'total_amount_value' => 50,
-        ),
+        ],
         // FIXME: add filters
-      ),
+      ],
       'Contribute/fixtures/dataset-ascii.sql',
       'Contribute/fixtures/report-ascii.csv',
-    );
+    ];
 
-    return array(
+    return [
       $testCaseA,
       $testCaseA,
       $testCaseA,
@@ -74,94 +70,122 @@ class CRM_Report_Form_TestCaseTest extends CiviReportTestCase {
       // ensure that CiviReportTestCase can
       // clean up sufficiently to run
       // multiple tests.
-    );
+    ];
   }
 
-  public function badDataProvider() {
-    return array(
+  /**
+   * @return array
+   */
+  public function badDataProvider(): array {
+    return [
       // This test-case is bad because the dataset-ascii.sql does not match the
       // report.csv (due to differences in international chars)
-      array(
+      [
         'CRM_Report_Form_Contribute_Detail',
-        array(
-          'fields' => array(
+        [
+          'fields' => [
             'sort_name',
             'first_name',
             'email',
             'total_amount',
-          ),
-          'filters' => array(
+          ],
+          'filters' => [
             'total_amount_op' => 'gte',
             'total_amount_value' => 50,
-          ),
+          ],
           // FIXME: add filters
-        ),
+        ],
         'Contribute/fixtures/dataset-ascii.sql',
         'Contribute/fixtures/report.csv',
-      ),
+      ],
       // This test-case is bad because the filters check for
       // an amount >= $100, but the test data includes records
       // for $50.
-      array(
+      [
         'CRM_Report_Form_Contribute_Detail',
-        array(
-          'fields' => array(
+        [
+          'fields' => [
             'sort_name',
             'first_name',
             'email',
             'total_amount',
-          ),
-          'filters' => array(
+          ],
+          'filters' => [
             'total_amount_op' => 'gte',
             'total_amount_value' => 100,
-          ),
+          ],
           // FIXME: add filters
-        ),
+        ],
         'Contribute/fixtures/dataset-ascii.sql',
         'Contribute/fixtures/report.csv',
-      ),
-    );
+      ],
+    ];
   }
 
-  function setUp() {
+  /**
+   * @throws \CRM_Core_Exception
+   */
+  public function setUp(): void {
     parent::setUp();
-    $this->foreignKeyChecksOff();
     $this->quickCleanup($this->_tablesToTruncate);
-  }
-
-  function tearDown() {
-    parent::tearDown();
-    CRM_Core_DAO::executeQuery('DROP TEMPORARY TABLE IF EXISTS civireport_contribution_detail_temp1');
-    CRM_Core_DAO::executeQuery('DROP TEMPORARY TABLE IF EXISTS civireport_contribution_detail_temp2');
-    CRM_Core_DAO::executeQuery('DROP TEMPORARY TABLE IF EXISTS civireport_contribution_detail_temp3');
   }
 
   /**
    * @dataProvider dataProvider
+   * @param $reportClass
+   * @param $inputParams
+   * @param $dataSet
+   * @param $expectedOutputCsvFile
+   * @throws \Exception
    */
-  public function testReportOutput($reportClass, $inputParams, $dataSet, $expectedOutputCsvFile) {
+  public function testReportOutput($reportClass, $inputParams, $dataSet, $expectedOutputCsvFile): void {
     $config = CRM_Core_Config::singleton();
-    CRM_Utils_File::sourceSQLFile($config->dsn, dirname(__FILE__) . "/{$dataSet}");
+    CRM_Utils_File::sourceSQLFile($config->dsn, __DIR__ . "/$dataSet");
 
     $reportCsvFile = $this->getReportOutputAsCsv($reportClass, $inputParams);
     $reportCsvArray = $this->getArrayFromCsv($reportCsvFile);
 
-    $expectedOutputCsvArray = $this->getArrayFromCsv(dirname(__FILE__) . "/{$expectedOutputCsvFile}");
+    $expectedOutputCsvArray = $this->getArrayFromCsv(__DIR__ . "/$expectedOutputCsvFile");
     $this->assertCsvArraysEqual($expectedOutputCsvArray, $reportCsvArray);
   }
 
   /**
-   * @expectedException PHPUnit_Framework_AssertionFailedError
    * @dataProvider badDataProvider
+   *
+   * @param $reportClass
+   * @param $inputParams
+   * @param $dataSet
+   * @param $expectedOutputCsvFile
+   *
+   * @throws \CRM_Core_Exception
    */
-  public function testBadReportOutput($reportClass, $inputParams, $dataSet, $expectedOutputCsvFile) {
-    $config = CRM_Core_Config::singleton();
-    CRM_Utils_File::sourceSQLFile($config->dsn, dirname(__FILE__) . "/{$dataSet}");
+  public function testBadReportOutput($reportClass, $inputParams, $dataSet, $expectedOutputCsvFile): void {
+    CRM_Utils_File::sourceSQLFile(CIVICRM_DSN, __DIR__ . "/$dataSet");
 
     $reportCsvFile = $this->getReportOutputAsCsv($reportClass, $inputParams);
     $reportCsvArray = $this->getArrayFromCsv($reportCsvFile);
 
-    $expectedOutputCsvArray = $this->getArrayFromCsv(dirname(__FILE__) . "/{$expectedOutputCsvFile}");
-    $this->assertCsvArraysEqual($expectedOutputCsvArray, $reportCsvArray);
+    $expectedOutputCsvArray = $this->getArrayFromCsv(__DIR__ . "/$expectedOutputCsvFile");
+    $this->assertNotEquals($expectedOutputCsvArray[1], $reportCsvArray[1]);
   }
+
+  /**
+   * Test processReportMode() Function in Reports
+   */
+  public function testOutputMode(): void {
+    $reportForm = new CRM_Report_Form();
+
+    Invasive::set([$reportForm, '_params'], ['groups' => 4]);
+    $reportForm->processReportMode();
+    $this->assertEquals('group', Invasive::get([$reportForm, '_outputMode']));
+
+    Invasive::set([$reportForm, '_params'], ['task' => 'copy']);
+    $reportForm->processReportMode();
+    $this->assertEquals('copy', Invasive::get([$reportForm, '_outputMode']));
+
+    Invasive::set([$reportForm, '_params'], ['task' => 'print']);
+    $reportForm->processReportMode();
+    $this->assertEquals('print', Invasive::get([$reportForm, '_outputMode']));
+  }
+
 }

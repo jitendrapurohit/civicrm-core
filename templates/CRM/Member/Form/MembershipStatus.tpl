@@ -1,38 +1,21 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* this template is used for adding/editing/deleting membership status  *}
 <div class="crm-block crm-form-block crm-membership-status-form-block" id=membership_status>
 <fieldset><legend>{if $action eq 1}{ts}New Membership Status{/ts}{elseif $action eq 2}{ts}Edit Membership Status{/ts}{else}{ts}Delete Membership Status{/ts}{/if}</legend>
- <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
-   {if $action eq 8}
-      <div class="messages status no-popup">
-         <div class="icon inform-icon"></div>
-          {ts}WARNING: Deleting this option will result in the loss of all membership records of this status.{/ts} {ts}This may mean the loss of a substantial amount of data, and the action cannot be undone.{/ts} {ts}Do you want to continue?{/ts}
-      </div>
-   {else}
+  {if $action eq 8}
+    <div class="messages status no-popup">
+      {icon icon="fa-info-circle"}{/icon}
+      {$deleteMessage|escape}
+    </div>
+  {else}
     <table class="form-layout-compressed">
       {if $action eq 2}
       <tr class="crm-membership-status-form-block-name">
@@ -51,25 +34,25 @@
       <tr class="crm-membership-status-form-block-start_event">
         <td class="label">{$form.start_event.label}</td>
         <td class="html-adjust">{$form.start_event.html}<br />
-           <span class="description">{ts}When does this status begin? EXAMPLE: <strong>New</strong> status begins at the membership 'join date'.{/ts}</span>
+           <span class="description">{ts}When does this status begin? EXAMPLE: <strong>New</strong> status begins at the Member Since.{/ts}</span>
         </td>
       </tr>
       <tr class="crm-membership-status-form-block-start_event_unit_interval">
         <td class="label">{$form.start_event_adjust_unit.label}</td>
         <td class="html-adjust">&nbsp;{$form.start_event_adjust_interval.html}&nbsp;&nbsp;{$form.start_event_adjust_unit.html}<br />
-           <span class="description">{ts}Optional adjustment period added or subtracted from the Start Event. EXAMPLE: <strong>Current</strong> status might begin at 'join date' PLUS 3 months (to distinguish Current from New members).{/ts}</span>
+           <span class="description">{ts}Optional adjustment period added or subtracted from the Start Event. EXAMPLE: <strong>Current</strong> status might begin at Member Since PLUS 3 months (to distinguish Current from New members).{/ts}</span>
         </td>
       </tr>
       <tr class="crm-membership-status-form-block-end_event">
         <td class="label">{$form.end_event.label}</td>
         <td class="html-adjust">{$form.end_event.html}<br />
-           <span class="description">{ts}When does this status end? EXAMPLE: <strong>Current</strong> status ends at the membership 'end date'.{/ts}</span>
+           <span class="description">{ts}When does this status end? EXAMPLE: <strong>Current</strong> status ends at the Membership Expiration Date.{/ts}</span>
         </td>
       </tr>
       <tr class="crm-membership-status-form-block-end_event_unit_interval">
         <td class="label">{$form.end_event_adjust_unit.label}</td>
         <td class="html-adjust">&nbsp;{$form.end_event_adjust_interval.html}&nbsp;{$form.end_event_adjust_unit.html}<br />
-           <span class="description">{ts}Optional adjustment period added or subtracted from the End Event. EXAMPLE: <strong>Grace</strong> status might end at 'end date' PLUS 1 month.{/ts}</span>
+           <span class="description">{ts}Optional adjustment period added or subtracted from the End Event. EXAMPLE: <strong>Grace</strong> status might end at the Membership Expiration Date PLUS 1 month.{/ts}</span>
         </td>
       </tr>
       <tr class="crm-membership-status-form-block-is_current_member">

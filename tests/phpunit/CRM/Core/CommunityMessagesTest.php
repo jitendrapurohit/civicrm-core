@@ -1,137 +1,135 @@
 <?php
-
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
-
-require_once 'CiviTest/CiviUnitTestCase.php';
+/**
+ * Class CRM_Core_CommunityMessagesTest
+ * @group headless
+ */
 class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
+
+  /**
+   * The max difference between two times such that they should be
+   * treated as equals (expressed in seconds).
+   */
+  const APPROX_TIME_EQUALITY = 4;
+
   /**
    * @var CRM_Utils_Cache_Interface
    */
   protected $cache;
 
   /**
-   * @var array list of possible web responses
+   * @var array
+   * list of possible web responses
    */
   protected static $webResponses = NULL;
 
+  /**
+   * @return array
+   */
   public static function initWebResponses() {
     if (self::$webResponses === NULL) {
-      self::$webResponses = array(
-        'http-error' => array(
+      self::$webResponses = [
+        'http-error' => [
           CRM_Utils_HttpClient::STATUS_DL_ERROR,
-          NULL
-        ),
-        'bad-json' => array(
+          NULL,
+        ],
+        'bad-json' => [
           CRM_Utils_HttpClient::STATUS_OK,
-          '<html>this is not json!</html>'
-        ),
-        'invalid-ttl-document' => array(
+          '<html>this is not json!</html>',
+        ],
+        'invalid-ttl-document' => [
           CRM_Utils_HttpClient::STATUS_OK,
-          json_encode(array(
-            'ttl' => 'z', // not an integer!
-            'retry' => 'z', // not an integer!
-            'messages' => array(
-              array(
+          json_encode([
+            // not an integer!
+            'ttl' => 'z',
+            // not an integer!
+            'retry' => 'z',
+            'messages' => [
+              [
                 'markup' => '<h1>Invalid document</h1>',
-              ),
-            ),
-          ))
-        ),
-        'first-valid-response' => array(
+              ],
+            ],
+          ]),
+        ],
+        'first-valid-response' => [
           CRM_Utils_HttpClient::STATUS_OK,
-          json_encode(array(
+          json_encode([
             'ttl' => 600,
             'retry' => 600,
-            'messages' => array(
-              array(
+            'messages' => [
+              [
                 'markup' => '<h1>First valid response</h1>',
-              ),
-            ),
-          ))
-        ),
-        'second-valid-response' => array(
+              ],
+            ],
+          ]),
+        ],
+        'second-valid-response' => [
           CRM_Utils_HttpClient::STATUS_OK,
-          json_encode(array(
+          json_encode([
             'ttl' => 600,
             'retry' => 600,
-            'messages' => array(
-              array(
+            'messages' => [
+              [
                 'markup' => '<h1>Second valid response</h1>',
-              ),
-            ),
-          ))
-        ),
-        'two-messages' => array(
+              ],
+            ],
+          ]),
+        ],
+        'two-messages' => [
           CRM_Utils_HttpClient::STATUS_OK,
-          json_encode(array(
+          json_encode([
             'ttl' => 600,
             'retry' => 600,
-            'messages' => array(
-              array(
+            'messages' => [
+              [
                 'markup' => '<h1>One</h1>',
-                'components' => array('CiviMail'),
-              ),
-              array(
+                'components' => ['CiviMail'],
+              ],
+              [
                 'markup' => '<h1>Two</h1>',
-                'components' => array('CiviMail'),
-              ),
-            ),
-          ))
-        ),
-        'two-messages-halfbadcomp' => array(
+                'components' => ['CiviMail'],
+              ],
+            ],
+          ]),
+        ],
+        'two-messages-halfbadcomp' => [
           CRM_Utils_HttpClient::STATUS_OK,
-          json_encode(array(
+          json_encode([
             'ttl' => 600,
             'retry' => 600,
-            'messages' => array(
-              array(
+            'messages' => [
+              [
                 'markup' => '<h1>One</h1>',
-                'components' => array('NotARealComponent'),
-              ),
-              array(
+                'components' => ['NotARealComponent'],
+              ],
+              [
                 'markup' => '<h1>Two</h1>',
-                'components' => array('CiviMail'),
-              ),
-            ),
-          ))
-        ),
-      );
+                'components' => ['CiviMail'],
+              ],
+            ],
+          ]),
+        ],
+      ];
     }
     return self::$webResponses;
   }
 
-  public function setUp() {
+  public function setUp(): void {
     parent::setUp();
-    $this->cache = new CRM_Utils_Cache_Arraycache(array());
+    $this->cache = new CRM_Utils_Cache_ArrayCache([]);
     self::initWebResponses();
   }
 
-  public function tearDown() {
+  public function tearDown(): void {
     parent::tearDown();
     CRM_Utils_Time::resetTime();
   }
@@ -145,15 +143,15 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
    */
   public function badWebResponses() {
     self::initWebResponses();
-    $result = array(
-      array(self::$webResponses['http-error']),
-      array(self::$webResponses['bad-json']),
-      array(self::$webResponses['invalid-ttl-document']),
-    );
+    $result = [
+      [self::$webResponses['http-error']],
+      [self::$webResponses['bad-json']],
+      [self::$webResponses['invalid-ttl-document']],
+    ];
     return $result;
   }
 
-  public function testIsEnabled() {
+  public function testIsEnabled(): void {
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectNoHttpRequest()
@@ -161,7 +159,7 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
     $this->assertTrue($communityMessages->isEnabled());
   }
 
-  public function testIsEnabled_false() {
+  public function testIsEnabled_false(): void {
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectNoHttpRequest(),
@@ -173,7 +171,7 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
   /**
    * Download a document; after the set expiration period, download again.
    */
-  public function testGetDocument_NewOK_CacheOK_UpdateOK() {
+  public function testGetDocument_NewOK_CacheOK_UpdateOK(): void {
     // first try, good response
     CRM_Utils_Time::setTime('2013-03-01 10:00:00');
     $communityMessages = new CRM_Core_CommunityMessages(
@@ -182,7 +180,7 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
     );
     $doc1 = $communityMessages->getDocument();
     $this->assertEquals('<h1>First valid response</h1>', $doc1['messages'][0]['markup']);
-    $this->assertEquals(strtotime('2013-03-01 10:10:00'), $doc1['expires']);
+    $this->assertApproxEquals(strtotime('2013-03-01 10:10:00'), $doc1['expires'], self::APPROX_TIME_EQUALITY);
 
     // second try, $doc1 hasn't expired yet, so still use it
     CRM_Utils_Time::setTime('2013-03-01 10:09:00');
@@ -192,17 +190,18 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
     );
     $doc2 = $communityMessages->getDocument();
     $this->assertEquals('<h1>First valid response</h1>', $doc2['messages'][0]['markup']);
-    $this->assertEquals(strtotime('2013-03-01 10:10:00'), $doc2['expires']);
+    $this->assertApproxEquals(strtotime('2013-03-01 10:10:00'), $doc2['expires'], self::APPROX_TIME_EQUALITY);
 
     // third try, $doc1 expired, update it
-    CRM_Utils_Time::setTime('2013-03-01 12:00:02'); // more than 2 hours later (DEFAULT_RETRY)
+    // more than 2 hours later (DEFAULT_RETRY)
+    CRM_Utils_Time::setTime('2013-03-01 12:00:02');
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectOneHttpRequest(self::$webResponses['second-valid-response'])
     );
     $doc3 = $communityMessages->getDocument();
     $this->assertEquals('<h1>Second valid response</h1>', $doc3['messages'][0]['markup']);
-    $this->assertEquals(strtotime('2013-03-01 12:10:02'), $doc3['expires']);
+    $this->assertApproxEquals(strtotime('2013-03-01 12:10:02'), $doc3['expires'], self::APPROX_TIME_EQUALITY);
   }
 
   /**
@@ -210,7 +209,8 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
    * Store the NACK and retry after the default time period (DEFAULT_RETRY).
    *
    * @dataProvider badWebResponses
-   * @param array $badWebResponse Description of a web request that returns some kind of failure
+   * @param array $badWebResponse
+   *   Description of a web request that returns some kind of failure.
    */
   public function testGetDocument_NewFailure_CacheOK_UpdateOK($badWebResponse) {
     $this->assertNotEmpty($badWebResponse);
@@ -222,7 +222,7 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
       $this->expectOneHttpRequest($badWebResponse)
     );
     $doc1 = $communityMessages->getDocument();
-    $this->assertEquals(array(), $doc1['messages']);
+    $this->assertEquals([], $doc1['messages']);
     $this->assertTrue($doc1['expires'] > CRM_Utils_Time::getTimeRaw());
 
     // second try, $doc1 hasn't expired yet, so still use it
@@ -232,11 +232,12 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
       $this->expectNoHttpRequest()
     );
     $doc2 = $communityMessages->getDocument();
-    $this->assertEquals(array(), $doc2['messages']);
+    $this->assertEquals([], $doc2['messages']);
     $this->assertEquals($doc1['expires'], $doc2['expires']);
 
     // third try, $doc1 expired, try again, get a good response
-    CRM_Utils_Time::setTime('2013-03-01 12:00:02'); // more than 2 hours later (DEFAULT_RETRY)
+    // more than 2 hours later (DEFAULT_RETRY)
+    CRM_Utils_Time::setTime('2013-03-01 12:00:02');
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectOneHttpRequest(self::$webResponses['first-valid-response'])
@@ -254,7 +255,8 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
    * A new update succeeds.
    *
    * @dataProvider badWebResponses
-   * @param array $badWebResponse Description of a web request that returns some kind of failure
+   * @param array $badWebResponse
+   *   Description of a web request that returns some kind of failure.
    */
   public function testGetDocument_NewOK_UpdateFailure_CacheOK_UpdateOK($badWebResponse) {
     $this->assertNotEmpty($badWebResponse);
@@ -267,10 +269,11 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
     );
     $doc1 = $communityMessages->getDocument();
     $this->assertEquals('<h1>First valid response</h1>', $doc1['messages'][0]['markup']);
-    $this->assertEquals(strtotime('2013-03-01 10:10:00'), $doc1['expires']);
+    $this->assertApproxEquals(strtotime('2013-03-01 10:10:00'), $doc1['expires'], self::APPROX_TIME_EQUALITY);
 
     // second try, $doc1 has expired; bad response; keep old data
-    CRM_Utils_Time::setTime('2013-03-01 12:00:02'); // more than 2 hours later (DEFAULT_RETRY)
+    // more than 2 hours later (DEFAULT_RETRY)
+    CRM_Utils_Time::setTime('2013-03-01 12:00:02');
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectOneHttpRequest($badWebResponse)
@@ -290,20 +293,20 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
     $this->assertEquals($doc2['expires'], $doc3['expires']);
 
     // fourth try, $doc2 has expired yet; new request; replace data
-    CRM_Utils_Time::setTime('2013-03-01 12:10:02');
+    CRM_Utils_Time::setTime('2013-03-01 12:10:05');
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectOneHttpRequest(self::$webResponses['second-valid-response'])
     );
     $doc4 = $communityMessages->getDocument();
     $this->assertEquals('<h1>Second valid response</h1>', $doc4['messages'][0]['markup']);
-    $this->assertEquals(strtotime('2013-03-01 12:20:02'), $doc4['expires']);
+    $this->assertApproxEquals(strtotime('2013-03-01 12:20:05'), $doc4['expires'], self::APPROX_TIME_EQUALITY);
   }
 
   /**
-   * Randomly pick among two options
+   * Randomly pick among two options.
    */
-  public function testPick_rand() {
+  public function testPick_rand(): void {
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectOneHttpRequest(self::$webResponses['two-messages'])
@@ -314,10 +317,11 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
 
     // randomly pick many times
     $trials = 80;
-    $freq = array(); // array($message => $count)
+    // array($message => $count)
+    $freq = [];
     for ($i = 0; $i < $trials; $i++) {
       $message = $communityMessages->pick();
-      $freq[$message['markup']] = CRM_Utils_Array::value($message['markup'], $freq, 0) + 1;
+      $freq[$message['markup']] = ($freq[$message['markup']] ?? 0) + 1;
     }
 
     // assert the probabilities
@@ -330,7 +334,7 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
    * When presented with two options using component filters, always
    * choose the one which references an active component.
    */
-  public function testPick_componentFilter() {
+  public function testPick_componentFilter(): void {
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectOneHttpRequest(self::$webResponses['two-messages-halfbadcomp'])
@@ -341,16 +345,17 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
 
     // randomly pick many times
     $trials = 10;
-    $freq = array(); // array($message => $count)
+    // array($message => $count)
+    $freq = [];
     for ($i = 0; $i < $trials; $i++) {
       $message = $communityMessages->pick();
-      $freq[$message['markup']] = CRM_Utils_Array::value($message['markup'], $freq, 0) + 1;
+      $freq[$message['markup']] = ($freq[$message['markup']] ?? 0) + 1;
     }
 
     $this->assertEquals($trials, $freq['<h1>Two</h1>']);
   }
 
-  function testEvalMarkup() {
+  public function testEvalMarkup(): void {
     $communityMessages = new CRM_Core_CommunityMessages(
       $this->cache,
       $this->expectNoHttpRequest()
@@ -361,10 +366,10 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
   /**
    * Generate a mock HTTP client with the expectation that it is never called.
    *
-   * @return CRM_Utils_HttpClient|PHPUnit_Framework_MockObject_MockObject
+   * @return CRM_Utils_HttpClient|PHPUnit\Framework\MockObject\MockObject
    */
   protected function expectNoHttpRequest() {
-    $client = $this->getMock('CRM_Utils_HttpClient');
+    $client = $this->getMockBuilder('CRM_Utils_HttpClient')->getMock();
     $client->expects($this->never())
       ->method('get');
     return $client;
@@ -375,13 +380,14 @@ class CRM_Core_CommunityMessagesTest extends CiviUnitTestCase {
    *
    * @param $response
    *
-   * @return CRM_Utils_HttpClient|PHPUnit_Framework_MockObject_MockObject
+   * @return CRM_Utils_HttpClient|PHPUnit\Framework\MockObject\MockObject
    */
   protected function expectOneHttpRequest($response) {
-    $client = $this->getMock('CRM_Utils_HttpClient');
+    $client = $this->getMockBuilder('CRM_Utils_HttpClient')->getMock();
     $client->expects($this->once())
       ->method('get')
       ->will($this->returnValue($response));
     return $client;
   }
+
 }

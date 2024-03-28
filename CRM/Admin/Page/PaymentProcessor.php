@@ -1,93 +1,35 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
+use Civi\Api4\PaymentProcessor;
+
 /**
- * Page for displaying list of payment processors
+ * Page for displaying list of payment processors.
  */
 class CRM_Admin_Page_PaymentProcessor extends CRM_Core_Page_Basic {
 
   /**
-   * The action links that we need to display for the browse screen
+   * Get BAO Name.
    *
-   * @var array
-   * @static
+   * @return string
+   *   Classname of BAO.
    */
-  static $_links = NULL;
-
-  /**
-   * Get BAO Name
-   *
-   * @return string Classname of BAO.
-   */
-  function getBAOName() {
+  public function getBAOName() {
     return 'CRM_Financial_BAO_PaymentProcessor';
-  }
-
-  /**
-   * Get action Links
-   *
-   * @return array (reference) of action links
-   */
-  function &links() {
-    if (!(self::$_links)) {
-      self::$_links = array(
-        CRM_Core_Action::UPDATE => array(
-          'name' => ts('Edit'),
-          'url' => 'civicrm/admin/paymentProcessor',
-          'qs' => 'action=update&id=%%id%%&reset=1',
-          'title' => ts('Edit Payment Processor'),
-        ),
-        CRM_Core_Action::DISABLE => array(
-          'name' => ts('Disable'),
-          'ref' => 'crm-enable-disable',
-          'title' => ts('Disable Payment Processor'),
-        ),
-        CRM_Core_Action::ENABLE => array(
-          'name' => ts('Enable'),
-          'ref' => 'crm-enable-disable',
-          'title' => ts('Enable Payment Processor'),
-        ),
-        CRM_Core_Action::DELETE => array(
-          'name' => ts('Delete'),
-          'url' => 'civicrm/admin/paymentProcessor',
-          'qs' => 'action=delete&id=%%id%%',
-          'title' => ts('Delete Payment Processor'),
-        ),
-      );
-    }
-    return self::$_links;
   }
 
   /**
@@ -96,19 +38,18 @@ class CRM_Admin_Page_PaymentProcessor extends CRM_Core_Page_Basic {
    * This method is called after the page is created. It checks for the
    * type of action and executes that action.
    * Finally it calls the parent's run method.
-   *
-   * @return void
-   * @access public
-   *
    */
-  function run() {
+  public function run() {
     // set title and breadcrumb
     CRM_Utils_System::setTitle(ts('Settings - Payment Processor'));
-    $breadCrumb = array(array('title' => ts('Administration'),
+    $breadCrumb = [
+      [
+        'title' => ts('Administer'),
         'url' => CRM_Utils_System::url('civicrm/admin',
-        'reset=1'
+          'reset=1'
         ),
-      ));
+      ],
+    ];
     CRM_Utils_System::appendBreadCrumb($breadCrumb);
     return parent::run();
   }
@@ -118,65 +59,61 @@ class CRM_Admin_Page_PaymentProcessor extends CRM_Core_Page_Basic {
    *
    * @param null $action
    *
-   * @return void
-   * @access public
-   * @static
+   * @throws \CRM_Core_Exception
    */
-  function browse($action = NULL) {
-    // get all custom groups sorted by weight
-    $paymentProcessor = array();
-    $dao = new CRM_Financial_DAO_PaymentProcessor();
-    $dao->is_test     = 0;
-    $dao->domain_id   = CRM_Core_Config::domainID();
-    $dao->orderBy('name');
-    $dao->find();
+  public function browse($action = NULL): void {
+    $paymentProcessors = PaymentProcessor::get(FALSE)
+      ->addWhere('is_test', '=', 0)
+      ->addWhere('domain_id', '=', CRM_Core_Config::domainID())
+      ->setSelect(['id', 'name', 'description', 'title', 'is_active', 'is_default', 'payment_processor_type_id:label'])
+      ->addOrderBy('name')->execute()->indexBy('id');
 
-    while ($dao->fetch()) {
-      $paymentProcessor[$dao->id] = array();
-      CRM_Core_DAO::storeValues($dao, $paymentProcessor[$dao->id]);
-      $paymentProcessor[$dao->id]['payment_processor_type'] = CRM_Core_DAO::getFieldValue('CRM_Financial_DAO_PaymentProcessorType',
-        $paymentProcessor[$dao->id]['payment_processor_type_id']);
+    foreach ($paymentProcessors as $paymentProcessorID => $paymentProcessor) {
+      // Annoyingly Smarty can't handle the colon syntax (or a .)
+      $paymentProcessors[$paymentProcessorID]['payment_processor_type'] = $paymentProcessor['payment_processor_type_id:label'];
 
       // form all action links
       $action = array_sum(array_keys($this->links()));
+      $action -= $paymentProcessor['is_active'] ? CRM_Core_Action::ENABLE : CRM_Core_Action::DISABLE;
 
-      // update enable/disable links.
-      if ($dao->is_active) {
-        $action -= CRM_Core_Action::ENABLE;
-      }
-      else {
-        $action -= CRM_Core_Action::DISABLE;
-      }
-
-      $paymentProcessor[$dao->id]['action'] = CRM_Core_Action::formLink(self::links(), $action,
-        array('id' => $dao->id),
+      $paymentProcessors[$paymentProcessorID]['action'] = CRM_Core_Action::formLink($this->links(), $action,
+        ['id' => $paymentProcessorID],
         ts('more'),
         FALSE,
         'paymentProcessor.manage.action',
         'PaymentProcessor',
-        $dao->id
+        $paymentProcessorID
       );
-      $paymentProcessor[$dao->id]['financialAccount'] = CRM_Financial_BAO_FinancialTypeAccount::getFinancialAccount($dao->id, 'civicrm_payment_processor');
+      $paymentProcessors[$paymentProcessorID]['financialAccount'] = CRM_Contribute_PseudoConstant::getRelationalFinancialAccount($paymentProcessorID, NULL, 'civicrm_payment_processor', 'financial_account_id.name');
+
+      try {
+        $paymentProcessors[$paymentProcessorID]['test_id'] = CRM_Financial_BAO_PaymentProcessor::getTestProcessorId($paymentProcessorID);
+      }
+      catch (CRM_Core_Exception $e) {
+        CRM_Core_Session::setStatus(ts('No test processor entry exists for %1. Not having a test entry for each processor could cause problems', [$paymentProcessor['name']]));
+      }
     }
 
-    $this->assign('rows', $paymentProcessor);
+    $this->assign('rows', $paymentProcessors);
   }
 
   /**
-   * Get name of edit form
+   * Get name of edit form.
    *
-   * @return string Classname of edit form.
+   * @return string
+   *   Classname of edit form.
    */
-  function editForm() {
+  public function editForm() {
     return 'CRM_Admin_Form_PaymentProcessor';
   }
 
   /**
-   * Get edit form name
+   * Get edit form name.
    *
-   * @return string name of this page.
+   * @return string
+   *   name of this page.
    */
-  function editName() {
+  public function editName() {
     return 'Payment Processors';
   }
 
@@ -185,10 +122,11 @@ class CRM_Admin_Page_PaymentProcessor extends CRM_Core_Page_Basic {
    *
    * @param null $mode
    *
-   * @return string user context.
+   * @return string
+   *   user context.
    */
-  function userContext($mode = NULL) {
+  public function userContext($mode = NULL) {
     return 'civicrm/admin/paymentProcessor';
   }
-}
 
+}

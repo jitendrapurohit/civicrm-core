@@ -1,31 +1,15 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {include file="CRM/common/pager.tpl" location="top"}
 
-{if $rows }
+{if $rows}
   {include file="CRM/common/jsortable.tpl"}
   {strip}
     <table id="mailing_event">
@@ -55,14 +39,14 @@
   {/strip}
 {else}
   <div class="messages status no-popup">
-    <div class="icon inform-icon"></div>
+    {icon icon="fa-info-circle"}{/icon}
     &nbsp;
     {ts 1=$title}There are currently no %1.{/ts}
   </div>
 {/if}
 
 <div class="action-link">
-  <a href="{$backUrl}">&raquo; {$backUrlTitle}</a>
+  <a href="{$backUrl}"><i class="crm-i fa-chevron-left" aria-hidden="true"></i> {$backUrlTitle}</a>
 </div>
 
 {include file="CRM/common/pager.tpl" location="bottom"}
@@ -72,7 +56,7 @@
   <script type="text/javascript">
     var totalPages = {/literal}{$pager->_totalPages}{literal};
     CRM.$(function($) {
-      cj("#crm-container .crm-pager input.form-submit").click(function () {
+      $("#crm-container .crm-pager button.crm-form-submit").click(function () {
         submitPagerData(this);
       });
     });
@@ -87,8 +71,8 @@
         jumpTo = totalPages;
       }
       {/literal}
-      {foreach from=$pager->_linkData item=val key=k }
-        {if $k neq 'crmPID' && $k neq 'force' && $k neq 'q' }
+      {foreach from=$pager->_linkData item=val key=k}
+        {if $k neq 'crmPID' && $k neq 'force' && $k neq 'q'}
         {literal}
         urlParams += '&{/literal}{$k}={$val}{literal}';
         {/literal}
@@ -96,7 +80,7 @@
       {/foreach}
       {literal}
       urlParams += '&crmPID=' + parseInt(jumpTo);
-      var submitUrl = {/literal}'{crmURL p="civicrm/mailing/report/event" q="force=1" h=0 }'{literal};
+      var submitUrl = {/literal}'{crmURL p="civicrm/mailing/report/event" q="force=1" h=0}'{literal};
       document.location = submitUrl + urlParams;
     }
   </script>

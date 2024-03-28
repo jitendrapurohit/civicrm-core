@@ -1,26 +1,10 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {htxt id="param-name-title"}
@@ -53,8 +37,28 @@
     <ul>
       <li>{ts}Simple values such as numbers, true, false and null.{/ts}</li>
       <li>{ts}Strings. You may include quotes around the string to ensure it's not interpreted otherwise, e.g. "false".{/ts}</li>
-      <li>{ts}Arrays should be in js format, e.g. [1, 2, 3, 'foo', 'bar', 'baz'].{/ts}</li>
-      <li>{ts}Associative arrays should be in js object format, e.g. {ldelim}first: "one", second: "two", third: 3{rdelim}.{/ts}</li>
+      <li>{ts}Arrays in js format, e.g. [1, 2, 3, 'foo', 'bar', 'baz'].{/ts}</li>
+      <li>{ts}Associative arrays in js object format, e.g. {ldelim}first: "one", second: "two", third: 3{rdelim}.{/ts}</li>
+      <li>{ts}A comma-separated list will automatically be turned into an array for multivalue operations, or you can explicitly use the js array format above.{/ts}</li>
     </ul>
   </p>
+{/htxt}
+
+{htxt id="api-chain-title"}
+  {ts}Api Chaining{/ts}
+{/htxt}
+{htxt id="api-chain"}
+  <p>{ts}Chains allow you to execute api calls on the results of this one.{/ts}</p>
+  <p>{ts}Example: When creating a contact, you can chain the Email.create api to add email addresses for them.{/ts}</p>
+  <p>{ts}Disambiguation: api chains are different from joins in that chaining executes a separate api call for every result returned from the main call.{/ts}</p>
+{/htxt}
+
+{htxt id="api-join-title"}
+  {ts}Api Joins{/ts}
+{/htxt}
+{htxt id="api-join"}
+  <p>{ts}Join this api call to return values from or filter on a related entity.{/ts}</p>
+  <p>{ts}The new fields will be selectable from the "Params" and "Fields to return" lists.{/ts}</p>
+  <p>{ts}Example: If the api entity is Email, you can also fetch the display name of the contact this email belongs to.{/ts}</p>
+  <p>{ts}Disambiguation: Joins are different from api chaining in that joins execute as a single SELECT query, and only work for api "get" operations.{/ts}</p>
 {/htxt}

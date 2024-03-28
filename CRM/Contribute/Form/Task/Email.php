@@ -1,99 +1,67 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id: Email.php 45499 2013-02-08 12:31:05Z kurund $
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
+
+use Civi\Api4\Contribution;
 
 /**
- * This class provides the functionality to email a group of
- * contacts.
+ * This class provides the functionality to email a group of contacts.
  */
 class CRM_Contribute_Form_Task_Email extends CRM_Contribute_Form_Task {
+  use CRM_Contact_Form_Task_EmailTrait;
 
   /**
-   * Are we operating in "single mode", i.e. sending email to one
-   * specific contact?
+   * Get selected contribution IDs.
    *
-   * @var boolean
+   * @return array
+   *
+   * @throws \CRM_Core_Exception
    */
-  public $_single = FALSE;
-
-  public $_noEmails = FALSE;
-
-  /**
-   * all the existing templates in the system
-   *
-   * @var array
-   */
-  public $_templates = NULL;
-
-  /**
-   * build all the data structures needed to build the form
-   *
-   * @return void
-   * @access public
-   */ function preProcess() {
-    CRM_Contact_Form_Task_EmailCommon::preProcessFromAddress($this);
-    parent::preProcess();
-
-    // we have all the contribution ids, so now we get the contact ids
-    parent::setContactIDs();
-
-    $this->assign('single', $this->_single);
+  protected function getContributionIDs(): array {
+    return $this->getIDs();
   }
 
   /**
-   * Build the form
+   * Get the result rows to email.
    *
-   * @access public
+   * @return array
    *
-   * @return void
+   * @throws \CRM_Core_Exception
    */
-  public function buildQuickForm() {
-    //enable form element
-    $this->assign('emailTask', TRUE);
+  protected function getRows(): array {
+    $contributionDetails = Contribution::get(FALSE)
+      ->setSelect(['contact_id', 'id'])
+      ->addWhere('id', 'IN', $this->getContributionIDs())
+      ->execute()
+      // Note that this indexing means that only the last
+      // contribution per contact is resolved to tokens.
+      // this is long-standing functionality, albeit possibly
+      // not thought through.
+      ->indexBy('contact_id');
 
-    CRM_Contact_Form_Task_EmailCommon::buildQuickForm($this);
+    // format contact details array to handle multiple emails from same contact
+    $formattedContactDetails = [];
+    foreach ($this->getEmails() as $details) {
+      $formattedContactDetails[$details['contact_id'] . '::' . $details['email']] = $details;
+      if (!empty($contributionDetails[$details['contact_id']])) {
+        $formattedContactDetails[$details['contact_id'] . '::' . $details['email']]['schema'] = ['contributionId' => $contributionDetails[$details['contact_id']]['id']];
+      }
+
+    }
+    return $formattedContactDetails;
   }
 
-  /**
-   * process the form after the input has been submitted and validated
-   *
-   * @access public
-   *
-   * @return void
-   */
-  public function postProcess() {
-    CRM_Contact_Form_Task_EmailCommon::postProcess($this);
-  }
 }
-

@@ -1,39 +1,20 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
-require_once 'CiviTest/CiviUnitTestCase.php';
-
+/**
+ * Class CiviReportTestCase
+ */
 class CiviReportTestCase extends CiviUnitTestCase {
-  function setUp() {
-    parent::setUp();
-    $this->_sethtmlGlobals();
-  }
 
-  function tearDown() {
+  public function tearDown(): void {
     // TODO Figure out how to automatically drop all temporary tables.
     // Note that MySQL doesn't provide a way to list them, so we would need
     // to keep track ourselves (eg CRM_Core_TemporaryTableManager) or reset
@@ -43,7 +24,31 @@ class CiviReportTestCase extends CiviUnitTestCase {
     parent::tearDown();
   }
 
-  function getReportOutputAsCsv($reportClass, $inputParams) {
+  /**
+   * @param $reportClass
+   * @param array $inputParams
+   *
+   * @return string
+   * @throws \CRM_Core_Exception
+   */
+  public function getReportOutputAsCsv($reportClass, $inputParams) {
+
+    $reportObj = $this->getReportObject($reportClass, $inputParams);
+    $rows = $reportObj->getResultSet();
+    $tmpFile = $this->createTempDir() . CRM_Utils_File::makeFileName('CiviReport.csv');
+    $csvContent = CRM_Report_Utils_Report::makeCsv($reportObj, $rows);
+    file_put_contents($tmpFile, $csvContent);
+    return $tmpFile;
+  }
+
+  /**
+   * @param string $reportClass
+   * @param array $inputParams
+   *
+   * @return CRM_Report_Form
+   * @throws \CRM_Core_Exception
+   */
+  public function getReportObject(string $reportClass, array $inputParams): CRM_Report_Form {
     $config = CRM_Core_Config::singleton();
     $config->keyDisable = TRUE;
     $controller = new CRM_Core_Controller_Simple($reportClass, ts('some title'));
@@ -51,7 +56,7 @@ class CiviReportTestCase extends CiviUnitTestCase {
     $reportName = array_pop($tmpReportVal);
     $reportObj =& $controller->_pages[$reportName];
 
-    $tmpGlobals = array();
+    $tmpGlobals = [];
     $tmpGlobals['_REQUEST']['force'] = 1;
     $tmpGlobals['_GET'][$config->userFrameworkURLVar] = 'civicrm/placeholder';
     $tmpGlobals['_SERVER']['QUERY_STRING'] = '';
@@ -75,23 +80,24 @@ class CiviReportTestCase extends CiviUnitTestCase {
     try {
       $reportObj->storeResultSet();
       $reportObj->buildForm();
-      $rows = $reportObj->getResultSet();
-
-      $tmpFile = $this->createTempDir() . CRM_Utils_File::makeFileName('CiviReport.csv');
-      $csvContent = CRM_Report_Utils_Report::makeCsv($reportObj, $rows);
-      file_put_contents($tmpFile, $csvContent);
-    } catch (Exception $e) {
+    }
+    catch (CRM_Core_Exception $e) {
       // print_r($e->getCause()->getUserInfo());
       CRM_Utils_GlobalStack::singleton()->pop();
       throw $e;
     }
     CRM_Utils_GlobalStack::singleton()->pop();
 
-    return $tmpFile;
+    return $reportObj;
   }
 
-  function getArrayFromCsv($csvFile) {
-    $arrFile = array();
+  /**
+   * @param $csvFile
+   *
+   * @return array
+   */
+  public function getArrayFromCsv($csvFile) {
+    $arrFile = [];
     if (($handle = fopen($csvFile, "r")) !== FALSE) {
       while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
         $arrFile[] = $data;
@@ -102,8 +108,10 @@ class CiviReportTestCase extends CiviUnitTestCase {
   }
 
   /**
-   * @param array $expectedCsvArray two-dimensional array representing a CSV table
-   * @param array $actualCsvArray two-dimensional array representing a CSV table
+   * @param array $expectedCsvArray
+   *   Two-dimensional array representing a CSV table.
+   * @param array $actualCsvArray
+   *   Two-dimensional array representing a CSV table.
    */
   public function assertCsvArraysEqual($expectedCsvArray, $actualCsvArray) {
     // TODO provide better debug output
@@ -113,27 +121,30 @@ class CiviReportTestCase extends CiviUnitTestCase {
       . "\n===== ACTUAL DATA ====\n"
       . $this->flattenCsvArray($actualCsvArray);
 
-    $this->assertEquals(
-      count($actualCsvArray),
-      count($expectedCsvArray),
-      'Arrays have different number of rows; in line ' . __LINE__ . '; data: ' . $flatData
+    $this->assertCount(
+      count($actualCsvArray), $expectedCsvArray, 'Arrays have different number of rows; data: ' . $flatData
     );
 
     foreach ($actualCsvArray as $intKey => $strVal) {
-      $rowData = var_export(array(
+      $rowData = var_export([
         'expected' => $expectedCsvArray[$intKey],
-        'actual'  => $actualCsvArray[$intKey],
-      ), TRUE);
-      $this->assertNotNull($expectedCsvArray[$intKey], 'In line ' . __LINE__);
+        'actual' => $actualCsvArray[$intKey],
+      ], TRUE);
+      $this->assertNotNull($expectedCsvArray[$intKey]);
       $this->assertEquals(
         count($actualCsvArray[$intKey]),
         count($expectedCsvArray[$intKey]),
-        'Arrays have different number of columns at row ' . $intKey . '; in line ' . __LINE__. '; data: ' . $rowData
+        'Arrays have different number of columns at row ' . $intKey . '; in line ' . __LINE__ . '; data: ' . $rowData
       );
       $this->assertEquals($expectedCsvArray[$intKey], $strVal);
     }
   }
 
+  /**
+   * @param $rows
+   *
+   * @return string
+   */
   public function flattenCsvArray($rows) {
     $result = '';
     foreach ($rows as $row) {
@@ -141,4 +152,5 @@ class CiviReportTestCase extends CiviUnitTestCase {
     }
     return $result;
   }
+
 }

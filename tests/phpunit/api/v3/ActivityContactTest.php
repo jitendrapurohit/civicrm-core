@@ -1,112 +1,122 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
-
-
-require_once 'CiviTest/CiviUnitTestCase.php';
 
 
 /**
  *  Test APIv3 civicrm_activity_contact* functions
  *
- *  @package CiviCRM_APIv3
- *  @subpackage API_Activity
+ * @package CiviCRM_APIv3
+ * @subpackage API_Activity
+ * @group headless
  */
 class api_v3_ActivityContactTest extends CiviUnitTestCase {
-  protected $_apiversion;
+  protected $_apiversion = 3;
   protected $_contactID;
   protected $_activityID;
   protected $_params;
 
-
-  function setUp() {
-    $this->_apiversion = 3;
+  public function setUp(): void {
     parent::setUp();
+    $this->useTransaction(TRUE);
 
-    $this->_contactID    = $this->organizationCreate();
-    $activity            = $this->activityCreate();
-    $this->_activityID   = $activity['id'];
+    $this->_contactID = $this->organizationCreate();
+    $activity = $this->activityCreate();
+    $this->_activityID = $activity['id'];
     CRM_Core_PseudoConstant::flush();
-    $this->quickCleanup(array('civicrm_activity_contact'));
-    $this->_params = array(
+    $this->_params = [
       'contact_id' => $this->_contactID,
       'activity_id' => $this->_activityID,
       'record_type_id' => 2,
-    );
+    ];
   }
 
-  function tearDown() {
-    $params['activity_id'] = $this->_activityID;
-    $this->callAPISuccess('activity', 'delete', $params);
-    $this->contactDelete($this->_contactID);
-  }
+  /**
+   * @param int $version
+   *
+   * @dataProvider versionThreeAndFour
+   */
+  public function testCreateActivityContact(int $version): void {
+    $this->_apiversion = $version;
 
-  public function testCreateActivityContact() {
-
-    $result = $this->callAPIAndDocument('activity_contact', 'create', $this->_params, __FUNCTION__, __FILE__);
+    $result = $this->callAPISuccess('ActivityContact', 'create', $this->_params);
     $this->assertEquals(1, $result['count']);
     $this->assertNotNull($result['values'][$result['id']]['id']);
 
-    $this->callAPISuccess('activity_contact', 'delete', array('id' => $result['id']));
+    $result = $this->callAPISuccess('ActivityContact', 'create', $this->_params);
+    $this->assertEquals(1, $result['count']);
+
+    $this->callAPISuccess('activity_contact', 'delete', ['id' => $result['id']]);
   }
 
-  public function testDeleteActivityContact() {
+  /**
+   * @param int $version
+   *
+   * @dataProvider versionThreeAndFour
+   */
+  public function testDeleteActivityContact(int $version): void {
+    $this->_apiversion = $version;
     //create one
     $create = $this->callAPISuccess('activity_contact', 'create', $this->_params);
 
-    $result = $this->callAPIAndDocument('activity_contact', 'delete', array('id' => $create['id'],), __FUNCTION__, __FILE__);
+    $result = $this->callAPISuccess('activity_contact', 'delete', ['id' => $create['id']]);
     $this->assertEquals(1, $result['count']);
-    $get = $this->callAPISuccess('activity_contact', 'get', array(
+    $get = $this->callAPISuccess('activity_contact', 'get', [
       'id' => $create['id'],
-    ));
+    ]);
     $this->assertEquals(0, $get['count'], 'ActivityContact not successfully deleted');
   }
 
-  public function testGetActivitiesByContact() {
-    $result = $this->callAPISuccess('ActivityContact', 'Get', array('contact_id' => $this->_contactID));
+  /**
+   * @param int $version
+   *
+   * @dataProvider versionThreeAndFour
+   * @throws \CRM_Core_Exception
+   */
+  public function testGetActivitiesByContact($version) {
+    $this->_apiversion = $version;
+    $this->callAPISuccess('ActivityContact', 'Get', ['contact_id' => $this->_contactID]);
   }
 
-  public function testGetPartitipantsByActivity() {
-    $result = $this->callAPISuccess('ActivityContact', 'Get', array('activity_id' => $this->_activityID));
+  /**
+   * @param int $version
+   *
+   * @dataProvider versionThreeAndFour
+   * @throws \CRM_Core_Exception
+   */
+  public function testGetActivitiesByActivity($version) {
+    $this->_apiversion = $version;
+    $this->callAPISuccess('ActivityContact', 'Get', ['activity_id' => $this->_activityID]);
   }
 
   /**
    * Test civicrm_activity_contact_get with empty params.
+   *
+   * @param int $version
+   *
+   * @dataProvider versionThreeAndFour
+   * @throws \CRM_Core_Exception
    */
-  public function testGetEmptyParams() {
-    $result = $this->callAPISuccess('ActivityContact', 'Get', array());
+  public function testGetEmptyParams($version) {
+    $this->_apiversion = $version;
+    $this->callAPISuccess('ActivityContact', 'Get', []);
   }
 
   /**
    * Test civicrm_activity_contact_get with wrong params.
+   * FIXME: Api4
    */
-  public function testGetWrongParams() {
-    $this->callAPIFailure('ActivityContact', 'Get', array('contact_id' => 'abc'));
-    $this->callAPIFailure('ActivityContact', 'Get', array('activity_id' => 'abc'));
-    $this->callAPIFailure('ActivityContact', 'Get', array('record_type_id' => 'abc'));
+  public function testGetWrongParams(): void {
+    $this->callAPIFailure('ActivityContact', 'Get', ['contact_id' => 'abc']);
+    $this->callAPIFailure('ActivityContact', 'Get', ['activity_id' => 'abc']);
+    $this->callAPIFailure('ActivityContact', 'Get', ['record_type_id' => 'abc']);
   }
-}
 
+}

@@ -1,45 +1,29 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* This file provides the plugin for the Address block *}
 {* @var $form Contains the array for the form elements and other form associated information assigned to the template by the controller*}
 {* @var $blockId Contains the current address block id, and assigned in the  CRM/Contact/Form/Location.php file *}
 
-{if $title and $className eq 'CRM_Contact_Form_Contact'}
-<div id="addressBlockId" class="crm-accordion-wrapper crm-address-accordion collapsed">
- <div class="crm-accordion-header">
+{if $className eq 'CRM_Contact_Form_Contact' && $title}
+<details id="addressBlockId" class="crm-accordion-bold crm-address-accordion">
+ <summary>
     {$title}
- </div><!-- /.crm-accordion-header -->
+ </summary>
  <div class="crm-accordion-body" id="addressBlock">
 {/if}
 
  <div id="Address_Block_{$blockId}" {if $className eq 'CRM_Contact_Form_Contact'} class="boxBlock crm-edit-address-block crm-address_{$blockId}"{/if}>
   {if $blockId gt 1}<fieldset><legend>{ts}Supplemental Address{/ts}</legend>{/if}
   <table class="form-layout-compressed crm-edit-address-form">
-     {if $masterAddress.$blockId gt 0 }
-        <tr><td><div class="message status"><div class="icon inform-icon"></div>&nbsp; {ts 1=$masterAddress.$blockId}This address is shared with %1 contact record(s). Modifying this address will automatically update the shared address for these contacts.{/ts}</div></td></tr>
+     {if $masterAddress && $masterAddress.$blockId gt 0}
+        <tr><td><div class="message status">{icon icon="fa-info-circle"}{/icon} {ts 1=$masterAddress.$blockId}This address is shared with %1 contact record(s). Modifying this address will automatically update the shared address for these contacts.{/ts}</div></td></tr>
      {/if}
 
    {if $className eq 'CRM_Contact_Form_Contact'}
@@ -63,12 +47,12 @@
     {/if}
      <tr>
         <td>
-     <table id="address_{$blockId}" style="display:block" class="form-layout-compressed">
+     <table id="address_table_{$blockId}" class="form-layout-compressed">
          {* build address block w/ address sequence. *}
          {foreach item=addressElement from=$addressSequence}
-              {include file=CRM/Contact/Form/Edit/Address/$addressElement.tpl}
+              {include file="CRM/Contact/Form/Edit/Address/`$addressElement`.tpl"}
          {/foreach}
-         {include file=CRM/Contact/Form/Edit/Address/geo_code.tpl}
+         {include file="CRM/Contact/Form/Edit/Address/geo_code.tpl"}
      </table>
         </td>
         <td colspan="2">
@@ -81,14 +65,14 @@
 
   {if $className eq 'CRM_Contact_Form_Contact'}
       <div id="addMoreAddress{$blockId}" class="crm-add-address-wrapper">
-          <a href="#" class="button" onclick="buildAdditionalBlocks( 'Address', '{$className}' );return false;"><span><div class="icon add-icon"></div>{ts}Another Address{/ts}</span></a>
+          <a href="#" class="button" onclick="buildAdditionalBlocks( 'Address', '{$className}' );return false;"><span><i class="crm-i fa-plus-circle" aria-hidden="true"></i> {ts}Another Address{/ts}</span></a>
       </div>
   {/if}
 
-{if $title and $className eq 'CRM_Contact_Form_Contact'}
+{if $className eq 'CRM_Contact_Form_Contact' && $title}
 </div>
- </div><!-- /.crm-accordion-body -->
-</div><!-- /.crm-accordion-wrapper -->
+ </div>
+</details>
 {/if}
 {literal}
 <script type="text/javascript">

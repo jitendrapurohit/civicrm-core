@@ -1,93 +1,194 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
-
-require_once 'CiviTest/CiviUnitTestCase.php';
+ */
 
 /**
  * Test class for Template API - civicrm_msg_template*
  *
- *  @package CiviCRM_APIv3
+ * @package CiviCRM_APIv3
+ * @group headless
+ * @group msgtpl
  */
 class api_v3_MessageTemplateTest extends CiviUnitTestCase {
-  /**
-   * Assume empty database with just civicrm_data
-   */
+
   protected $entity = 'MessageTemplate';
   protected $params;
 
-
-  function setUp() {
+  public function setUp(): void {
     $this->_apiversion = 3;
     parent::setUp();
-    $this->quickCleanup(array('civicrm_msg_template'));
-    $template = CRM_Core_DAO::createTestObject('CRM_Core_DAO_MessageTemplate')->toArray();
-    $this->params = array(
-      'msg_title' => $template['msg_title'],
-      'msg_subject' => $template['msg_subject'],
-      'msg_text' => $template['msg_text'],
-      'msg_html' => $template['msg_html'],
-      'workflow_id' => $template['workflow_id'],
-      'is_default' => $template['is_default'],
-      'is_reserved' => $template['is_reserved'],
-    );
+    $this->useTransaction();
+    $this->params = [
+      'msg_title' => 'title',
+      'msg_subject' => 'subject',
+      'msg_text' => 'text',
+      'msg_html' => 'html',
+      'workflow_name' => 'friend',
+    ];
   }
-  function tearDown() {}
 
-   /**
-   * test create function succeeds
+  /**
+   * Test create function succeeds.
    */
-  public function testCreate() {
-    $result = $this->callAPIAndDocument('MessageTemplate', 'create', $this->params, __FUNCTION__, __FILE__);
+  public function testCreate(): void {
+    $result = $this->callAPISuccess('MessageTemplate', 'create', $this->params);
     $this->getAndCheck($this->params, $result['id'], $this->entity);
   }
 
   /**
-   * Test get function succeeds (this is actually largely tested in the get
-   * action on create. Add extra checks for any 'special' return values or
-   * behaviours
+   * Test get function succeeds.
    *
+   * This is actually largely tested in the get action on create.
+   *
+   * Add extra checks for any 'special' return values or
+   * behaviours
    */
-  public function testGet() {
-    $result = $this->callAPIAndDocument('MessageTemplate', 'get', $this->params, __FUNCTION__, __FILE__);
-    $this->assertEquals(1, $result['count'], 'In line ' . __LINE__);
-    $this->assertNotNull($result['values'][$result['id']]['id'], 'In line ' . __LINE__);
+  public function testGet(): void {
+    $result = $this->callAPISuccess('MessageTemplate', 'get', [
+      'workflow_name' => 'contribution_invoice_receipt',
+      'is_default' => 1,
+    ]);
+    $this->assertEquals(1, $result['count']);
+    $this->assertNotNull($result['values'][$result['id']]['id']);
   }
 
-/**
- * Check the delete function succeeds
- */
-  public function testDelete() {
-    $entity = $this->createTestEntity();
-    $result = $this->callAPIAndDocument('MessageTemplate', 'delete', array('id' => $entity['id']), __FUNCTION__, __FILE__);
-    $checkDeleted = $this->callAPISuccess($this->entity, 'get', array(
-      'id' => $entity['id']
-    ));
-    $this->assertEquals(0, $checkDeleted['count'], 'In line ' . __LINE__);
+  /**
+   * Check the delete function succeeds.
+   */
+  public function testDelete(): void {
+    $entity = $this->createTestEntity('MessageTemplate', $this->params);
+    $this->callAPISuccess('MessageTemplate', 'delete', ['id' => $entity['id']]);
+    $checkDeleted = $this->callAPISuccess($this->entity, 'get', [
+      'id' => $entity['id'],
+    ]);
+    $this->assertEquals(0, $checkDeleted['count']);
+  }
+
+  /**
+   * If you give workflow_id, then workflow_name should also be set.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testWorkflowIDToName(): void {
+    $workflowName = 'uf_notify';
+    $workflowID = CRM_Core_DAO::singleValueQuery('SELECT id FROM civicrm_option_value WHERE name = %1', [
+      1 => [$workflowName, 'String'],
+    ]);
+
+    $created = $this->callAPISuccess('MessageTemplate', 'create', [
+      'msg_title' => __FUNCTION__,
+      'msg_subject' => __FUNCTION__,
+      'msg_text' => __FUNCTION__,
+      'msg_html' => __FUNCTION__,
+      'workflow_id' => $workflowID,
+    ]);
+    $this->assertEquals($workflowName, $created['values'][$created['id']]['workflow_name']);
+    $this->assertEquals($workflowID, $created['values'][$created['id']]['workflow_id']);
+    $get = $this->callAPISuccess('MessageTemplate', 'getsingle', ['id' => $created['id']]);
+    $this->assertEquals($workflowName, $get['workflow_name']);
+    $this->assertEquals($workflowID, $get['workflow_id']);
+  }
+
+  /**
+   * If you give workflow_name, then workflow_id should also be set.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testWorkflowNameToID(): void {
+    $workflowName = 'petition_sign';
+    $workflowID = CRM_Core_DAO::singleValueQuery('SELECT id FROM civicrm_option_value WHERE name = %1', [
+      1 => ['petition_sign', 'String'],
+    ]);
+
+    $created = $this->callAPISuccess('MessageTemplate', 'create', [
+      'msg_title' => __FUNCTION__,
+      'msg_subject' => __FUNCTION__,
+      'msg_text' => __FUNCTION__,
+      'msg_html' => __FUNCTION__,
+      'workflow_name' => $workflowName,
+    ]);
+    $this->assertEquals($workflowName, $created['values'][$created['id']]['workflow_name']);
+    $this->assertEquals($workflowID, $created['values'][$created['id']]['workflow_id']);
+    $get = $this->callAPISuccess('MessageTemplate', 'getsingle', ['id' => $created['id']]);
+    $this->assertEquals($workflowName, $get['workflow_name']);
+    $this->assertEquals($workflowID, $get['workflow_id']);
+  }
+
+  /**
+   * Test workflow permissions.
+   *
+   * edit message templates allows editing all templates, otherwise:
+   * - edit user-driven message templates is required when workflow_name is not set.
+   * - edit system workflow message templates is required when workflow_name is set.
+   */
+  public function testPermissionChecks(): void {
+    $this->createTestEntity('MessageTemplate', [
+      'msg_title' => 'title',
+      'msg_subject' => 'subject',
+      'msg_html' => 'html',
+      'workflow_name' => 'friend',
+    ], 'workflow');
+
+    $this->createTestEntity('MessageTemplate', [
+      'msg_title' => 'title',
+      'msg_subject' => 'subject',
+      'msg_html' => 'html',
+    ], 'user');
+
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['edit user-driven message templates'];
+    // Attempting to update the workflow template should fail with only user permissions.
+    $this->callAPIFailure('MessageTemplate', 'create', [
+      'id' => $this->ids['MessageTemplate']['workflow'],
+      'msg_subject' => 'test msg permission subject',
+      'check_permissions' => TRUE,
+    ]);
+
+    // The user message should be possible to update.
+    $this->callAPISuccess('MessageTemplate', 'create', [
+      'id' => $this->ids['MessageTemplate']['user'],
+      'msg_subject' => 'Test user message template',
+      'check_permissions' => TRUE,
+    ]);
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['edit system workflow message templates'];
+    // Now check that when its swapped around permissions that the correct responses are detected.
+    $this->callAPIFailure('MessageTemplate', 'create', [
+      'id' => $this->ids['MessageTemplate']['user'],
+      'msg_subject' => 'User template updated by system message permission',
+      'check_permissions' => TRUE,
+    ]);
+    $this->callAPISuccess('MessageTemplate', 'create', [
+      'id' => $this->ids['MessageTemplate']['workflow'],
+      'msg_subject' => 'test msg permission subject',
+      'check_permissions' => TRUE,
+    ]);
+
+    // With both permissions the user can update both template types.
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = [
+      'edit system workflow message templates',
+      'edit user-driven message templates',
+    ];
+    $this->callAPISuccess('MessageTemplate', 'create', [
+      'id' => $this->ids['MessageTemplate']['workflow'],
+      'msg_subject' => 'Workflow template updated',
+      'check_permissions' => TRUE,
+    ]);
+    $this->callAPISuccess('MessageTemplate', 'create', [
+      'id' => $this->ids['MessageTemplate']['user'],
+      'msg_subject' => 'User template updated',
+      'check_permissions' => TRUE,
+    ]);
+
+    // Verify that the backwards compatibility still works i.e. having edit message templates allows for editing of both kinds of message templates
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['edit message templates'];
+    $this->callAPISuccess('MessageTemplate', 'create', ['id' => $this->ids['MessageTemplate']['workflow'], 'msg_subject' => 'User template updated by edit message permission', 'check_permissions' => TRUE]);
+    $this->callAPISuccess('MessageTemplate', 'create', ['id' => $this->ids['MessageTemplate']['user'], 'msg_subject' => 'test msg permission subject backwards compatibility', 'check_permissions' => TRUE]);
   }
 
 }
-

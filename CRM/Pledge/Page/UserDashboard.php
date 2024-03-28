@@ -1,46 +1,25 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Pledge_Page_UserDashboard extends CRM_Contact_Page_View_UserDashBoard {
 
   /**
-   * This function is called when action is browse
-   *
-   * return null
-   * @access public
+   * called when action is browse.
    */
-  function listPledges() {
+  public function listPledges(): void {
     $controller = new CRM_Core_Controller_Simple(
       'CRM_Pledge_Form_Search',
       ts('Pledges'),
@@ -56,29 +35,21 @@ class CRM_Pledge_Page_UserDashboard extends CRM_Contact_Page_View_UserDashBoard 
     $controller->process();
     $controller->run();
 
-    //add honor block.
-    $honorParams = array();
+    // Add honor block.
     $honorParams = CRM_Pledge_BAO_Pledge::getHonorContacts($this->_contactId);
-    if (!empty($honorParams)) {
-      // assign vars to templates
-      $this->assign('pledgeHonorRows', $honorParams);
-      $this->assign('pledgeHonor', TRUE);
-    }
-    $session = CRM_Core_Session::singleton();
-    $loggedUserID = $session->get('userID');
-    $this->assign('loggedUserID', $loggedUserID);
+    $this->assign('pledgeHonorRows', $honorParams);
+    $this->assign('pledgeHonor', !empty($honorParams));
+    $this->assign('loggedUserID', CRM_Core_Session::getLoggedInContactID());
   }
 
   /**
-   * This function is the main function that is called when the page
-   * loads, it decides the which action has to be taken for the page.
+   * The main function that is called when the page loads.
    *
-   * return null
-   * @access public
+   * @throws \CRM_Core_Exception
    */
-  function run() {
-    parent::preProcess();
+  public function run(): void {
+    $this->preProcess();
     $this->listPledges();
   }
-}
 
+}

@@ -1,6 +1,6 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
+ | CiviCRM version 5                                                  |
  +--------------------------------------------------------------------+
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
@@ -24,7 +24,7 @@
 *}
 <div class="block-civicrm crm-container">
 <div id="crm-create-new-wrapper">
-  <a id="crm-create-new-link" class="button" href="#"><span><div class="icon dropdown-icon"></div>{ts}Create New{/ts}</span></a>
+  {crmButton id="crm-create-new-link" href="#" icon="bars"}{ts}Create New{/ts}{/crmButton}
     <div id="crm-create-new-list">
       <div class="crm-create-new-list-inner">
       <ul>
@@ -33,7 +33,7 @@
             {if $short.shortCuts}
               <ul>
                 {foreach from=$short.shortCuts item=shortCut}
-                  <li><a href="{$shortCut.url}" class="crm-{$shortCut.ref}">{$shortCut.title}</a></li>
+                  <li><a href="{$shortCut.url}" class="crm-{$shortCut.ref}">{$shortCut.title|smarty:nodefaults}</a></li>
                 {/foreach}
               </ul>
             {/if}

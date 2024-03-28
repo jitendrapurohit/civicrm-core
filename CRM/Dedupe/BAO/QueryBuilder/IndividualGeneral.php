@@ -1,15 +1,24 @@
 <?php
 
-// TODO: How to handle NULL values/records?
+/**
+ * TODO: How to handle NULL values/records?
+ * Class CRM_Dedupe_BAO_QueryBuilder_IndividualGeneral
+ */
 class CRM_Dedupe_BAO_QueryBuilder_IndividualGeneral extends CRM_Dedupe_BAO_QueryBuilder {
-  static function record($rg) {
-    $civicrm_contact = CRM_Utils_Array::value('civicrm_contact', $rg->params);
-    $civicrm_address = CRM_Utils_Array::value('civicrm_address', $rg->params);
+
+  /**
+   * @param $rg
+   *
+   * @return array
+   */
+  public static function record($rg) {
+    $civicrm_contact = $rg->params['civicrm_contact'] ?? NULL;
+    $civicrm_address = $rg->params['civicrm_address'] ?? NULL;
 
     // Since definitely have first and last name, escape them upfront.
-    $first_name     = CRM_Core_DAO::escapeString(CRM_Utils_Array::value('first_name', $civicrm_contact, ''));
-    $last_name      = CRM_Core_DAO::escapeString(CRM_Utils_Array::value('last_name', $civicrm_contact, ''));
-    $street_address = CRM_Core_DAO::escapeString(CRM_Utils_Array::value('street_address', $civicrm_address, ''));
+    $first_name = CRM_Core_DAO::escapeString($civicrm_contact['first_name'] ?? '');
+    $last_name = CRM_Core_DAO::escapeString($civicrm_contact['last_name'] ?? '');
+    $street_address = CRM_Core_DAO::escapeString($civicrm_address['street_address'] ?? '');
 
     $query = "
             SELECT contact1.id id1, {$rg->threshold} as weight
@@ -21,22 +30,27 @@ class CRM_Dedupe_BAO_QueryBuilder_IndividualGeneral extends CRM_Dedupe_BAO_Query
               AND address1.street_address = '$street_address'
               ";
 
-    if ($birth_date = CRM_Core_DAO::escapeString(CRM_Utils_Array::value('birth_date', $civicrm_contact, ''))) {
+    if ($birth_date = CRM_Core_DAO::escapeString($civicrm_contact['birth_date'] ?? '')) {
       $query .= " AND (contact1.birth_date IS NULL or contact1.birth_date = '$birth_date')\n";
     }
 
-    if ($suffix_id = CRM_Core_DAO::escapeString(CRM_Utils_Array::value('suffix_id', $civicrm_contact, ''))) {
+    if ($suffix_id = CRM_Core_DAO::escapeString($civicrm_contact['suffix_id'] ?? '')) {
       $query .= " AND (contact1.suffix_id IS NULL or contact1.suffix_id = $suffix_id)\n";
     }
 
-    if ($middle_name = CRM_Core_DAO::escapeString(CRM_Utils_Array::value('middle_name', $civicrm_contact, ''))) {
+    if ($middle_name = CRM_Core_DAO::escapeString($civicrm_contact['middle_name'] ?? '')) {
       $query .= " AND (contact1.middle_name IS NULL or contact1.middle_name = '$middle_name')\n";
     }
 
-    return array("civicrm_contact.{$rg->name}.{$rg->threshold}" => $query);
+    return ["civicrm_contact.{$rg->name}.{$rg->threshold}" => $query];
   }
 
-  static function internal($rg) {
+  /**
+   * @param $rg
+   *
+   * @return array
+   */
+  public static function internal($rg) {
     $query = "
             SELECT contact1.id id1,  contact2.id id2, {$rg->threshold} weight
             FROM civicrm_contact AS contact1
@@ -53,9 +67,7 @@ class CRM_Dedupe_BAO_QueryBuilder_IndividualGeneral extends CRM_Dedupe_BAO_Query
               AND (contact1.middle_name IS NULL OR contact2.middle_name IS NULL OR contact1.middle_name = contact2.middle_name)
               AND (contact1.birth_date IS NULL OR contact2.birth_date IS NULL OR contact1.birth_date = contact2.birth_date)
               AND " . self::internalFilters($rg);
-    return array("civicrm_contact.{$rg->name}.{$rg->threshold}" => $query);
+    return ["civicrm_contact.{$rg->name}.{$rg->threshold}" => $query];
   }
+
 }
-
-
-

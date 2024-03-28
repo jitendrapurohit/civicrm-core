@@ -1,54 +1,73 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
+use Civi\Test\Invasive;
 
-require_once 'CiviTest/CiviUnitTestCase.php';
-
+/**
+ * Class CRM_Core_PaymentTest
+ * @group headless
+ */
 class CRM_Core_PaymentTest extends CiviUnitTestCase {
-  function get_info() {
-    return array(
-      'name' => 'Payment Test',
-      'description' => 'Test Payment methods.',
-      'group' => 'Payment Processor Tests',
-    );
-  }
 
   /**
-   * test the payment method is adequately logged - we don't expect the processing to succeed
+   * Test the payment method is adequately logged - we don't expect the processing to succeed
    */
-  function testHandlePaymentMethodLogging() {
-    $params = array('processor_name' => 'Paypal', 'data' => 'blah');
+  public function testHandlePaymentMethodLogging(): void {
+    $params = ['processor_name' => 'Paypal', 'data' => 'blah'];
     try {
       CRM_Core_Payment::handlePaymentMethod('method', $params);
     }
     catch (Exception $e) {
 
     }
-    $log = $this->callAPISuccess('SystemLog', 'get', array());
+    $log = $this->callAPISuccess('SystemLog', 'get', []);
     $this->assertEquals('payment_notification processor_name=Paypal', $log['values'][$log['id']]['message']);
   }
+
+  /**
+   * Test that CVV is always required for front facing pages.
+   */
+  public function testCVVSettingForContributionPages(): void {
+    Civi::settings()->set('cvv_backoffice_required', 0);
+    $processor = NULL;
+    $dummyPayment = new CRM_Core_Payment_Dummy("test", $processor);
+    $dummyPayment->setBackOffice(TRUE);
+    $paymentMetaData = $dummyPayment->getPaymentFormFieldsMetadata();
+    $this->assertEquals(0, $paymentMetaData["cvv2"]["is_required"], "CVV should be non required for back office.");
+
+    $dummyPayment->setBackOffice(FALSE);
+    $paymentMetaData = $dummyPayment->getPaymentFormFieldsMetadata();
+    $this->assertEquals(1, $paymentMetaData["cvv2"]["is_required"], "CVV should always be required for front office.");
+
+    Civi::settings()->set('cvv_backoffice_required', 1);
+
+    $dummyPayment->setBackOffice(TRUE);
+    $paymentMetaData = $dummyPayment->getPaymentFormFieldsMetadata();
+    $this->assertEquals(1, $paymentMetaData["cvv2"]["is_required"], "CVV should be required for back office.");
+
+    $dummyPayment->setBackOffice(FALSE);
+    $paymentMetaData = $dummyPayment->getPaymentFormFieldsMetadata();
+    $this->assertEquals(1, $paymentMetaData["cvv2"]["is_required"], "CVV should always be required for front office.");
+  }
+
+  public function testSettingUrl(): void {
+    /** @var CRM_Core_Payment_Dummy $processor */
+    $processor = \Civi\Payment\System::singleton()->getById($this->processorCreate());
+    $success = 'http://success.com';
+    $cancel = 'http://cancel.com';
+    $processor->setCancelUrl($cancel);
+    $processor->setSuccessUrl($success);
+
+    $this->assertEquals($success, Invasive::call([$processor, 'getReturnSuccessUrl'], [NULL]));
+    $this->assertEquals($cancel, Invasive::call([$processor, 'getReturnFailUrl'], [NULL]));
+  }
+
 }

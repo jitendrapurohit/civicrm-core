@@ -1,57 +1,53 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
+ |                                                                    |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
- |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
- +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
+use Civi\Token\TokenProcessor;
+
 /**
- * Class CRM_Badge_Format_Badge
+ * Class CRM_Badge_Format_Badge.
  *
  * parent class for building name badges
  */
 class CRM_Badge_BAO_Badge {
 
+  /**
+   * @var CRM_Utils_PDF_Label
+   */
+  public $pdf;
+
+  /**
+   * @var bool
+   */
   public $debug = FALSE;
 
+  /**
+   * @var int
+   */
   public $border = 0;
 
   /**
-   *  This function is called to create name label pdf
+   *  This function is called to create name label pdf.
    *
-   * @param   array $participants associated array with participant info
-   * @param   array $layoutInfo   associated array which contains meta data about format/layout
-   *
-   * @return  void
-   * @access  public
+   * @param array $participants
+   *   Associated array with participant info.
+   * @param array $layoutInfo
+   *   Associated array which contains meta data about format/layout.
    */
-  public function createLabels(&$participants, &$layoutInfo) {
+  public function createLabels($participants, &$layoutInfo) {
     $this->pdf = new CRM_Utils_PDF_Label($layoutInfo['format'], 'mm');
     $this->pdf->Open();
     $this->pdf->setPrintHeader(FALSE);
@@ -69,43 +65,44 @@ class CRM_Badge_BAO_Badge {
       $this->pdf->AddPdfLabel($formattedRow);
     }
 
+    if (CIVICRM_UF === 'UnitTests') {
+      throw new CRM_Core_Exception_PrematureExitException('pdf output called', ['formattedRow' => $formattedRow]);
+    }
     $this->pdf->Output(CRM_Utils_String::munge($layoutInfo['title'], '_', 64) . '.pdf', 'D');
-    CRM_Utils_System::civiExit(1);
+    CRM_Utils_System::civiExit();
   }
 
   /**
-   * Funtion to create structure and add meta data according to layout
+   * Function to create structure and add meta data according to layout.
    *
-   * @param array $row row element that needs to be formatted
-   * @param array $layout layout meta data
+   * @param array $row
+   *   Row element that needs to be formatted.
+   * @param array $layout
+   *   Layout meta data.
    *
-   * @return array $formattedRow row with meta data
+   * @return array
+   *   row with meta data
    */
-  static function formatLabel(&$row, &$layout) {
-    $formattedRow = array('labelFormat' => $layout['label_format_name']);
+  public static function formatLabel(array $row, array $layout): array {
+    $formattedRow = ['labelFormat' => $layout['label_format_name']];
     $formattedRow['labelTitle'] = $layout['title'];
     $formattedRow['labelId'] = $layout['id'];
-
 
     if (!empty($layout['data']['rowElements'])) {
       foreach ($layout['data']['rowElements'] as $key => $element) {
         $value = '';
         if ($element) {
           $value = $row[$element];
-          // hack to fix date field display format
-          if (strpos($element, '_date')) {
-            $value = CRM_Utils_Date::customFormat($value, "%B %E%f");
-          }
         }
 
-        $formattedRow['token'][$key] = array(
+        $formattedRow['token'][$key] = [
           'value' => $value,
           'font_name' => $layout['data']['font_name'][$key],
           'font_size' => $layout['data']['font_size'][$key],
           'font_style' => $layout['data']['font_style'][$key],
           'text_alignment' => $layout['data']['text_alignment'][$key],
           'token' => $layout['data']['token'][$key],
-        );
+        ];
       }
     }
 
@@ -128,12 +125,24 @@ class CRM_Badge_BAO_Badge {
     if (!empty($layout['data']['height_image_2'])) {
       $formattedRow['height_image_2'] = $layout['data']['height_image_2'];
     }
+    if (!empty($row['image_URL']) && !empty($layout['data']['show_participant_image'])) {
+      $formattedRow['participant_image'] = $row['image_URL'];
+    }
+    if (!empty($layout['data']['width_participant_image'])) {
+      $formattedRow['width_participant_image'] = $layout['data']['width_participant_image'];
+    }
+    if (!empty($layout['data']['height_participant_image'])) {
+      $formattedRow['height_participant_image'] = $layout['data']['height_participant_image'];
+    }
+    if (!empty($layout['data']['alignment_participant_image'])) {
+      $formattedRow['alignment_participant_image'] = $layout['data']['alignment_participant_image'];
+    }
 
     if (!empty($layout['data']['add_barcode'])) {
-      $formattedRow['barcode'] = array(
+      $formattedRow['barcode'] = [
         'alignment' => $layout['data']['barcode_alignment'],
         'type' => $layout['data']['barcode_type'],
-      );
+      ];
     }
 
     // finally assign all the row values, so that we can use it for barcode etc
@@ -142,29 +151,33 @@ class CRM_Badge_BAO_Badge {
     return $formattedRow;
   }
 
-  public function generateLabel($formattedRow) {
+  /**
+   * @param array $formattedRow
+   */
+  public function generateLabel(array $formattedRow): void {
     switch ($formattedRow['labelFormat']) {
       case 'A6 Badge Portrait 150x106':
       case 'Hanging Badge 3-3/4" x 4-3"/4':
-        self::labelCreator($formattedRow, 5);
+        $this->labelCreator($formattedRow, 5);
         break;
+
       case 'Avery 5395':
       default:
-        self::labelCreator($formattedRow);
+        $this->labelCreator($formattedRow);
         break;
     }
   }
 
-  public function labelCreator(&$formattedRow, $cellspacing = 0) {
-
-    $this->lMarginLogo = 18;
-    $this->tMarginName = 20;
-
+  /**
+   * @param array $formattedRow
+   * @param int $cellspacing
+   */
+  public function labelCreator($formattedRow, $cellspacing = 0) {
     $x = $this->pdf->GetAbsX();
     $y = $this->pdf->getY();
 
     //call hook alterBadge
-    CRM_Utils_Hook::alterBadge($formattedRow['labelTitle'], $this, $formattedRow,$formattedRow['values']);
+    CRM_Utils_Hook::alterBadge($formattedRow['labelTitle'], $this, $formattedRow, $formattedRow['values']);
 
     $startOffset = 0;
     if (!empty($formattedRow['image_1'])) {
@@ -178,35 +191,64 @@ class CRM_Badge_BAO_Badge {
     }
 
     if ((CRM_Utils_Array::value('height_image_1', $formattedRow) >
-      CRM_Utils_Array::value('height_image_2', $formattedRow)) && !empty($formattedRow['height_image_1'])) {
-      $startOffset = CRM_Utils_Array::value('height_image_1', $formattedRow);
+        CRM_Utils_Array::value('height_image_2', $formattedRow)) && !empty($formattedRow['height_image_1'])
+    ) {
+      $startOffset = $formattedRow['height_image_1'] ?? NULL;
     }
     elseif (!empty($formattedRow['height_image_2'])) {
-      $startOffset = CRM_Utils_Array::value('height_image_2', $formattedRow);
+      $startOffset = $formattedRow['height_image_2'] ?? NULL;
     }
 
-    $this->pdf->SetLineStyle(array(
+    if (!empty($formattedRow['participant_image'])) {
+      $imageAlign = 0;
+      switch ($formattedRow['alignment_participant_image'] ?? NULL) {
+        case 'R':
+          $imageAlign = 68;
+          break;
+
+        case 'L':
+          $imageAlign = 0;
+          break;
+
+        default:
+          break;
+      }
+      $this->pdf->Image($formattedRow['participant_image'], $x + $imageAlign, $y + $startOffset, CRM_Utils_Array::value('width_participant_image', $formattedRow), CRM_Utils_Array::value('height_participant_image', $formattedRow));
+      if ($startOffset == NULL && !empty($formattedRow['height_participant_image'])) {
+        $startOffset = $formattedRow['height_participant_image'];
+      }
+    }
+
+    $this->pdf->SetLineStyle([
       'width' => 0.1,
       'cap' => 'round',
       'join' => 'round',
       'dash' => '2,2',
-      'color' => array(0, 0, 200)
-    ));
+      'color' => [0, 0, 200],
+    ]);
 
     $rowCount = CRM_Badge_Form_Layout::FIELD_ROWCOUNT;
     for ($i = 1; $i <= $rowCount; $i++) {
       if (!empty($formattedRow['token'][$i]['token'])) {
         $value = '';
-        if ($formattedRow['token'][$i]['token'] != 'spacer') {
+        if ($formattedRow['token'][$i]['token'] !== 'spacer') {
           $value = $formattedRow['token'][$i]['value'];
         }
 
+        $xAlign = $x;
+        $rowWidth = $this->pdf->width;
+        if (!empty($formattedRow['participant_image']) && !empty($formattedRow['width_participant_image'])) {
+          $rowWidth = $this->pdf->width - $formattedRow['width_participant_image'];
+          if ($formattedRow['alignment_participant_image'] == 'L') {
+            $xAlign = $x + $formattedRow['width_participant_image'] + $imageAlign;
+          }
+        }
         $offset = $this->pdf->getY() + $startOffset + $cellspacing;
 
         $this->pdf->SetFont($formattedRow['token'][$i]['font_name'], $formattedRow['token'][$i]['font_style'],
           $formattedRow['token'][$i]['font_size']);
-        $this->pdf->MultiCell($this->pdf->width, 0, $value,
-          $this->border, $formattedRow['token'][$i]['text_alignment'], 0, 1, $x, $offset);
+        $this->pdf->MultiCell($rowWidth, 0, $value,
+          $this->border, $formattedRow['token'][$i]['text_alignment'], 0, 1, $xAlign, $offset);
 
         // set this to zero so that it is added only for first element
         $startOffset = 0;
@@ -216,9 +258,8 @@ class CRM_Badge_BAO_Badge {
     if (!empty($formattedRow['barcode'])) {
       $data = $formattedRow['values'];
 
-      if ($formattedRow['barcode']['type'] == 'barcode') {
-        $data['current_value'] =
-          $formattedRow['values']['contact_id'] . '-' . $formattedRow['values']['participant_id'];
+      if ($formattedRow['barcode']['type'] === 'barcode') {
+        $data['current_value'] = $formattedRow['values']['contact_id'] . '-' . $formattedRow['values']['participant_id'];
       }
       else {
         // view participant url
@@ -242,15 +283,17 @@ class CRM_Badge_BAO_Badge {
           case 'L':
             $xAlign += -14;
             break;
+
           case 'R':
             $xAlign += 27;
             break;
+
           case 'C':
             $xAlign += 9;
             break;
         }
 
-        $style = array(
+        $style = [
           'position' => '',
           'align' => '',
           'stretch' => FALSE,
@@ -259,13 +302,13 @@ class CRM_Badge_BAO_Badge {
           'border' => FALSE,
           'hpadding' => 13.5,
           'vpadding' => 'auto',
-          'fgcolor' => array(0, 0, 0),
+          'fgcolor' => [0, 0, 0],
           'bgcolor' => FALSE,
           'text' => FALSE,
           'font' => 'helvetica',
           'fontsize' => 8,
           'stretchtext' => 0,
-        );
+        ];
 
         $this->pdf->write1DBarcode($data['current_value'], 'C128', $xAlign, $y + $this->pdf->height - 10, '70',
           12, 0.4, $style, 'B');
@@ -278,43 +321,42 @@ class CRM_Badge_BAO_Badge {
           case 'L':
             $xAlign += -5;
             break;
+
           case 'R':
             $xAlign += 56;
             break;
+
           case 'C':
             $xAlign += 29;
             break;
         }
 
-        $style = array(
-          'border' => false,
+        $style = [
+          'border' => FALSE,
           'hpadding' => 13.5,
           'vpadding' => 'auto',
-          'fgcolor' => array(0,0,0),
-          'bgcolor' => false,
+          'fgcolor' => [0, 0, 0],
+          'bgcolor' => FALSE,
           'position' => '',
-        );
+        ];
 
-        $this->pdf->write2DBarcode($data['current_value'], 'QRCODE,H', $xAlign, $y  + $this->pdf->height - 26, 30,
+        $this->pdf->write2DBarcode($data['current_value'], 'QRCODE,H', $xAlign, $y + $this->pdf->height - 26, 30,
           30, $style, 'B');
       }
     }
   }
 
   /**
-   * Helper function to print images
+   * Helper function to print images.
    *
-   * @param string $img image url
-   *
-   * @param string $x
-   * @param string $y
-   * @param null $w
-   * @param null $h
-   *
-   * @return void
-   * @access public
+   * @param string $img
+   *   Image url.
+   * @param string|null $x
+   * @param string|null $y
+   * @param int|null $w
+   * @param int|null $h
    */
-  function printImage($img, $x = '', $y = '', $w = NULL, $h = NULL) {
+  public function printImage($img, $x = NULL, $y = NULL, $w = NULL, $h = NULL) {
     if (!$x) {
       $x = $this->pdf->GetAbsX();
     }
@@ -323,75 +365,69 @@ class CRM_Badge_BAO_Badge {
       $y = $this->pdf->GetY();
     }
 
-    $this->imgRes = 300;
-
     if ($img) {
-      list($w, $h) = self::getImageProperties($img, $this->imgRes, $w, $h);
+      [$w, $h] = self::getImageProperties($img, 300, $w, $h);
       $this->pdf->Image($img, $x, $y, $w, $h, '', '', '', FALSE, 72, '', FALSE,
         FALSE, $this->debug, FALSE, FALSE, FALSE);
     }
     $this->pdf->SetXY($x, $y);
   }
 
-  static function getImageProperties($img, $imgRes = 300, $w = NULL, $h = NULL) {
+  /**
+   * @param string $img
+   *   Filename
+   * @param int $imgRes
+   * @param int|null $w
+   * @param int|null $h
+   *
+   * @return int[]
+   *   [width, height]
+   */
+  public static function getImageProperties($img, $imgRes = 300, $w = NULL, $h = NULL) {
     $imgsize = getimagesize($img);
     $f = $imgRes / 25.4;
     $w = !empty($w) ? $w : $imgsize[0] / $f;
     $h = !empty($h) ? $h : $imgsize[1] / $f;
-    return array($w, $h);
+    return [$w, $h];
   }
 
   /**
-   * function to build badges parameters before actually creating badges.
+   * Build badges parameters before actually creating badges.
    *
-   * @param  array $params associated array of submitted values
-   * @param $form
-   * @params object $form form/controller object
-   *
-   * @return void
-   * @access public
-   * @static
+   * @param array $params
+   *   Associated array of submitted values.
+   * @param CRM_Core_Form $form
    */
   public static function buildBadges(&$params, &$form) {
     // get name badge layout info
     $layoutInfo = CRM_Badge_BAO_Layout::buildLayout($params);
-
-    // spit / get actual field names from token
-    $returnProperties = array();
+    $tokenProcessor = new TokenProcessor(\Civi::dispatcher(), ['schema' => ['participantId', 'eventId'], 'smarty' => FALSE]);
+    // split/get actual field names from token and individual contact image URLs
+    $processorTokens = [];
     if (!empty($layoutInfo['data']['token'])) {
       foreach ($layoutInfo['data']['token'] as $index => $value) {
-        $element = '';
         if ($value) {
-          $token = CRM_Utils_Token::getTokens($value);
-          if (key($token) == 'contact') {
-            $element = $token['contact'][0];
-          }
-          elseif (key($token) == 'event') {
-            $element = $token['event'][0];
-            //FIX ME - we need to standardize event token names
-            if (substr($element, 0, 6) != 'event_') {
-              $element = 'event_' . $element;
-            }
-          }
-          elseif (key($token) == 'participant') {
-            $element = $token['participant'][0];
-          }
-
-          // build returnproperties for query
-          $returnProperties[$element] = 1;
+          $tokenName = str_replace(['}', '{contact.', '{participant.', '{event.'], '', $value);
+          $tokenProcessor->addMessage($tokenName, $value, 'text/plain');
+          $processorTokens[] = $tokenName;
+          $layoutInfo['data']['rowElements'][$index] = $tokenName;
         }
-
-        // add actual field name to row element
-        $layoutInfo['data']['rowElements'][$index] = $element;
       }
     }
 
-    // add additional required fields for query execution
-    $additionalFields = array('participant_register_date', 'participant_id', 'event_id', 'contact_id');
-    foreach ($additionalFields as $field) {
-      $returnProperties[$field] = 1;
-    }
+    $returnProperties = [
+      'participant_id' => 1,
+      'event_id' => 1,
+      'contact_id' => 1,
+    ];
+    $sortOrder = $form->get(CRM_Utils_Sort::SORT_ORDER);
 
+    if ($sortOrder) {
+      $sortField = explode(' ', $sortOrder)[0];
+      // Add to select so aliaising is handled.
+      $returnProperties[trim(str_replace('`', ' ', $sortField))] = 1;
+      $sortOrder = " ORDER BY $sortOrder";
+    }
     if ($form->_single) {
       $queryParams = NULL;
     }
@@ -403,7 +439,7 @@ class CRM_Badge_BAO_Badge {
       CRM_Contact_BAO_Query::MODE_EVENT
     );
 
-    list($select, $from, $where, $having) = $query->query();
+    [$select, $from, $where, $having] = $query->query();
     if (empty($where)) {
       $where = "WHERE {$form->_componentClause}";
     }
@@ -411,26 +447,25 @@ class CRM_Badge_BAO_Badge {
       $where .= " AND {$form->_componentClause}";
     }
 
-    $sortOrder = NULL;
-    if ($form->get(CRM_Utils_Sort::SORT_ORDER)) {
-      $sortOrder = $form->get(CRM_Utils_Sort::SORT_ORDER);
-      if (!empty($sortOrder)) {
-        $sortOrder = " ORDER BY $sortOrder";
-      }
-    }
     $queryString = "$select $from $where $having $sortOrder";
 
     $dao = CRM_Core_DAO::executeQuery($queryString);
-    $rows = array();
+    $rows = [];
+
     while ($dao->fetch()) {
-      $rows[$dao->participant_id] = array();
-      foreach ($returnProperties as $key => $dontCare) {
-        $rows[$dao->participant_id][$key] = isset($dao->$key) ? $dao->$key : NULL;
+      $tokenProcessor->addRow(['contactId' => $dao->contact_id, 'participantId' => $dao->participant_id, 'eventId' => $dao->event_id]);
+    }
+    $tokenProcessor->evaluate();
+    foreach ($tokenProcessor->getRows() as $row) {
+      $rows[$row->context['participantId']]['contact_id'] = $row->context['contactId'];
+      $rows[$row->context['participantId']]['participant_id'] = $row->context['participantId'];
+      foreach ($processorTokens as $processorToken) {
+        $rows[$row->context['participantId']][$processorToken] = $row->render($processorToken);
       }
     }
 
     $eventBadgeClass = new CRM_Badge_BAO_Badge();
     $eventBadgeClass->createLabels($rows, $layoutInfo);
   }
-}
 
+}

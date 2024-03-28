@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -41,26 +23,33 @@
 class CRM_Queue_BAO_QueueItem extends CRM_Queue_DAO_QueueItem {
 
   /**
-   * Ensure that the required SQL table exists
+   * Ensure that the required SQL table exists.
    *
-   * @return bool TRUE if table now exists
+   * The `civicrm_queue_item` table is a special requirement - without it, the upgrader cannot run.
+   * The upgrader will make a special request for `findCreateTable()` before computing upgrade-tasks.
+   *
+   * @return bool
+   *   TRUE if table now exists
    */
-  static function findCreateTable() {
-    $checkTableSql = "show tables like 'civicrm_queue_item'";
-    $foundName = CRM_Core_DAO::singleValueQuery($checkTableSql);
-    if ($foundName == 'civicrm_queue_item') {
-      return TRUE;
+  public static function findCreateTable(): bool {
+    if (!CRM_Core_DAO::checkTableExists('civicrm_queue_item')) {
+      // Table originated in 4.2. We no longer support direct upgrades from <=4.2. Don't bother trying to create table.
+      return FALSE;
     }
-
-    // civicrm/sql/civicrm_queue_item.mysql
-    $fileName = dirname(__FILE__) . '/../../../sql/civicrm_queue_item.mysql';
-
-    $config = CRM_Core_Config::singleton();
-    CRM_Utils_File::sourceSQLFile($config->dsn, $fileName);
-
-    // Make sure it succeeded
-    $foundName = CRM_Core_DAO::singleValueQuery($checkTableSql);
-    return ($foundName == 'civicrm_queue_item');
+    else {
+      return static::updateTable();
+    }
   }
-}
 
+  /**
+   * Ensure that the `civicrm_queue_item` table is up-to-date.
+   *
+   * @return bool
+   */
+  public static function updateTable(): bool {
+    CRM_Upgrade_Incremental_Base::addColumn(NULL, 'civicrm_queue_item', 'run_count',
+      "int NOT NULL DEFAULT 0 COMMENT 'Number of times execution has been attempted.'");
+    return TRUE;
+  }
+
+}

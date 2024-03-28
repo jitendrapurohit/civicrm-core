@@ -1,6 +1,6 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
+ | CiviCRM version 5                                                  |
  +--------------------------------------------------------------------+
  | Copyright (C) 2011 Marty Wright                                    |
  | Licensed to CiviCRM under the Academic Free License version 3.0.   |
@@ -32,29 +32,27 @@
     {capture assign="messageTemplatesURL"}{crmURL p="civicrm/admin/messageTemplates" q="reset=1"}{/capture}
     {ts 1=$messageTemplatesURL}You can configure one or more PDF Page Formats for your CiviCRM installation. PDF Page Formats may be assigned to <strong><a href="%1">Message Templates</a></strong> to use when creating PDF letters.{/ts}
   </div>
+<div class="crm-content-block crm-block">
 {if $rows}
     <div id="ltype">
         {strip}
-        {include file="CRM/common/jsortable.tpl"}
-        <table id="pdfFormats" class="display">
+        <table id="pdfFormats" class="row-highlight">
         <thead>
         <tr class="columnheader">
-            <th  class="sortable">{ts}Name{/ts}</th>
-            <th id="nosort">{ts}Description{/ts}</th>
+            <th>{ts}Name{/ts}</th>
+            <th>{ts}Description{/ts}</th>
             <th >{ts}Default?{/ts}</th>
-            <th id="order" class="sortable">{ts}Order{/ts}</th>
-            <th class="hiddenElement"></th>
+            <th>{ts}Order{/ts}</th>
             <th ></th>
         </tr>
         </thead>
         {foreach from=$rows item=row}
-        <tr id="row_{$row.id}" class="crm-pdfFormat {cycle values="odd-row,even-row"} {$row.class}">
+        <tr id="row_{$row.id}" class="crm-pdfFormat {cycle values="odd-row,even-row"}{if !empty($row.class)} {$row.class}{/if}">
             <td class="crm-pdfFormat-name">{$row.name}</td>
             <td class="crm-pdfFormat-description">{$row.description}</td>
-            <td class="crm-pdfFormat-is_default">{if $row.is_default eq 1}<img src="{$config->resourceBase}i/check.gif" alt="{ts}Default{/ts}" />{/if}&nbsp;</td>
-          <td class="crm-pdfFormat-order nowrap">{$row.order}</td>
-          <td class="order hiddenElement">{$row.weight}</td>
-          <td>{$row.action|replace:'xx':$row.id}</td>
+            <td class="crm-pdfFormat-is_default">{icon condition=$row.is_default}{ts}Default{/ts}{/icon}&nbsp;</td>
+          <td class="crm-pdfFormat-order nowrap">{$row.weight|smarty:nodefaults}</td>
+          <td>{$row.action|smarty:nodefaults|replace:'xx':$row.id}</td>
         </tr>
         {/foreach}
         </table>
@@ -62,13 +60,14 @@
     </div>
 {else}
     <div class="messages status no-popup">
-      <div class="icon inform-icon"></div>
-        {capture assign=link}href="{crmURL q="action=add&reset=1"}" class="action-item"{/capture}
-        {ts 1=$link}There are no PDF Page Formats configured. You can <a %1>add one</a>.{/ts}
+      {icon icon="fa-info-circle"}{/icon}
+      {ts}None found.{/ts}
     </div>
 {/if}
     <div class="spacer"></div>
     <div class="action-link">
-        <a href="{crmURL q="action=add&reset=1"}" id="newPdfFormat" class="button"><span><div class="icon add-icon"></div>{ts}Add PDF Page Format{/ts}</span></a>
+      {crmButton q="action=add&reset=1" id="newPdfFormat"  icon="plus-circle"}{ts}Add PDF Page Format{/ts}{/crmButton}
+      {crmButton p="civicrm/admin" q="reset=1" class="cancel" icon="times"}{ts}Done{/ts}{/crmButton}
     </div>
 {/if}
+</div>

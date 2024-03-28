@@ -1,66 +1,70 @@
 <?php
-require_once 'CiviTest/CiviUnitTestCase.php';
-require_once 'CiviTest/Contact.php';
+
+use Civi\Api4\UFGroup;
+
+/**
+ * Class CRM_Core_BAO_UFFieldTest
+ * @group headless
+ */
 class CRM_Core_BAO_UFFieldTest extends CiviUnitTestCase {
 
-  function setUp() {
-    parent::setUp();
-
-    $this->quickCleanup(array('civicrm_uf_group', 'civicrm_uf_field'));
-  }
-
   /**
-   * When passing in a GID, fields should be omitted if they already appear in the group.
+   * When passing in an id, fields should be omitted if they already appear in the group.
    */
-  public function testGetAvailable_byGid() {
-    $ufGroupId = $this->createUFGroup(array(
-      array(
+  public function testGetByID(): void {
+    $fields = CRM_Core_BAO_UFField::getAvailableFields($this->createUFGroup([
+      [
         'field_name' => 'do_not_sms',
         'field_type' => 'Contact',
-      ),
-      array(
+      ],
+      [
         'field_name' => 'first_name',
         'field_type' => 'Individual',
-      ),
-      array(
+      ],
+      [
         'field_name' => 'amount_level',
         'field_type' => 'Contribution',
-      ),
-      array(
+      ],
+      [
         'field_name' => 'participant_note',
         'field_type' => 'Participant',
-      ),
-      array(
-        'field_name' => 'join_date',
+      ],
+      [
+        'field_name' => 'membership_join_date',
         'field_type' => 'Membership',
-      ),
-      array(
+      ],
+      [
         'field_name' => 'activity_date_time',
         'field_type' => 'Activity',
-      )
-    ));
-    $fields = CRM_Core_BAO_UFField::getAvailableFields($ufGroupId);
+      ],
+    ]));
 
     // Make sure that each entity has 1+ present field and 1+ missing (already-used) field
-    $this->assertFalse(isset($fields['Contact']['do_not_sms'])); // already used
+    // already used
+    $this->assertFalse(isset($fields['Contact']['do_not_sms']));
     $this->assertEquals('city', $fields['Contact']['city']['name']);
 
-    $this->assertFalse(isset($fields['Individual']['first_name'])); // already used
+    // already used
+    $this->assertFalse(isset($fields['Individual']['first_name']));
     $this->assertEquals('birth_date', $fields['Individual']['birth_date']['name']);
 
     $this->assertEquals('organization_name', $fields['Organization']['organization_name']['name']);
     $this->assertEquals('legal_name', $fields['Organization']['legal_name']['name']);
 
-    $this->assertFalse(isset($fields['Contribution']['amount_level'])); // already used
+    // already used
+    $this->assertFalse(isset($fields['Contribution']['amount_level']));
     $this->assertEquals('cancel_reason', $fields['Contribution']['cancel_reason']['name']);
 
-    $this->assertFalse(isset($fields['Participant']['participant_note'])); // already used
+    // already used
+    $this->assertFalse(isset($fields['Participant']['participant_note']));
     $this->assertEquals('participant_role', $fields['Participant']['participant_role']['name']);
 
-    $this->assertFalse(isset($fields['Membership']['join_date'])); // already used
+    // already used
+    $this->assertFalse(isset($fields['Membership']['membership_join_date']));
     $this->assertEquals('end_date', $fields['Membership']['membership_end_date']['name']);
 
-    $this->assertFalse(isset($fields['Activity']['activity_date_time'])); // already used
+    // already used
+    $this->assertFalse(isset($fields['Activity']['activity_date_time']));
     $this->assertEquals('subject', $fields['Activity']['activity_subject']['name']);
 
     // Make sure that some of the blacklisted fields don't appear
@@ -76,31 +80,33 @@ class CRM_Core_BAO_UFFieldTest extends CiviUnitTestCase {
    * When passing in $defaults, the currently selected field should still be included -- even if
    * it's already part of the profile.
    */
-  public function testGetAvailable_byGidDefaults() {
-    $ufGroupId = $this->createUFGroup(array(
-      array(
+  public function testGetAvailableByIDDefaults(): void {
+    $this->createUFGroup([
+      [
         'field_name' => 'do_not_sms',
         'field_type' => 'Contact',
-      ),
-      array(
+      ],
+      [
         'field_name' => 'first_name',
         'field_type' => 'Individual',
-      ),
-    ));
-    $defaults = array('field_name' => array('Individual', 'first_name'));
-    $fields = CRM_Core_BAO_UFField::getAvailableFields($ufGroupId, $defaults);
+      ],
+    ]);
+    $defaults = ['field_name' => ['Individual', 'first_name']];
+    $fields = CRM_Core_BAO_UFField::getAvailableFields($this->ids['UFGroup']['test'], $defaults);
 
-    $this->assertFalse(isset($fields['Contact']['do_not_sms'])); // already used
+    // already used
+    $this->assertFalse(isset($fields['Contact']['do_not_sms']));
     $this->assertEquals('city', $fields['Contact']['city']['name']);
 
-    $this->assertEquals('first_name', $fields['Individual']['first_name']['name']); // used by me
+    // used by me
+    $this->assertEquals('first_name', $fields['Individual']['first_name']['name']);
     $this->assertEquals('birth_date', $fields['Individual']['birth_date']['name']);
   }
 
   /**
-   * When omitting a GID, return a list of all fields.
+   * When omitting the id, return a list of all fields.
    */
-  public function testGetAvailable_full() {
+  public function testGetAvailableFull(): void {
     $fields = CRM_Core_BAO_UFField::getAvailableFields();
 
     // Make sure that each entity appears with at least one field
@@ -119,7 +125,7 @@ class CRM_Core_BAO_UFFieldTest extends CiviUnitTestCase {
     $this->assertEquals('participant_note', $fields['Participant']['participant_note']['name']);
     $this->assertEquals('participant_role', $fields['Participant']['participant_role']['name']);
 
-    $this->assertEquals('join_date', $fields['Membership']['join_date']['name']);
+    $this->assertEquals('join_date', $fields['Membership']['membership_join_date']['name']);
     $this->assertEquals('end_date', $fields['Membership']['membership_end_date']['name']);
 
     $this->assertEquals('activity_date_time', $fields['Activity']['activity_date_time']['name']);
@@ -135,9 +141,9 @@ class CRM_Core_BAO_UFFieldTest extends CiviUnitTestCase {
   }
 
   /**
-   * When omitting a GID, return a list of all fields.
+   * When omitting the id, return a list of all fields.
    */
-  public function testGetAvailableFlat() {
+  public function testGetAvailableFlat(): void {
     $fields = CRM_Core_BAO_UFField::getAvailableFieldsFlat();
 
     // Make sure that each entity appears with at least one field
@@ -156,7 +162,7 @@ class CRM_Core_BAO_UFFieldTest extends CiviUnitTestCase {
     $this->assertEquals('Participant', $fields['participant_note']['field_type']);
     $this->assertEquals('Participant', $fields['participant_role']['field_type']);
 
-    $this->assertEquals('Membership', $fields['join_date']['field_type']);
+    $this->assertEquals('Membership', $fields['membership_join_date']['field_type']);
     $this->assertEquals('Membership', $fields['membership_end_date']['field_type']);
 
     $this->assertEquals('Activity', $fields['activity_date_time']['field_type']);
@@ -169,40 +175,59 @@ class CRM_Core_BAO_UFFieldTest extends CiviUnitTestCase {
   }
 
   /**
-   * Make sure that the existence of a profile doesn't break listing all fields
+   * @param array $fields
+   *   List of fields to include in the profile.
    *
-  public function testGetAvailable_mixed() {
-    // FIXME
-    $this->testGetAvailable_full();
-    // $this->testGetAvailable_byGid();
-    $this->testGetAvailable_full();
-    // $this->testGetAvailable_byGid();
-  } // */
-
-  /**
-   * @param array $fields list of fields to include in the profile
-   * @return int field id
+   * @return int
+   *   field id
    */
-  protected function createUFGroup($fields) {
-    $ufGroup = CRM_Core_DAO::createTestObject('CRM_Core_DAO_UFGroup');
-    $this->assertTrue(is_numeric($ufGroup->id));
-
+  protected function createUFGroup(array $fields): int {
+    try {
+      $this->ids['UFGroup']['test'] = UFGroup::create()
+        ->setValues(['name' => 'uf_field_test', 'title' => 'group'])
+        ->execute()
+        ->first()['id'];
+    }
+    catch (CRM_Core_Exception $e) {
+      $this->fail('Failed to create UFGroup');
+    }
     foreach ($fields as $field) {
-      $defaults = array(
-        'version' => 3,
-        'uf_group_id' => $ufGroup->id,
+      $defaults = [
+        'uf_group_id' => $this->ids['UFGroup']['test'],
         'visibility' => 'Public Pages and Listings',
         'weight' => 1,
         'label' => 'Label for ' . $field['field_name'],
         'is_searchable' => 1,
         'is_active' => 1,
         'location_type_id' => NULL,
-      );
-      $params = array_merge($field, $defaults);
-      $ufField = civicrm_api('UFField', 'create', $params);
-      $this->assertAPISuccess($ufField);
+      ];
+      $this->callAPISuccess('UFField', 'create', array_merge($field, $defaults));
     }
 
-    return $ufGroup->id;
+    return $this->ids['UFGroup']['test'];
   }
+
+  /**
+   * Test ability to modify the acceptable fields for use in a profile via hook
+   */
+  public function testGetFieldsFlatModifiedByHook(): void {
+    unset(Civi::$statics['UFFieldsFlat']);
+    $this->hookClass->setHook('civicrm_alterUFFields', [$this, 'modifyUFFields']);
+    $fields = CRM_Core_BAO_UFField::getAvailableFieldsFlat();
+
+    $this->assertEquals('Foo', $fields['foo_id']['field_type']);
+    $this->assertEquals('contact_id', $fields['foo_contact_id']['name']);
+  }
+
+  public function modifyUFFields(&$fields): void {
+    $fields['Foo'] = [
+      'foo_id' => [
+        'name' => 'id',
+      ],
+      'foo_contact_id' => [
+        'name' => 'contact_id',
+      ],
+    ];
+  }
+
 }

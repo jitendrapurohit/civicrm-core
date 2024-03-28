@@ -1,29 +1,14 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
+use Civi\Core\Event\GenericHookEvent;
 
 /**
  * This class facilitates the loading of resources
@@ -37,21 +22,20 @@
  * should incorporte services for aggregation, minimization, etc.
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
-class CRM_Core_Resources {
+class CRM_Core_Resources implements CRM_Core_Resources_CollectionAdderInterface {
   const DEFAULT_WEIGHT = 0;
   const DEFAULT_REGION = 'page-footer';
+
+  use CRM_Core_Resources_CollectionAdderTrait;
 
   /**
    * We don't have a container or dependency-injection, so use singleton instead
    *
-   * @var object
-   * @static
+   * @var CRM_Core_Resources
    */
-  private static $_singleton = NULL;
+  private static $_singleton;
 
   /**
    * @var CRM_Extension_Mapper
@@ -59,338 +43,226 @@ class CRM_Core_Resources {
   private $extMapper = NULL;
 
   /**
-   * @var CRM_Utils_Cache_Interface
+   * @var CRM_Core_Resources_Strings
    */
-  private $cache = NULL;
+  private $strings = NULL;
 
   /**
-   * @var array free-form data tree
+   * Any bundles that have been added.
+   *
+   * Format is ($bundleName => bool).
+   *
+   * @var array
    */
-  protected $settings = array();
-  protected $addedSettings = FALSE;
+  protected $addedBundles = [];
 
   /**
-   * @var array of callables
+   * Added core resources.
+   *
+   * Format is ($regionName => bool).
+   *
+   * @var array
    */
-  protected $settingsFactories = array();
+  protected $addedCoreResources = [];
 
   /**
-   * @var array ($regionName => bool)
+   * Added settings.
+   *
+   * Format is ($regionName => bool).
+   *
+   * @var array
    */
-  protected $addedCoreResources = array();
+  protected $addedSettings = [];
 
   /**
-   * @var array ($regionName => bool)
-   */
-  protected $addedCoreStyles = array();
-
-  /**
-   * @var string a value to append to JS/CSS URLs to coerce cache resets
+   * A value to append to JS/CSS URLs to coerce cache resets.
+   *
+   * @var string
    */
   protected $cacheCode = NULL;
 
   /**
-   * @var string the name of a setting which persistently stores the cacheCode
+   * The name of a setting which persistently stores the cacheCode.
+   *
+   * @var string
    */
   protected $cacheCodeKey = NULL;
 
   /**
+   * Are ajax popup screens enabled.
+   *
    * @var bool
    */
   public $ajaxPopupsEnabled;
 
   /**
-   * Get or set the single instance of CRM_Core_Resources
+   * @var \Civi\Core\Paths
+   */
+  protected $paths;
+
+  /**
+   * Get or set the single instance of CRM_Core_Resources.
    *
-   * @param $instance CRM_Core_Resources, new copy of the manager
+   * @param CRM_Core_Resources $instance
+   *   New copy of the manager.
+   *
    * @return CRM_Core_Resources
    */
-  static public function singleton(CRM_Core_Resources $instance = NULL) {
+  public static function singleton(CRM_Core_Resources $instance = NULL) {
     if ($instance !== NULL) {
       self::$_singleton = $instance;
     }
     if (self::$_singleton === NULL) {
-      $sys = CRM_Extension_System::singleton();
-      $cache = new CRM_Utils_Cache_SqlGroup(array(
-        'group' => 'js-strings',
-        'prefetch' => FALSE,
-      ));
-      self::$_singleton = new CRM_Core_Resources(
-        $sys->getMapper(),
-        $cache,
-        CRM_Core_Config::isUpgradeMode() ? NULL : 'resCacheCode'
-      );
+      self::$_singleton = Civi::service('resources');
     }
     return self::$_singleton;
   }
 
   /**
-   * Construct a resource manager
+   * Construct a resource manager.
    *
-   * @param CRM_Extension_Mapper $extMapper Map extension names to their base path or URLs.
-   * @param $cache
-   * @param null $cacheCodeKey
+   * @param CRM_Extension_Mapper $extMapper
+   *   Map extension names to their base path or URLs.
+   * @param CRM_Core_Resources_Strings $strings
+   *   JS-localization cache.
+   * @param string|null $cacheCodeKey Random code to append to resource URLs; changing the code forces clients to reload resources
    */
-  public function __construct($extMapper, $cache, $cacheCodeKey = NULL) {
+  public function __construct($extMapper, $strings, $cacheCodeKey = NULL) {
     $this->extMapper = $extMapper;
-    $this->cache = $cache;
+    $this->strings = $strings;
     $this->cacheCodeKey = $cacheCodeKey;
     if ($cacheCodeKey !== NULL) {
-      $this->cacheCode = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, $cacheCodeKey);
+      $this->cacheCode = Civi::settings()->get($cacheCodeKey);
     }
     if (!$this->cacheCode) {
       $this->resetCacheCode();
     }
-    $this->ajaxPopupsEnabled = (bool) CRM_Core_BAO_Setting::getItem(
-      CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'ajaxPopupsEnabled', NULL, TRUE
-    );
+    $this->ajaxPopupsEnabled = (bool) Civi::settings()->get('ajaxPopupsEnabled');
+    $this->paths = Civi::paths();
   }
 
   /**
-   * Add a JavaScript file to the current page using <SCRIPT SRC>.
+   * Add an item to the collection.
    *
-   * @param $ext string, extension name; use 'civicrm' for core
-   * @param $file string, file path -- relative to the extension base dir
-   * @param $weight int, relative weight within a given region
-   * @param $region string, location within the file; 'html-header', 'page-header', 'page-footer'
-   * @param $translate, whether to parse this file for strings enclosed in ts()
-   *
-   * @return CRM_Core_Resources
+   * @param array $snippet
+   * @return array
+   *   The full/computed snippet (with defaults applied).
+   * @see CRM_Core_Resources_CollectionInterface::add()
    */
-  public function addScriptFile($ext, $file, $weight = self::DEFAULT_WEIGHT, $region = self::DEFAULT_REGION, $translate = TRUE) {
-    if ($translate) {
-      $this->translateScript($ext, $file);
+  public function add($snippet) {
+    if (!isset($snippet['region'])) {
+      $snippet['region'] = self::DEFAULT_REGION;
     }
-    // Look for non-minified version if we are in debug mode
-    if (CRM_Core_Config::singleton()->debug && strpos($file, '.min.js') !== FALSE) {
-      $nonMiniFile = str_replace('.min.js', '.js', $file);
-      if ($this->getPath($ext, $nonMiniFile)) {
-        $file = $nonMiniFile;
+    if (!isset($snippet['weight'])) {
+      $snippet['weight'] = self::DEFAULT_WEIGHT;
+    }
+    return CRM_Core_Region::instance($snippet['region'])->add($snippet);
+  }
+
+  /**
+   * Locate the 'settings' snippet.
+   *
+   * @param array $options
+   * @return array
+   * @see CRM_Core_Resources_CollectionTrait::findCreateSettingSnippet()
+   */
+  public function &findCreateSettingSnippet($options = []): array {
+    $options = self::mergeSettingOptions($options, [
+      'region' => NULL,
+    ]);
+    return $this->getSettingRegion($options['region'])->findCreateSettingSnippet($options);
+  }
+
+  /**
+   * Assimilate all the resources listed in a bundle.
+   *
+   * @param iterable|string|\CRM_Core_Resources_Bundle $bundle
+   *   Either bundle object, or the symbolic name of a bundle, or a list of bundles.
+   *   Note: For symbolic names, the bundle must be a container service ('bundle.FOO').
+   * @return static
+   */
+  public function addBundle($bundle) {
+    // There are two ways you might write this method: (1) immediately merge
+    // resources from the bundle, or (2) store a reference to the bundle and
+    // merge resources later. Both have pros/cons. The implementation does #1.
+    //
+    // The upshot of #1 is *multi-region* support. For example, a bundle might
+    // add some JS to `html-header` and then add some HTML to `page-header`.
+    // Implementing this requires splitting the bundle (ie copying specific
+    // resources to their respective regions). The timing of `addBundle()` is
+    // favorable to splitting.
+    //
+    // The upshot of #2 would be *reduced timing sensitivity for downstream*:
+    // if party A wants to include some bundle, and party B wants to refine
+    // the same bundle, then it wouldn't matter if A or B executed first.
+    // This should make DX generally more forgiving. But we can't split until
+    // everyone has their shot at tweaking the bundle.
+    //
+    // In theory, you could have both characteristics if you figure the right
+    // time at which to perform a split. Or maybe you could have both by tracking
+    // more detailed references+events among the bundles/regions. I haven't
+    // seen a simple way to do get both.
+
+    if (is_iterable($bundle)) {
+      foreach ($bundle as $b) {
+        $this->addBundle($b);
       }
+      return $this;
     }
-    return $this->addScriptUrl($this->getUrl($ext, $file, TRUE), $weight, $region);
-  }
 
-  /**
-   * Add a JavaScript file to the current page using <SCRIPT SRC>.
-   *
-   * @param $url string
-   * @param $weight int, relative weight within a given region
-   * @param $region string, location within the file; 'html-header', 'page-header', 'page-footer'
-   * @return CRM_Core_Resources
-   */
-  public function addScriptUrl($url, $weight = self::DEFAULT_WEIGHT, $region = self::DEFAULT_REGION) {
-    CRM_Core_Region::instance($region)->add(array(
-      'name' => $url,
-      'type' => 'scriptUrl',
-      'scriptUrl' => $url,
-      'weight' => $weight,
-      'region' => $region,
-    ));
-    return $this;
-  }
-
-  /**
-   * Add a JavaScript file to the current page using <SCRIPT SRC>.
-   *
-   * @param $code string, JavaScript source code
-   * @param $weight int, relative weight within a given region
-   * @param $region string, location within the file; 'html-header', 'page-header', 'page-footer'
-   * @return CRM_Core_Resources
-   */
-  public function addScript($code, $weight = self::DEFAULT_WEIGHT, $region = self::DEFAULT_REGION) {
-    CRM_Core_Region::instance($region)->add(array(
-      // 'name' => automatic
-      'type' => 'script',
-      'script' => $code,
-      'weight' => $weight,
-      'region' => $region,
-    ));
-    return $this;
-  }
-
-  /**
-   * Add JavaScript variables to the global CRM object.
-   *
-   * Example:
-   * From the server:
-   * CRM_Core_Resources::singleton()->addSetting(array('myNamespace' => array('foo' => 'bar')));
-   * From javascript:
-   * CRM.myNamespace.foo // "bar"
-   *
-   * @see http://wiki.civicrm.org/confluence/display/CRMDOC/Javascript+Reference
-   *
-   * @param $settings array
-   * @return CRM_Core_Resources
-   */
-  public function addSetting($settings) {
-    $this->settings = $this->mergeSettings($this->settings, $settings);
-    if (!$this->addedSettings) {
-      $resources = $this;
-      CRM_Core_Region::instance('html-header')->add(array(
-        'callback' => function(&$snippet, &$html) use ($resources) {
-          $html .= "\n" . $resources->renderSetting();
-        },
-        'weight' => -100000,
-      ));
-      $this->addedSettings = TRUE;
+    if (is_string($bundle)) {
+      $bundle = Civi::service('bundle.' . $bundle);
     }
-    return $this;
-  }
 
-  /**
-   * Add JavaScript variables to the global CRM object via a callback function.
-   *
-   * @param $callable function
-   * @return CRM_Core_Resources
-   */
-  public function addSettingsFactory($callable) {
-    // Make sure our callback has been registered
-    $this->addSetting(array());
-    $this->settingsFactories[] = $callable;
-    return $this;
-  }
-
-  /**
-   * Helper fn for addSettingsFactory
-   */
-  public function getSettings() {
-    $result = $this->settings;
-    foreach ($this->settingsFactories as $callable) {
-      $result = $this->mergeSettings($result, $callable());
+    if (isset($this->addedBundles[$bundle->name])) {
+      return $this;
     }
-    return $result;
-  }
+    $this->addedBundles[$bundle->name] = TRUE;
 
-  /**
-   * @param array $settings
-   * @param array $additions
-   * @return array combination of $settings and $additions
-   */
-  protected function mergeSettings($settings, $additions) {
-    foreach ($additions as $k => $v) {
-      if (isset($settings[$k]) && is_array($settings[$k]) && is_array($v)) {
-        $v += $settings[$k];
+    // Ensure that every asset has a region.
+    $bundle->filter(function($snippet) {
+      if (empty($snippet['region'])) {
+        $snippet['region'] = isset($snippet['settings'])
+          ? $this->getSettingRegion()->_name
+          : self::DEFAULT_REGION;
       }
-      $settings[$k] = $v;
-    }
-    return $settings;
-  }
+      return $snippet;
+    });
 
-  /**
-   * Helper fn for addSetting
-   * Render JavaScript variables for the global CRM object.
-   *
-   * @return string
-   */
-  public function renderSetting() {
-    $js = 'var CRM = ' . json_encode($this->getSettings()) . ';';
-    return sprintf("<script type=\"text/javascript\">\n%s\n</script>\n", $js);
-  }
-
-  /**
-   * Add translated string to the js CRM object.
-   * It can then be retrived from the client-side ts() function
-   * Variable substitutions can happen from client-side
-   *
-   * Note: this function rarely needs to be called directly and is mostly for internal use.
-   * @see CRM_Core_Resources::addScriptFile which automatically adds translated strings from js files
-   *
-   * Simple example:
-   * // From php:
-   * CRM_Core_Resources::singleton()->addString('Hello');
-   * // The string is now available to javascript code i.e.
-   * ts('Hello');
-   *
-   * Example with client-side substitutions:
-   * // From php:
-   * CRM_Core_Resources::singleton()->addString('Your %1 has been %2');
-   * // ts() in javascript works the same as in php, for example:
-   * ts('Your %1 has been %2', {1: objectName, 2: actionTaken});
-   *
-   * NOTE: This function does not work with server-side substitutions
-   * (as this might result in collisions and unwanted variable injections)
-   * Instead, use code like:
-   * CRM_Core_Resources::singleton()->addSetting(array('myNamespace' => array('myString' => ts('Your %1 has been %2', array(subs)))));
-   * And from javascript access it at CRM.myNamespace.myString
-   *
-   * @param $text string|array
-   * @return CRM_Core_Resources
-   */
-  public function addString($text) {
-    foreach ((array) $text as $str) {
-      $translated = ts($str);
-      // We only need to push this string to client if the translation
-      // is actually different from the original
-      if ($translated != $str) {
-        $this->addSetting(array('strings' => array($str => $translated)));
-      }
+    $byRegion = CRM_Utils_Array::index(['region', 'name'], $bundle->getAll());
+    foreach ($byRegion as $regionName => $snippets) {
+      CRM_Core_Region::instance($regionName)->merge($snippets);
     }
     return $this;
   }
 
   /**
-   * Add a CSS file to the current page using <LINK HREF>.
-   *
-   * @param $ext string, extension name; use 'civicrm' for core
-   * @param $file string, file path -- relative to the extension base dir
-   * @param $weight int, relative weight within a given region
-   * @param $region string, location within the file; 'html-header', 'page-header', 'page-footer'
-   * @return CRM_Core_Resources
+   * Helper fn for addSettingsFactory.
    */
-  public function addStyleFile($ext, $file, $weight = self::DEFAULT_WEIGHT, $region = self::DEFAULT_REGION) {
-    return $this->addStyleUrl($this->getUrl($ext, $file, TRUE), $weight, $region);
+  public function getSettings($region = NULL) {
+    return $this->getSettingRegion($region)->getSettings();
   }
 
   /**
-   * Add a CSS file to the current page using <LINK HREF>.
+   * Determine file path of a resource provided by an extension.
    *
-   * @param $url string
-   * @param $weight int, relative weight within a given region
-   * @param $region string, location within the file; 'html-header', 'page-header', 'page-footer'
-   * @return CRM_Core_Resources
+   * @param string $ext
+   *   extension name; use 'civicrm' for core.
+   * @param string|null $file
+   *   file path -- relative to the extension base dir.
+   *
+   * @return bool|string
+   *   full file path or FALSE if not found
    */
-  public function addStyleUrl($url, $weight = self::DEFAULT_WEIGHT, $region = self::DEFAULT_REGION) {
-    CRM_Core_Region::instance($region)->add(array(
-      'name' => $url,
-      'type' => 'styleUrl',
-      'styleUrl' => $url,
-      'weight' => $weight,
-      'region' => $region,
-    ));
-    return $this;
-  }
-
-  /**
-   * Add a CSS content to the current page using <STYLE>.
-   *
-   * @param $code string, CSS source code
-   * @param $weight int, relative weight within a given region
-   * @param $region string, location within the file; 'html-header', 'page-header', 'page-footer'
-   * @return CRM_Core_Resources
-   */
-  public function addStyle($code, $weight = self::DEFAULT_WEIGHT, $region = self::DEFAULT_REGION) {
-    CRM_Core_Region::instance($region)->add(array(
-      // 'name' => automatic
-      'type' => 'style',
-      'style' => $code,
-      'weight' => $weight,
-      'region' => $region,
-    ));
-    return $this;
-  }
-
-  /**
-   * Determine file path of a resource provided by an extension
-   *
-   * @param $ext string, extension name; use 'civicrm' for core
-   * @param $file string, file path -- relative to the extension base dir
-   *
-   * @return bool|string (string|bool), full file path or FALSE if not found
-   */
-  public function getPath($ext, $file) {
+  public function getPath($ext, $file = NULL) {
     // TODO consider caching results
-    $path = $this->extMapper->keyToBasePath($ext) . '/' . $file;
+    $base = $this->paths->hasVariable($ext)
+      ? rtrim($this->paths->getVariable($ext, 'path'), '/')
+      : $this->extMapper->keyToBasePath($ext);
+    if ($file === NULL) {
+      return $base;
+    }
+    $path = $base . '/' . $file;
     if (is_file($path)) {
       return $path;
     }
@@ -398,10 +270,12 @@ class CRM_Core_Resources {
   }
 
   /**
-   * Determine public URL of a resource provided by an extension
+   * Determine public URL of a resource provided by an extension.
    *
-   * @param $ext string, extension name; use 'civicrm' for core
-   * @param $file string, file path -- relative to the extension base dir
+   * @param string $ext
+   *   extension name; use 'civicrm' for core.
+   * @param string $file
+   *   file path -- relative to the extension base dir.
    * @param bool $addCacheCode
    *
    * @return string, URL
@@ -411,77 +285,107 @@ class CRM_Core_Resources {
       $file = '';
     }
     if ($addCacheCode) {
-      $file .= '?r=' . $this->getCacheCode();
+      $file = $this->addCacheCode($file);
     }
     // TODO consider caching results
-    return $this->extMapper->keyToUrl($ext) . '/' . $file;
+    $base = $this->paths->hasVariable($ext)
+      ? $this->paths->getVariable($ext, 'url')
+      : ($this->extMapper->keyToUrl($ext) . '/');
+    return $base . $file;
   }
 
+  /**
+   * Evaluate a glob pattern in the context of a particular extension.
+   *
+   * @param string $ext
+   *   Extension name; use 'civicrm' for core.
+   * @param string|array $patterns
+   *   Glob pattern; e.g. "*.html".
+   * @param null|int $flags
+   *   See glob().
+   * @return array
+   *   List of matching files, relative to the extension base dir.
+   * @see glob()
+   */
+  public function glob($ext, $patterns, $flags = 0) {
+    $path = $this->getPath($ext);
+    $patterns = (array) $patterns;
+    $files = [];
+    foreach ($patterns as $pattern) {
+      if (preg_match(';^(assetBuilder|ext)://;', $pattern)) {
+        $files[] = $pattern;
+      }
+      if (CRM_Utils_File::isAbsolute($pattern)) {
+        // Absolute path.
+        $files = array_merge($files, (array) glob($pattern, $flags));
+      }
+      else {
+        // Relative path.
+        $files = array_merge($files, (array) glob("$path/$pattern", $flags));
+      }
+    }
+    // Deterministic order.
+    sort($files);
+    $files = array_unique($files);
+    return array_map(function ($file) use ($path) {
+      return CRM_Utils_File::relativize($file, "$path/");
+    }, $files);
+  }
+
+  /**
+   * @return string
+   */
   public function getCacheCode() {
-    return $this->cacheCode;
+    // Ex: AngularJS json partials are language-specific because they ship with the strings
+    // for the current language.
+    return $this->cacheCode . CRM_Core_I18n::getLocale();
   }
 
+  /**
+   * @param $value
+   * @return CRM_Core_Resources
+   */
   public function setCacheCode($value) {
     $this->cacheCode = $value;
     if ($this->cacheCodeKey) {
-      CRM_Core_BAO_Setting::setItem($value, CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, $this->cacheCodeKey);
+      Civi::settings()->set($this->cacheCodeKey, $value);
     }
+    return $this;
   }
 
+  /**
+   * @return CRM_Core_Resources
+   */
   public function resetCacheCode() {
     $this->setCacheCode(CRM_Utils_String::createRandom(5, CRM_Utils_String::ALPHANUMERIC));
+    // Also flush cms resource cache if needed
+    CRM_Core_Config::singleton()->userSystem->clearResourceCache();
+    return $this;
   }
 
   /**
    * This adds CiviCRM's standard css and js to the specified region of the document.
    * It will only run once.
    *
-   * TODO: Separate the functional code (like addStyle/addScript) from the policy code
-   * (like addCoreResources/addCoreStyles).
-   *
    * @param string $region
    * @return CRM_Core_Resources
-   * @access public
    */
   public function addCoreResources($region = 'html-header') {
-    if (!isset($this->addedCoreResources[$region])) {
-      $this->addedCoreResources[$region] = TRUE;
-      $config = CRM_Core_Config::singleton();
-
-      // Add resources from coreResourceList
-      $jsWeight = -9999;
-      foreach ($this->coreResourceList() as $file) {
-        if (substr($file, -2) == 'js') {
-          // Don't bother  looking for ts() calls in packages, there aren't any
-          $translate = (substr($file, 0, 9) != 'packages/');
-          $this->addScriptFile('civicrm', $file, $jsWeight++, $region, $translate);
-        }
-        else {
-          $this->addStyleFile('civicrm', $file, -100, $region);
-        }
-      }
-
-      // Initialize CRM.url and CRM.formatMoney
-      $url = CRM_Utils_System::url('civicrm/example', 'placeholder', FALSE, NULL, FALSE);
-      $js = "CRM.url('init', '$url');\n";
-      $js .= "CRM.formatMoney('init', " . json_encode(CRM_Utils_Money::format(1234.56)) . ");";
-
-      $this->addLocalization($js);
-      $this->addScript($js, $jsWeight++, $region);
-
-      // Add global settings
-      $settings = array(
-        'userFramework' => $config->userFramework,
-        'resourceBase' => $config->resourceBase,
-        'lcMessages' => $config->lcMessages,
-        'ajaxPopupsEnabled' => $this->ajaxPopupsEnabled,
-      );
-      $this->addSetting(array('config' => $settings));
-
-      // Give control of jQuery back to the CMS - this loads last
-      $this->addScriptFile('civicrm', 'js/noconflict.js', 9999, $region, FALSE);
-
+    if ($region !== 'html-header') {
+      // The signature of this method allowed different regions. However, this
+      // doesn't appear to be used - based on grepping `universe` generally
+      // and `civicrm-{core,backdrop,drupal,packages,wordpress,joomla}` specifically,
+      // it appears that all callers use 'html-header' (either implicitly or explicitly).
+      throw new \CRM_Core_Exception("Error: addCoreResources only supports html-header");
+    }
+    if (!self::isAjaxMode()) {
+      $this->addBundle('coreResources');
       $this->addCoreStyles($region);
+      if (!CRM_Core_Config::isUpgradeMode()) {
+        // This ensures that if a popup link requires AngularJS, it will always be available.
+        // Additional Ang modules required by popups will be loaded on-the-fly by Civi\Angular\AngularLoader
+        Civi::service('angularjs.loader')->addModules(['crmResource']);
+      }
     }
     return $this;
   }
@@ -489,154 +393,254 @@ class CRM_Core_Resources {
   /**
    * This will add CiviCRM's standard CSS
    *
-   * TODO: Separate the functional code (like addStyle/addScript) from the policy code
-   * (like addCoreResources/addCoreStyles).
-   *
    * @param string $region
    * @return CRM_Core_Resources
    */
   public function addCoreStyles($region = 'html-header') {
-    if (!isset($this->addedCoreStyles[$region])) {
-      $this->addedCoreStyles[$region] = TRUE;
-
-      // Load custom or core css
-      $config = CRM_Core_Config::singleton();
-      if (!empty($config->customCSSURL)) {
-        $this->addStyleUrl($config->customCSSURL, 99, $region);
-      }
-      if (!CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'disable_core_css')) {
-        $this->addStyleFile('civicrm', 'css/civicrm.css', -99, $region);
-      }
+    if ($region !== 'html-header') {
+      // The signature of this method allowed different regions. However, this
+      // doesn't appear to be used - based on grepping `universe` generally
+      // and `civicrm-{core,backdrop,drupal,packages,wordpress,joomla}` specifically,
+      // it appears that all callers use 'html-header' (either implicitly or explicitly).
+      throw new \CRM_Core_Exception("Error: addCoreResources only supports html-header");
     }
+    $this->addBundle('coreStyles');
     return $this;
   }
 
   /**
-   * Flushes cached translated strings
+   * Flushes cached translated strings.
+   * @return CRM_Core_Resources
    */
   public function flushStrings() {
-    $this->cache->flush();
+    $this->strings->flush();
+    return $this;
   }
 
   /**
-   * Translate strings in a javascript file
-   *
-   * @param $ext string, extension name
-   * @param $file string, file path
-   * @return void
+   * @return CRM_Core_Resources_Strings
    */
-  private function translateScript($ext, $file) {
-    // For each extension, maintain one cache record which
-    // includes parsed (translatable) strings for all its JS files.
-    $stringsByFile = $this->cache->get($ext); // array($file => array(...strings...))
-    if (!$stringsByFile) {
-      $stringsByFile = array();
-    }
-    if (!isset($stringsByFile[$file])) {
-      $filePath = $this->getPath($ext, $file);
-      if ($filePath && is_readable($filePath)) {
-        $stringsByFile[$file] = CRM_Utils_JS::parseStrings(file_get_contents($filePath));
-      } else {
-        $stringsByFile[$file] = array();
-      }
-      $this->cache->set($ext, $stringsByFile);
-    }
-    $this->addString($stringsByFile[$file]);
+  public function getStrings() {
+    return $this->strings;
   }
 
   /**
-   * Add inline scripts needed to localize js widgets
-   * @param string $js
+   * Get the params used to render crm-l10n.js
+   * Gets called above the caching layer and then used
+   * in the render function below
    */
-  function addLocalization(&$js) {
-    $config = CRM_Core_Config::singleton();
-
-    // Localize select2 strings
-    $contactSearch = json_encode($config->includeEmailInName ? ts('Start typing a name or email...') : ts('Start typing a name...'));
-    $otherSearch = json_encode(ts('Enter search term...'));
-    $js .= "
-      $.fn.select2.defaults.formatNoMatches = " . json_encode(ts("None found.")) . ";
-      $.fn.select2.defaults.formatLoadMore = " . json_encode(ts("Loading...")) . ";
-      $.fn.select2.defaults.formatSearching = " . json_encode(ts("Searching...")) . ";
-      $.fn.select2.defaults.formatInputTooShort = function(){return CRM.$(this).data('api-entity') == 'contact' ? $contactSearch : $otherSearch};
-    ";
-
-    // Contact create profiles with localized names
-    if (CRM_Core_Permission::check('edit all contacts') || CRM_Core_Permission::check('add contacts')) {
-      $this->addSetting(array('profile' => array('contactCreate' => CRM_Core_BAO_UFGroup::getCreateLinks())));
-    }
+  public static function getL10nJsParams(): array {
+    $settings = Civi::settings();
+    return [
+      'cid' => CRM_Core_Session::getLoggedInContactID() ?: 0,
+      'includeEmailInName' => (bool) $settings->get('includeEmailInName'),
+      'ajaxPopupsEnabled' => (bool) $settings->get('ajaxPopupsEnabled'),
+      'allowAlertAutodismissal' => (bool) $settings->get('allow_alert_autodismissal'),
+      'resourceCacheCode' => Civi::resources()->getCacheCode(),
+      'locale' => CRM_Core_I18n::getLocale(),
+      'lcMessages' => $settings->get('lcMessages'),
+      'dateInputFormat' => $settings->get('dateInputFormat'),
+      'timeInputFormat' => $settings->get('timeInputFormat'),
+      'moneyFormat' => CRM_Utils_Money::format(1234.56),
+    ];
   }
 
   /**
-   * List of core resources we add to every CiviCRM page
+   * Create dynamic script for localizing js widgets.
+   * Params come from the function above
+   * @see getL10nJsParams
+   */
+  public static function renderL10nJs(GenericHookEvent $e) {
+    if ($e->asset !== 'crm-l10n.js') {
+      return;
+    }
+    $e->mimeType = 'application/javascript';
+    $params = $e->params;
+    $params += [
+      'contactSearch' => json_encode(!empty($params['includeEmailInName']) ? ts('Search by name/email or id...') : ts('Search by name or id...')),
+      'otherSearch' => json_encode(ts('Enter search term or id...')),
+      'entityRef' => self::getEntityRefMetadata(),
+      'quickAdd' => self::getQuickAddForms($e->params['cid']),
+    ];
+    $e->content = CRM_Core_Smarty::singleton()->fetchWith('CRM/common/l10n.js.tpl', $params);
+  }
+
+  /**
+   * Gets links to "Quick Add" forms, for use in Autocomplete widgets
    *
+   * @param int|null $cid
    * @return array
    */
-  public function coreResourceList() {
-    $config = CRM_Core_Config::singleton();
-    // Use minified files for production, uncompressed in debug mode
-    // Note, $this->addScriptFile would automatically search for the non-minified file in debug mode but this is probably faster
-    $min = $config->debug ? '' : '.min';
-
-    // Scripts needed by everyone, everywhere
-    // FIXME: This is too long; list needs finer-grained segmentation
-    $items = array(
-      "packages/jquery/jquery-1.11.0$min.js",
-      "packages/jquery/jquery-ui/js/jquery-ui-1.10.4.custom$min.js",
-      "packages/jquery/jquery-ui/css/theme/jquery-ui-1.10.4.custom$min.css",
-
-      "packages/backbone/lodash.compat$min.js",
-
-      "packages/jquery/plugins/jquery.mousewheel$min.js",
-
-      "packages/jquery/plugins/select2/select2$min.js",
-      "packages/jquery/plugins/select2/select2.css",
-
-      "packages/jquery/plugins/jquery.tableHeader.js",
-
-      "packages/jquery/plugins/jquery.textarearesizer.js",
-
-      "packages/jquery/plugins/jquery.form$min.js",
-
-      "packages/jquery/plugins/jquery.timeentry$min.js",
-
-      "packages/jquery/plugins/DataTables/media/js/jquery.dataTables$min.js",
-
-      "packages/jquery/plugins/jquery.validate$min.js",
-      "packages/jquery/plugins/jquery.ui.datepicker.validation.pack.js",
-
-      "js/Common.js",
-      "js/crm.ajax.js",
-    );
-
-    // These scripts are only needed by back-office users
-    if (CRM_Core_Permission::check('access CiviCRM')) {
-      $items[] = "packages/jquery/plugins/jquery.menu$min.js";
-      $items[] = "packages/jquery/css/menu.css";
-      $items[] = "packages/jquery/plugins/jquery.jeditable$min.js";
-      $items[] = "packages/jquery/plugins/jquery.blockUI$min.js";
-      $items[] = "packages/jquery/plugins/jquery.notify$min.js";
-      $items[] = "js/jquery/jquery.crmeditable.js";
-    }
-
-    // Enable administrators to edit option lists in a dialog
-    if (CRM_Core_Permission::check('administer CiviCRM') && $this->ajaxPopupsEnabled) {
-      $items[] = "js/crm.optionEdit.js";
-    }
-
-    // Add localized jQuery UI files
-    if ($config->lcMessages && $config->lcMessages != 'en_US') {
-      // Search for i18n file in order of specificity (try fr-CA, then fr)
-      list($lang) = explode('_', $config->lcMessages);
-      $path = "packages/jquery/jquery-ui/development-bundle/ui/" . ($min ? 'minified/' : '') . "i18n";
-      foreach (array(str_replace('_', '-', $config->lcMessages), $lang) as $language) {
-        $localizationFile = "$path/jquery.ui.datepicker-{$language}{$min}.js";
-        if ($this->getPath('civicrm', $localizationFile)) {
-          $items[] = $localizationFile;
-          break;
+  private static function getQuickAddForms(?int $cid): array {
+    $forms = [];
+    try {
+      $contactTypes = CRM_Contact_BAO_ContactType::getAllContactTypes();
+      $routes = \Civi\Api4\Route::get(FALSE)
+        ->addSelect('path', 'title', 'access_arguments')
+        ->addWhere('path', 'LIKE', 'civicrm/quick-add/%')
+        ->execute();
+      foreach ($routes as $route) {
+        // Ensure user has permission to use the form
+        if (!empty($route['access_arguments'][0]) && !CRM_Core_Permission::check($route['access_arguments'][0], $cid)) {
+          continue;
+        }
+        // Ensure API entity exists
+        [, , $entityType] = array_pad(explode('/', $route['path']), 3, '*');
+        if (\Civi\Api4\Utils\CoreUtil::entityExists($entityType)) {
+          $forms[] = [
+            'entity' => $entityType,
+            'path' => $route['path'],
+            'title' => $route['title'],
+            'icon' => \Civi\Api4\Utils\CoreUtil::getInfoItem($entityType, 'icon'),
+          ];
         }
       }
     }
-    return $items;
+    catch (CRM_Core_Exception $e) {
+    }
+    return $forms;
   }
+
+  /**
+   * @return bool
+   *   is this page request an ajax snippet?
+   */
+  public static function isAjaxMode() {
+    if (in_array(CRM_Utils_Array::value('snippet', $_REQUEST), [
+      CRM_Core_Smarty::PRINT_SNIPPET,
+      CRM_Core_Smarty::PRINT_NOFORM,
+      CRM_Core_Smarty::PRINT_JSON,
+    ])
+    ) {
+      return TRUE;
+    }
+    [$arg0, $arg1] = array_pad(explode('/', (CRM_Utils_System::currentPath() ?? '')), 2, '');
+    return ($arg0 === 'civicrm' && in_array($arg1, ['ajax', 'angularprofiles', 'asset']));
+  }
+
+  /**
+   * @param \Civi\Core\Event\GenericHookEvent $e
+   * @see \CRM_Utils_Hook::buildAsset()
+   */
+  public static function renderMenubarStylesheet(GenericHookEvent $e) {
+    if ($e->asset !== 'crm-menubar.css') {
+      return;
+    }
+    $e->mimeType = 'text/css';
+    $content = '';
+    $config = CRM_Core_Config::singleton();
+    $cms = strtolower($config->userFramework);
+    $cms = $cms === 'drupal' ? 'drupal7' : $cms;
+    $items = [
+      'bower_components/smartmenus/dist/css/sm-core-css.css',
+      'css/crm-menubar.css',
+      "css/menubar-$cms.css",
+    ];
+    foreach ($items as $item) {
+      $content .= file_get_contents(self::singleton()->getPath('civicrm', $item));
+    }
+    $params = $e->params;
+    // "color" is deprecated in favor of the more specific "menubarColor"
+    $menubarColor = $params['color'] ?? $params['menubarColor'];
+    $vars = [
+      '$resourceBase' => rtrim($config->resourceBase, '/'),
+      '$menubarHeight' => $params['height'] . 'px',
+      '$breakMin' => $params['breakpoint'] . 'px',
+      '$breakMax' => ($params['breakpoint'] - 1) . 'px',
+      '$menubarColor' => $menubarColor,
+      '$menuItemColor' => $params['menuItemColor'] ?? $menubarColor,
+      '$highlightColor' => $params['highlightColor'] ?? CRM_Utils_Color::getHighlight($menubarColor),
+      '$textColor' => $params['textColor'] ?? CRM_Utils_Color::getContrast($menubarColor, '#333', '#ddd'),
+    ];
+    $vars['$highlightTextColor'] = $params['highlightTextColor'] ?? CRM_Utils_Color::getContrast($vars['$highlightColor'], '#333', '#ddd');
+    $e->content = str_replace(array_keys($vars), array_values($vars), $content);
+  }
+
+  /**
+   * Provide a list of available entityRef filters.
+   *
+   * @return array
+   */
+  protected static function getEntityRefMetadata() {
+    $data = [
+      'filters' => [],
+      'links' => [],
+    ];
+
+    foreach (CRM_Core_DAO_AllCoreTables::daoToClass() as $entity => $daoName) {
+      // Skip DAOs of disabled components
+      if (!$daoName::isComponentEnabled()) {
+        continue;
+      }
+      $baoName = str_replace('_DAO_', '_BAO_', $daoName);
+      if (class_exists($baoName)) {
+        $filters = $baoName::getEntityRefFilters();
+        if ($filters) {
+          $data['filters'][$entity] = $filters;
+        }
+        if (is_callable([$baoName, 'getEntityRefCreateLinks'])) {
+          $createLinks = $baoName::getEntityRefCreateLinks();
+          if ($createLinks) {
+            $data['links'][$entity] = $createLinks;
+          }
+        }
+      }
+    }
+
+    CRM_Utils_Hook::entityRefFilters($data['filters'], $data['links']);
+
+    return $data;
+  }
+
+  /**
+   * Determine the minified file name.
+   *
+   * @param string $ext
+   * @param string $file
+   * @return string
+   *   An updated $fileName. If a minified version exists and is supported by
+   *   system policy, the minified version will be returned. Otherwise, the original.
+   */
+  public function filterMinify($ext, $file) {
+    if (CRM_Core_Config::singleton()->debug && strpos($file, '.min.') !== FALSE) {
+      $nonMiniFile = str_replace('.min.', '.', $file);
+      if ($this->getPath($ext, $nonMiniFile)) {
+        $file = $nonMiniFile;
+      }
+    }
+    return $file;
+  }
+
+  /**
+   * @param string $url
+   * @return string
+   */
+  public function addCacheCode($url) {
+    $hasQuery = strpos($url, '?') !== FALSE;
+    $operator = $hasQuery ? '&' : '?';
+
+    return $url . $operator . 'r=' . $this->getCacheCode();
+  }
+
+  /**
+   * Checks if the given URL is fully-formed
+   *
+   * @param string $url
+   *
+   * @return bool
+   */
+  public static function isFullyFormedUrl($url) {
+    return (substr($url, 0, 4) === 'http') || (substr($url, 0, 1) === '/');
+  }
+
+  /**
+   * @param string|null $region
+   *   Optional request for a specific region. If NULL/omitted, use global default.
+   * @return \CRM_Core_Region
+   */
+  private function getSettingRegion($region = NULL) {
+    $region = $region ?: (self::isAjaxMode() ? 'ajax-snippet' : 'html-header');
+    return CRM_Core_Region::instance($region);
+  }
+
 }

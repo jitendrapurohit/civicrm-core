@@ -1,103 +1,69 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class provides the functionality to sms a group of
- * contacts.
+ * This class provides the functionality to sms a group of contacts.
  */
 class CRM_Contact_Form_Task_SMS extends CRM_Contact_Form_Task {
+  use CRM_Contact_Form_Task_SMSTrait;
 
   /**
    * Are we operating in "single mode", i.e. sending sms to one
    * specific contact?
    *
-   * @var boolean
+   * @var bool
    */
   public $_single = FALSE;
 
   /**
-   * all the existing templates in the system
+   * All the existing templates in the system.
    *
    * @var array
    */
   public $_templates = NULL;
 
-  function preProcess() {
+  /**
+   * @var float|int|mixed|string|null
+   */
+  public $_context;
 
-    $this->_context = CRM_Utils_Request::retrieve('context', 'String', $this);
+  public function preProcess(): void {
+
+    $this->_context = CRM_Utils_Request::retrieve('context', 'Alphanumeric', $this);
 
     $cid = CRM_Utils_Request::retrieve('cid', 'Positive', $this, FALSE);
-    if ($cid) {
-      CRM_Contact_Page_View::setTitle($cid);
-    }
 
-    CRM_Contact_Form_Task_SMSCommon::preProcessProvider($this);
-
-    if (!$cid && $this->_context != 'standalone') {
+    $this->_single = $this->_context !== 'search';
+    $this->bounceOnNoActiveProviders();
+    if (!$cid && $this->_context !== 'standalone') {
       parent::preProcess();
     }
 
     $this->assign('single', $this->_single);
-    if (CRM_Core_Permission::check('administer CiviCRM')) {
-      $this->assign('isAdmin', 1);
-    }
+    $this->assign('isAdmin', CRM_Core_Permission::check('administer CiviCRM'));
   }
 
   /**
-   * Build the form
-   *
-   * @access public
-   *
-   * @return void
+   * Build the form object.
    */
   public function buildQuickForm() {
     //enable form element
     $this->assign('suppressForm', FALSE);
-    $this->assign('SMSTask', TRUE);
-    CRM_Contact_Form_Task_SMSCommon::buildQuickForm($this);
+    $this->buildSmsForm();
   }
 
-  /**
-   * process the form after the input has been submitted and validated
-   *
-   * @access public
-   *
-   * @return void
-   */
-  public function postProcess() {
-    CRM_Contact_Form_Task_SMSCommon::postProcess($this);
-  }
 }
-

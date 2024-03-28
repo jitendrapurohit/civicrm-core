@@ -1,88 +1,93 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * Helper class to build navigation links
+ * @deprecated since 5.71 will be removed around 5.77
  */
 class CRM_Campaign_Form_Survey_TabHeader {
 
-  static function build(&$form) {
+  /**
+   * Build tab header.
+   *
+   * @deprecated since 5.71 will be removed around 5.77
+   *
+   * @param CRM_Core_Form $form
+   *
+   * @return array
+   */
+  public static function build(&$form) {
+    CRM_Core_Error::deprecatedFunctionWarning('no alternative');
     $tabs = $form->get('tabHeader');
     if (!$tabs || empty($_GET['reset'])) {
       $tabs = self::process($form);
       $form->set('tabHeader', $tabs);
     }
-    $form->assign_by_ref('tabHeader', $tabs);
+    $form->assign('tabHeader', $tabs);
     CRM_Core_Resources::singleton()
-      ->addScriptFile('civicrm', 'templates/CRM/common/TabHeader.js')
-      ->addSetting(array('tabSettings' => array(
-        'active' => self::getCurrentTab($tabs),
-      )));
+      ->addScriptFile('civicrm', 'templates/CRM/common/TabHeader.js', 1, 'html-header')
+      ->addSetting([
+        'tabSettings' => [
+          'active' => self::getCurrentTab($tabs),
+        ],
+      ]);
     return $tabs;
   }
 
-  static function process(&$form) {
+  /**
+   * @param CRM_Core_Form $form
+   *
+   * @return array
+   *
+   * @deprecated since 5.71 will be removed around 5.77
+   */
+  public static function process(&$form) {
+    CRM_Core_Error::deprecatedFunctionWarning('no alternative');
     if ($form->getVar('_surveyId') <= 0) {
       return NULL;
     }
 
-    $tabs = array(
-      'main' => array('title' => ts('Main Information'),
+    $tabs = [
+      'main' => [
+        'title' => ts('Main Information'),
         'link' => NULL,
         'valid' => FALSE,
         'active' => FALSE,
         'current' => FALSE,
-      ),
-      'questions' => array('title' => ts('Questions'),
+      ],
+      'questions' => [
+        'title' => ts('Questions'),
         'link' => NULL,
         'valid' => FALSE,
         'active' => FALSE,
         'current' => FALSE,
-      ),
-      'results' => array('title' => ts('Results'),
+      ],
+      'results' => [
+        'title' => ts('Results'),
         'link' => NULL,
         'valid' => FALSE,
         'active' => FALSE,
         'current' => FALSE,
-      ),
-    );
+      ],
+    ];
 
-    $surveyID  = $form->getVar('_surveyId');
-    $class     = $form->getVar('_name');
-    $class     = CRM_Utils_String::getClassName($class);
-    $class     = strtolower($class);
+    $surveyID = $form->getVar('_surveyId');
+    $class = $form->getVar('_name');
+    $class = CRM_Utils_String::getClassName($class);
+    $class = strtolower($class);
 
     if (array_key_exists($class, $tabs)) {
       $tabs[$class]['current'] = TRUE;
@@ -109,12 +114,26 @@ class CRM_Campaign_Form_Survey_TabHeader {
     return $tabs;
   }
 
-  static function reset(&$form) {
+  /**
+   * @param CRM_Core_Form $form
+   *
+   * @deprecated since 5.71 will be removed around 5.77
+   */
+  public static function reset(&$form) {
+    CRM_Core_Error::deprecatedFunctionWarning('no alternative');
     $tabs = self::process($form);
     $form->set('tabHeader', $tabs);
   }
 
-  static function getCurrentTab($tabs) {
+  /**
+   * @param array $tabs
+   *
+   * @return int|string
+   *
+   * @deprecated since 5.71 will be removed around 5.77
+   */
+  public static function getCurrentTab($tabs) {
+    CRM_Core_Error::deprecatedFunctionWarning('no alternative');
     static $current = FALSE;
 
     if ($current) {
@@ -130,18 +149,27 @@ class CRM_Campaign_Form_Survey_TabHeader {
       }
     }
 
-    $current = $current ? $current : 'main';
+    $current = $current ?: 'main';
     return $current;
   }
 
-  static function getNextTab(&$form) {
+  /**
+   * @param CRM_Core_Form $form
+   *
+   * @return int|string
+   *
+   * @deprecated since 5.71 will be removed around 5.77
+   */
+  public static function getNextTab(&$form) {
+    CRM_Core_Error::deprecatedFunctionWarning('no alternative');
     static $next = FALSE;
-    if ($next)
+    if ($next) {
       return $next;
+    }
 
     $tabs = $form->get('tabHeader');
     if (is_array($tabs)) {
-      $current = false;
+      $current = FALSE;
       foreach ($tabs as $subPage => $pageVal) {
         if ($current) {
           $next = $subPage;
@@ -153,7 +181,8 @@ class CRM_Campaign_Form_Survey_TabHeader {
       }
     }
 
-    $next = $next ? $next : 'main';
+    $next = $next ?: 'main';
     return $next;
   }
+
 }

@@ -1,58 +1,46 @@
 <?php
-
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
- * APIv3 functions for registering/processing mailing events.
+ * APIv3 functions for registering/processing mailing jobs.
  *
  * @package CiviCRM_APIv3
- * @subpackage API_Mailing
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
+ */
+
+/**
+ * Handle creation of a MailingJob for a Mailing.
  *
- */
-
-/**
- * Files required for this package
- */
-
-/**
- * Handle creation of a Mailing Job for a Mailing.
+ * @param array $params
+ *
+ * @return array
+ * @throws \CRM_Core_Exception
  */
 function civicrm_api3_mailing_job_create($params) {
-  return _civicrm_api3_basic_create(_civicrm_api3_get_BAO(__FUNCTION__), $params);
+  $result = _civicrm_api3_basic_create(_civicrm_api3_get_BAO(__FUNCTION__), $params, 'MailingJob');
+  if (!empty($params['mailing_id']) && empty('is_calling_function_updated_to_reflect_deprecation')) {
+    // This horrible behaviour used to be in the BAO but it now by-passes the BAO create
+    CRM_Core_Error::deprecatedWarning('mail recipients should not be generated during MailingJob::create');
+    CRM_Mailing_BAO_Mailing::getRecipients($params['mailing_id']);
+  }
+  return $result;
 }
 
 /**
- * Adjust Metadata for Create action
+ * Adjust Metadata for Create action.
  *
- * The metadata is used for setting defaults, documentation & validation
- * @param array $params array or parameters determined by getfields
+ * The metadata is used for setting defaults, documentation & validation.
+ *
+ * @param array $params
+ *   Array of parameters determined by getfields.
  */
 function _civicrm_api3_mailing_job_create_spec(&$params) {
   $params['status']['api.default'] = 'Scheduled';
@@ -61,23 +49,25 @@ function _civicrm_api3_mailing_job_create_spec(&$params) {
 }
 
 /**
- * Returns array of Mailing Jobs  matching a set of one or more group properties
+ * Returns array of Mailing Jobs matching a set of one or more group properties.
  *
- * @param array $params Array of one or more valid
- * @param array $ids
+ * @param array $params
  *
- * @return array API return Array of matching mailing jobs
- * {@getfields mailing_job_get}
- * @access public
+ * @return array
+ *   API return Array of matching mailing jobs.
  */
-function civicrm_api3_mailing_job_get($params, $ids = array()) {
-  return _civicrm_api3_basic_get(_civicrm_api3_get_BAO(__FUNCTION__), $params);
+function civicrm_api3_mailing_job_get($params) {
+  return _civicrm_api3_basic_get(_civicrm_api3_get_BAO(__FUNCTION__), $params, 'MailingJob');
 }
 
 /**
  * Handle deletion of a Mailing Job for a Mailing.
+ *
+ * @param array $params
+ *
+ * @return array
+ * @throws \CRM_Core_Exception
  */
 function civicrm_api3_mailing_job_delete($params) {
-  return _civicrm_api3_basic_delete(_civicrm_api3_get_BAO(__FUNCTION__), $params);
+  return _civicrm_api3_basic_delete(_civicrm_api3_get_BAO(__FUNCTION__), $params, 'MailingJob');
 }
-

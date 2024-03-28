@@ -1,146 +1,155 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class generates form components for OpenCase Activity
- *
+ * This class generates form components for LinkCase Activity.
  */
 class CRM_Case_Form_Activity_LinkCases {
-  static function preProcess(&$form) {
-    if (!isset($form->_caseId)) {
-      CRM_Core_Error::fatal(ts('Case Id not found.'));
+
+  /**
+   * @param CRM_Core_Form $form
+   *
+   * @throws Exception
+   */
+  public static function preProcess(&$form) {
+    if (empty($form->_caseId)) {
+      CRM_Core_Error::statusBounce(ts('Case Id not found.'));
+    }
+    if (count($form->_caseId) != 1) {
+      CRM_Core_Error::statusBounce(ts('Expected one case-type'));
     }
 
+    $caseId = CRM_Utils_Array::first($form->_caseId);
+
     $form->assign('clientID', $form->_currentlyViewedContactId);
-    $form->assign('caseTypeLabel', CRM_Case_BAO_Case::getCaseType($form->_caseId));
+    $form->assign('sortName', CRM_Core_DAO::getFieldValue('CRM_Contact_DAO_Contact', $form->_currentlyViewedContactId, 'sort_name'));
+    $form->assign('caseTypeLabel', CRM_Case_BAO_Case::getCaseType($caseId));
 
     // get the related cases for given case.
     $relatedCases = $form->get('relatedCases');
     if (!isset($relatedCases)) {
-      $relatedCases = CRM_Case_BAO_Case::getRelatedCases($form->_caseId, $form->_currentlyViewedContactId);
+      $relatedCases = CRM_Case_BAO_Case::getRelatedCases($caseId);
       $form->set('relatedCases', empty($relatedCases) ? FALSE : $relatedCases);
     }
-    $excludeCaseIds = array($form->_caseId);
+  }
+
+  /**
+   * Set default values for the form.
+   *
+   * @param CRM_Core_Form $form
+   *
+   * @return array
+   */
+  public static function setDefaultValues(&$form) {
+    $defaults = [];
+    if (!empty($_GET['link_to_case_id']) && CRM_Utils_Rule::positiveInteger($_GET['link_to_case_id'])) {
+      $defaults['link_to_case_id'] = $_GET['link_to_case_id'];
+    }
+    return $defaults;
+  }
+
+  /**
+   * @param CRM_Core_Form $form
+   */
+  public static function buildQuickForm(&$form) {
+    $excludeCaseIds = (array) $form->_caseId;
+    $relatedCases = $form->get('relatedCases');
     if (is_array($relatedCases) && !empty($relatedCases)) {
       $excludeCaseIds = array_merge($excludeCaseIds, array_keys($relatedCases));
     }
-    $form->assign('excludeCaseIds', implode(',', $excludeCaseIds));
+    $form->addEntityRef('link_to_case_id', ts('Link To Case'), [
+      'entity' => 'Case',
+      'api' => [
+        'extra' => ['case_id.case_type_id.title', 'contact_id.sort_name'],
+        'params' => [
+          'case_id' => ['NOT IN' => $excludeCaseIds],
+          'case_id.is_deleted' => 0,
+        ],
+      ],
+    ], TRUE);
   }
 
   /**
-   * This function sets the default values for the form. For edit/view mode
-   * the default values are retrieved from the database
+   * Global validation rules for the form.
    *
-   * @access public
-   *
-   * @param $form
-   *
-   * @return void
-   */
-  static function setDefaultValues(&$form) {
-    return $defaults = array();
-  }
-
-  static function buildQuickForm(&$form) {
-    $form->add('text', 'link_to_case_id', ts('Link To Case'), array('class' => 'huge'), TRUE);
-  }
-
-  /**
-   * global validation rules for the form
-   *
-   * @param array $values posted values of the form
+   * @param array $values
+   *   Posted values of the form.
    *
    * @param $files
-   * @param $form
+   * @param CRM_Core_Form $form
    *
-   * @return array list of errors to be posted back to the form
-   * @static
-   * @access public
+   * @return array
+   *   list of errors to be posted back to the form
    */
-  static function formRule($values, $files, $form) {
-    $errors = array();
+  public static function formRule($values, $files, $form) {
+    $errors = [];
 
-    $linkCaseId = CRM_Utils_Array::value('link_to_case_id', $values);
-    if ($linkCaseId == $form->_caseId) {
-      $errors['link_to_case'] = ts('Please select some other case to link.');
+    $linkCaseId = $values['link_to_case_id'] ?? NULL;
+
+    if (!CRM_Utils_Rule::positiveInteger($linkCaseId) || $linkCaseId == 0) {
+      // We can't just return $errors because when the page reloads the
+      // entityref widget throws an error before the page can display the error.
+      // It seems ok with other invalid values, just not 0, but both are equally invalid.
+      CRM_Core_Error::statusBounce(ts('The linked case ID is invalid.'));
+    }
+
+    if ($linkCaseId == CRM_Utils_Array::first($form->_caseId)) {
+      $errors['link_to_case_id'] = ts('Please select some other case to link.');
     }
 
     // do check for existing related cases.
     $relatedCases = $form->get('relatedCases');
     if (is_array($relatedCases) && array_key_exists($linkCaseId, $relatedCases)) {
-      $errors['link_to_case'] = ts('Selected case is already linked.');
+      $errors['link_to_case_id'] = ts('Selected case is already linked.');
     }
 
     return empty($errors) ? TRUE : $errors;
   }
 
   /**
-   * Function to process the form
+   * Process the form submission.
    *
-   * @access public
    *
-   * @param $form
-   * @param $params
-   *
-   * @return void
+   * @param CRM_Core_Form $form
+   * @param array $params
    */
-  static function beginPostProcess(&$form, &$params) {}
+  public static function beginPostProcess(&$form, &$params) {
+  }
 
   /**
-   * Function to process the form
+   * Process the form submission.
    *
-   * @access public
    *
-   * @param $form
-   * @param $params
-   * @param $activity
-   *
-   * @return void
+   * @param CRM_Core_Form $form
+   * @param array $params
+   * @param CRM_Activity_BAO_Activity $activity
    */
-  static function endPostProcess(&$form, &$params, &$activity) {
+  public static function endPostProcess($form, $params, $activity) {
     $activityId = $activity->id;
-    $linkCaseID = CRM_Utils_Array::value('link_to_case_id', $params);
+    $linkCaseID = $params['link_to_case_id'] ?? NULL;
 
     //create a link between two cases.
     if ($activityId && $linkCaseID) {
-      $caseParams = array(
+      $caseParams = [
         'case_id' => $linkCaseID,
         'activity_id' => $activityId,
-      );
+      ];
       CRM_Case_BAO_Case::processCaseActivity($caseParams);
     }
   }
-}
 
+}

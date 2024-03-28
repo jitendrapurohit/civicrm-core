@@ -1,179 +1,128 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
-class CRM_Core_BAO_LocationType extends CRM_Core_DAO_LocationType {
+class CRM_Core_BAO_LocationType extends CRM_Core_DAO_LocationType implements \Civi\Core\HookInterface {
 
   /**
-   * static holder for the default LT
+   * @var CRM_Core_DAO_LocationType|null
    */
-  static $_defaultLocationType = NULL;
-  static $_billingLocationType = NULL;
+  public static $_defaultLocationType = NULL;
 
   /**
-   * class constructor
+   * @var int|null
    */
-  function __construct() {
-    parent::__construct();
+  public static $_billingLocationType = NULL;
+
+  /**
+   * @deprecated
+   * @param array $params
+   * @param array $defaults
+   * @return self|null
+   */
+  public static function retrieve($params, &$defaults) {
+    return self::commonRetrieve(self::class, $params, $defaults);
   }
 
   /**
-   * Takes a bunch of params that are needed to match certain criteria and
-   * retrieves the relevant objects. Typically the valid params are only
-   * contact_id. We'll tweak this function to be more full featured over a period
-   * of time. This is the inverse function of create. It also stores all the retrieved
-   * values in the default array
-   *
-   * @param array $params   (reference ) an assoc array of name/value pairs
-   * @param array $defaults (reference ) an assoc array to hold the flattened values
-   *
-   * @return object CRM_Core_BAO_LocaationType object on success, null otherwise
-   * @access public
-   * @static
+   * @deprecated - this bypasses hooks.
+   * @param int $id
+   * @param bool $is_active
+   * @return bool
    */
-  static function retrieve(&$params, &$defaults) {
-    $locationType = new CRM_Core_DAO_LocationType();
-    $locationType->copyValues($params);
-    if ($locationType->find(TRUE)) {
-      CRM_Core_DAO::storeValues($locationType, $defaults);
-      return $locationType;
-    }
-    return NULL;
-  }
-
-  /**
-   * update the is_active flag in the db
-   *
-   * @param int      $id        id of the database record
-   * @param boolean  $is_active value we want to set the is_active field
-   *
-   * @return Object             DAO object on sucess, null otherwise
-   *
-   * @access public
-   * @static
-   */
-  static function setIsActive($id, $is_active) {
+  public static function setIsActive($id, $is_active) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
     return CRM_Core_DAO::setFieldValue('CRM_Core_DAO_LocationType', $id, 'is_active', $is_active);
   }
 
   /**
-   * retrieve the default location_type
+   * Retrieve the default location_type.
    *
-   * @param NULL
-   *
-   * @return object           The default location type object on success,
+   * @return CRM_Core_DAO_LocationType|null
+   *   The default location type object on success,
    *                          null otherwise
-   * @static
-   * @access public
    */
-  static function &getDefault() {
+  public static function &getDefault() {
     if (self::$_defaultLocationType == NULL) {
-      $params = array('is_default' => 1);
-      $defaults = array();
+      $params = ['is_default' => 1];
+      $defaults = [];
       self::$_defaultLocationType = self::retrieve($params, $defaults);
     }
     return self::$_defaultLocationType;
   }
 
-  /*
-   * Get ID of billing location type
-   * @return integer
+  /**
+   * Get ID of billing location type.
+   *
+   * @return int
    */
-  static function getBilling() {
+  public static function getBilling() {
     if (self::$_billingLocationType == NULL) {
-      $locationTypes = CRM_Core_PseudoConstant::get('CRM_Core_DAO_Address', 'location_type_id', array(), 'validate');
+      $locationTypes = CRM_Core_PseudoConstant::get('CRM_Core_DAO_Address', 'location_type_id', [], 'validate');
       self::$_billingLocationType = array_search('Billing', $locationTypes);
     }
     return self::$_billingLocationType;
   }
 
   /**
-   * Function to add a Location Type
+   * Add a Location Type.
    *
-   * @param array $params reference array contains the values submitted by the form
+   * @param array $params
    *
-   * @internal param array $ids reference array contains the id
-   *
-   * @access public
-   * @static
-   *
-   * @return object
+   * @deprecated
+   * @return CRM_Core_DAO_LocationType
    */
-  static function create(&$params) {
-    $params['is_active'] = CRM_Utils_Array::value('is_active', $params, FALSE);
-    $params['is_default'] = CRM_Utils_Array::value('is_default', $params, FALSE);
-    $params['is_reserved'] = CRM_Utils_Array::value('is_reserved', $params, FALSE);
-
-    // action is taken depending upon the mode
-    $locationType = new CRM_Core_DAO_LocationType();
-    $locationType->copyValues($params);
-
-    if ($params['is_default']) {
-      $query = "UPDATE civicrm_location_type SET is_default = 0";
-      CRM_Core_DAO::executeQuery($query, CRM_Core_DAO::$_nullArray);
-    }
-
-    $locationType->save();
-    return $locationType;
+  public static function create(&$params) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
+    return self::writeRecord($params);
   }
 
   /**
-   * Function to delete location Types
+   * Delete location Types.
    *
-   * @param  int  $locationTypeId     ID of the location type to be deleted.
-   *
-   * @access public
-   * @static
+   * @param int $locationTypeId
+   * @deprecated
    */
-  static function del($locationTypeId) {
-    $entity = array('address', 'phone', 'email', 'im');
-    //check dependencies
-    foreach ($entity as $key) {
-      if ($key == 'im') {
-        $name = strtoupper($key);
-      }
-      else {
-        $name = ucfirst($key);
-      }
-      $baoString = 'CRM_Core_BAO_' . $name;
-      $object = new $baoString();
-      $object->location_type_id = $locationTypeId;
-      $object->delete();
-    }
-
-    $locationType = new CRM_Core_DAO_LocationType();
-    $locationType->id = $locationTypeId;
-    $locationType->delete();
+  public static function del($locationTypeId) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    static::deleteRecord(['id' => $locationTypeId]);
   }
-}
 
+  /**
+   * Callback for hook_civicrm_pre().
+   * @param \Civi\Core\Event\PreEvent $event
+   * @throws CRM_Core_Exception
+   */
+  public static function self_hook_civicrm_pre(\Civi\Core\Event\PreEvent $event) {
+    // When deleting a location type, delete related records
+    if ($event->action === 'delete') {
+      foreach (['Address', 'IM', 'Email', 'Phone'] as $entity) {
+        civicrm_api4($entity, 'delete', [
+          'checkPermissions' => FALSE,
+          'where' => [['location_type_id', '=', $event->id]],
+        ]);
+      }
+    }
+    elseif (in_array($event->action, ['create', 'edit'])) {
+      if (!empty($event->params['is_default'])) {
+        $query = "UPDATE civicrm_location_type SET is_default = 0";
+        CRM_Core_DAO::executeQuery($query);
+      }
+    }
+    // Todo: This was moved from CRM_Admin_Form_LocationType::postProcess but is probably unnecessarily broad.
+    CRM_Utils_System::flushCache();
+  }
+
+}

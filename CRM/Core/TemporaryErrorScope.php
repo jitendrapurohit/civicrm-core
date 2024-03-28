@@ -14,28 +14,28 @@
  *
  * To ensure that they throw exceptions, use:
  *
- * @code
+ * ```
  * $errorScope = CRM_Core_TemporaryErrorScope::useException();
- * @endcode
+ * ```
  *
  * Note that relying on this is a code-smell: it can be
  * safe to temporarily switch to exception
  */
 class CRM_Core_TemporaryErrorScope {
-  static $oldFrames;
+  public static $oldFrames;
 
   /**
    * @return CRM_Core_TemporaryErrorScope
    */
   public static function useException() {
-    return self::create(array('CRM_Core_Error', 'exceptionHandler'), 1);
+    return self::create(['CRM_Core_Error', 'exceptionHandler'], 1);
   }
 
   /**
    * @return CRM_Core_TemporaryErrorScope
    */
   public static function ignoreException() {
-    return self::create(array('CRM_Core_Error', 'nullHandler'));
+    return self::create(['CRM_Core_Error', 'nullHandler']);
   }
 
   /**
@@ -45,14 +45,17 @@ class CRM_Core_TemporaryErrorScope {
    * @return CRM_Core_TemporaryErrorScope
    */
   public static function create($callback, $modeException = NULL) {
-    $newFrame = array(
+    $newFrame = [
       '_PEAR_default_error_mode' => PEAR_ERROR_CALLBACK,
       '_PEAR_default_error_options' => $callback,
       'modeException' => $modeException,
-    );
+    ];
     return new CRM_Core_TemporaryErrorScope($newFrame);
   }
 
+  /**
+   * @param $newFrame
+   */
   public function __construct($newFrame) {
     self::$oldFrames[] = self::getActive();
     self::setActive($newFrame);
@@ -67,19 +70,22 @@ class CRM_Core_TemporaryErrorScope {
    * Read the active error-handler settings
    */
   public static function getActive() {
-    return array(
+    return [
       '_PEAR_default_error_mode' => $GLOBALS['_PEAR_default_error_mode'],
-      '_PEAR_default_error_options' =>$GLOBALS['_PEAR_default_error_options'],
+      '_PEAR_default_error_options' => $GLOBALS['_PEAR_default_error_options'],
       'modeException' => CRM_Core_Error::$modeException,
-    );
+    ];
   }
 
   /**
    * Set the active error-handler settings
+   *
+   * @param string $frame
    */
   public static function setActive($frame) {
     $GLOBALS['_PEAR_default_error_mode'] = $frame['_PEAR_default_error_mode'];
     $GLOBALS['_PEAR_default_error_options'] = $frame['_PEAR_default_error_options'];
     CRM_Core_Error::$modeException = $frame['modeException'];
   }
+
 }

@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -43,9 +25,10 @@ class CRM_Utils_Zip {
    *
    * @param ZipArchive $zip
    *
-   * @return mixed; FALSE if #root level items !=1; otherwise, the name of base dir
+   * @return mixed
+   *   FALSE if #root level items !=1; otherwise, the name of base dir
    */
-  static public function findBaseDirName(ZipArchive $zip) {
+  public static function findBaseDirName(ZipArchive $zip) {
     $cnt = $zip->numFiles;
 
     $base = FALSE;
@@ -57,10 +40,12 @@ class CRM_Utils_Zip {
         if (preg_match('/^[^\/]+\/$/', $filename) && $filename != './' && $filename != '../') {
           $base = $filename;
           $baselen = strlen($filename);
-        } else {
+        }
+        else {
           return FALSE;
         }
-      }  elseif (0 != substr_compare($base, $filename, 0, $baselen)) {
+      }
+      elseif (0 != substr_compare($base, $filename, 0, $baselen)) {
         return FALSE;
       }
     }
@@ -73,11 +58,12 @@ class CRM_Utils_Zip {
    *
    * @param ZipArchive $zip
    *
-   * @return array(string), no trailing /
+   * @return array(string)
+   *   no trailing /
    */
-  static public function findBaseDirs(ZipArchive $zip) {
+  public static function findBaseDirs(ZipArchive $zip) {
     $cnt = $zip->numFiles;
-    $basedirs = array();
+    $basedirs = [];
 
     for ($i = 0; $i < $cnt; $i++) {
       $filename = $zip->getNameIndex($i);
@@ -91,41 +77,46 @@ class CRM_Utils_Zip {
   }
 
   /**
-   * Determine the name of the folder within a zip
+   * Determine the name of the folder within a zip.
    *
    * @param ZipArchive $zip
-   * @param $expected
+   * @param string $expected
    *
-   * @return string or FALSE
+   * @return string|bool
+   *   Return string or FALSE
    */
-  static public function guessBasedir(ZipArchive $zip, $expected) {
+  public static function guessBasedir(ZipArchive $zip, $expected) {
     $candidate = FALSE;
     $basedirs = CRM_Utils_Zip::findBaseDirs($zip);
     if (in_array($expected, $basedirs)) {
       $candidate = $expected;
-    } elseif (count($basedirs) == 1) {
+    }
+    elseif (count($basedirs) == 1) {
       $candidate = array_shift($basedirs);
     }
     if ($candidate !== FALSE && preg_match('/^[a-zA-Z0-9]/', $candidate)) {
       return $candidate;
-    } else {
+    }
+    else {
       return FALSE;
     }
   }
-
 
   /**
    * An inefficient helper for creating a ZIP file from data in memory.
    * This is only intended for building temp files for unit-testing.
    *
-   * @param $zipName string, file name
-   * @param $dirs array, list of directory paths
-   * @param $files array, keys are file names and values are file contents
+   * @param string $zipName
+   *   file name.
+   * @param array $dirs
+   *   Array, list of directory paths.
+   * @param array $files
+   *   Array, keys are file names and values are file contents.
    * @return bool
    */
-  static public function createTestZip($zipName, $dirs, $files) {
+  public static function createTestZip($zipName, $dirs, $files) {
     $zip = new ZipArchive();
-    $res = $zip->open($zipName, ZipArchive::CREATE);
+    $res = $zip->open($zipName, ZipArchive::OVERWRITE);
     if ($res === TRUE) {
       foreach ($dirs as $dir) {
         if (!$zip->addEmptyDir($dir)) {
@@ -138,9 +129,11 @@ class CRM_Utils_Zip {
         }
       }
       $zip->close();
-    } else {
-       return FALSE;
+    }
+    else {
+      return FALSE;
     }
     return TRUE;
   }
+
 }

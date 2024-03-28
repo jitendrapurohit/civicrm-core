@@ -1,67 +1,43 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Core_BAO_Discount extends CRM_Core_DAO_Discount {
 
   /**
-   * class constructor
+   * Delete the discount.
+   *
+   * @param int $entityId
+   * @param string $entityTable
+   *
+   * @return bool
+   *
+   * @deprecated
    */
-  function __construct() {
-    parent::__construct();
-  }
-
-  /**
-   * Function to delete the discount
-   *
-   * @param $entityId
-   * @param $entityTable
-   *
-   * @internal param int $id discount id
-   *
-   * @return boolean
-   * @access public
-   * @static
-   */
-  static function del($entityId,$entityTable) {
+  public static function del($entityId, $entityTable) {
     // delete all discount records with the selected discounted id
-    $discount = new CRM_Core_DAO_Discount( );
-    $discount->entity_id    = $entityId;
+    $discount = new CRM_Core_DAO_Discount();
+    $discount->entity_id = $entityId;
     $discount->entity_table = $entityTable;
-    if ($discount->delete()) {
-      return TRUE;
+    $discount->find();
+    $ret = FALSE;
+    while ($discount->fetch()) {
+      static::deleteRecord(['id' => $discount->id]);
+      $ret = TRUE;
     }
-    return FALSE;
+    return $ret;
   }
 
   /**
@@ -70,14 +46,14 @@ class CRM_Core_BAO_Discount extends CRM_Core_DAO_Discount {
    * discount object. the params array contains additional unused name/value
    * pairs
    *
-   * @param array  $params         (reference) an assoc array of name/value pairs
+   * @param array $params
+   *   (reference) an assoc array of name/value pairs.
    *
-   * @return object    CRM_Core_DAO_Discount object on success, otherwise null
-   * @access public
-   * @static
+   * @return object
+   *   CRM_Core_DAO_Discount object on success, otherwise null
    */
-  static function add(&$params) {
-    $discount = new CRM_Core_DAO_Discount( );
+  public static function add(&$params) {
+    $discount = new CRM_Core_DAO_Discount();
     $discount->copyValues($params);
     $discount->save();
     return $discount;
@@ -87,45 +63,69 @@ class CRM_Core_BAO_Discount extends CRM_Core_DAO_Discount {
    * Determine whether the given table/id
    * has discount associated with it
    *
-   * @param  integer  $entityId      entity id to be searched
-   * @param  string   $entityTable   entity table to be searched
+   * @param int $entityId
+   *   Entity id to be searched.
+   * @param string $entityTable
+   *   Entity table to be searched.
    *
-   * @return array    $optionGroupIDs option group Ids associated with discount
-   *
+   * @return array
+   *   option group Ids associated with discount
    */
-  static function getOptionGroup($entityId, $entityTable) {
-    $optionGroupIDs    = array();
-    $dao = new CRM_Core_DAO_Discount( );
-    $dao->entity_id    = $entityId;
+  public static function getOptionGroup($entityId, $entityTable) {
+    $optionGroupIDs = [];
+    $dao = new CRM_Core_DAO_Discount();
+    $dao->entity_id = $entityId;
     $dao->entity_table = $entityTable;
     $dao->find();
     while ($dao->fetch()) {
-      $optionGroupIDs[$dao->id] = $dao->price_set_id;
+      $optionGroupIDs[$dao->id] = (int) $dao->price_set_id;
     }
     return $optionGroupIDs;
   }
 
+  public static function buildOptions($fieldName, $context = NULL, $values = []) {
+    // Special logic for fields whose options depend on context or properties
+    if ($fieldName === 'price_set_id' && !empty($values['entity_table']) && !empty($values['entity_id'])) {
+      $priceSetIds = self::getOptionGroup($values['entity_id'], $values['entity_table']);
+      $params = ['condition' => ['id IN (' . implode(',', $priceSetIds) . ')']];
+      return CRM_Core_PseudoConstant::get(__CLASS__, $fieldName, $params, $context);
+    }
+    return parent::buildOptions($fieldName, $context, $values);
+  }
+
   /**
-   * Determine in which discount set the registration date falls
+   * Whitelist of possible values for the entity_table field
    *
-   * @param $entityID
-   * @param  string $entityTable entity table to be searched
-   *
-   * @internal param int $entityId entity id to be searched
-   * @return integer  $dao->id       discount id of the set which matches
-   *                                 the date criteria
+   * @return array
    */
-  static function findSet($entityID, $entityTable) {
-    if (empty($entityID) ||
-      empty($entityTable)
-    ) {
+  public static function entityTables(): array {
+    return [
+      'civicrm_event' => ts('Event'),
+    ];
+  }
+
+  /**
+   * Determine in which discount set the registration date falls.
+   *
+   * @param int $entityID
+   *   Entity id to be searched.
+   * @param string $entityTable
+   *   Entity table to be searched.
+   *
+   * @return int
+   *   $dao->id       discount id of the set which matches
+   *                                 the date criteria
+   * @throws CRM_Core_Exception
+   */
+  public static function findSet($entityID, $entityTable) {
+    if (empty($entityID) || empty($entityTable)) {
       // adding this here, to trap errors if values are not sent
-      CRM_Core_Error::fatal();
+      throw new CRM_Core_Exception('Invalid parameters passed to findSet function');
       return NULL;
     }
 
-    $dao = new CRM_Core_DAO_Discount( );
-    $dao->entity_id    = $entityID;
+    $dao = new CRM_Core_DAO_Discount();
+    $dao->entity_id = $entityID;
     $dao->entity_table = $entityTable;
     $dao->find();
 
@@ -144,4 +144,3 @@ class CRM_Core_BAO_Discount extends CRM_Core_DAO_Discount {
   }
 
 }
-

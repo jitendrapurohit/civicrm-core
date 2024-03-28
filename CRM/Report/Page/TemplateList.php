@@ -1,44 +1,31 @@
 <?php
-
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * Page for displaying list of Reprot templates available
+ * Page for displaying list of Report templates available.
  */
 class CRM_Report_Page_TemplateList extends CRM_Core_Page {
 
+  /**
+   * @param int $compID
+   * @param string|null $grouping
+   *
+   * @return array
+   */
   public static function &info($compID = NULL, $grouping = NULL) {
     $all = CRM_Utils_Request::retrieve('all', 'Boolean', CRM_Core_DAO::$_nullObject,
       FALSE, NULL, 'GET'
@@ -48,7 +35,8 @@ class CRM_Report_Page_TemplateList extends CRM_Core_Page {
     if ($compID) {
       if ($compID == 99) {
         $compClause = " AND v.component_id IS NULL ";
-      } else {
+      }
+      else {
         $compClause = " AND v.component_id = {$compID} ";
       }
     }
@@ -78,34 +66,30 @@ LEFT  JOIN civicrm_component comp
     }
     $sql .= " ORDER BY  v.weight ";
 
-    $dao    = CRM_Core_DAO::executeQuery($sql);
-    $rows   = array();
-    $config = CRM_Core_Config::singleton();
+    $dao = CRM_Core_DAO::executeQuery($sql);
+    $rows = [];
     while ($dao->fetch()) {
       if ($dao->component_name != 'Contact' && $dao->component_name != $dao->grouping &&
-        !in_array("Civi{$dao->component_name}", $config->enableComponents)
+        !CRM_Core_Component::isEnabled("Civi{$dao->component_name}")
       ) {
         continue;
       }
-      $rows[$dao->component_name][$dao->value]['title'] = $dao->label;
-      $rows[$dao->component_name][$dao->value]['description'] = $dao->description;
+      $rows[$dao->component_name][$dao->value]['title'] = _ts($dao->label);
+      $rows[$dao->component_name][$dao->value]['description'] = _ts($dao->description);
       $rows[$dao->component_name][$dao->value]['url'] = CRM_Utils_System::url('civicrm/report/' . trim($dao->value, '/'), 'reset=1');
-      if ($dao->instance_id) {
-        $rows[$dao->component_name][$dao->value]['instanceUrl'] = CRM_Utils_System::url('civicrm/report/list',
-          "reset=1&ovid={$dao->id}"
-        );
-      }
+      $rows[$dao->component_name][$dao->value]['instanceUrl'] = $dao->instance_id ? CRM_Utils_System::url(
+        'civicrm/report/list',
+        "reset=1&ovid=$dao->id"
+      ) : '';
     }
 
     return $rows;
   }
 
   /**
-   * run this page (figure out the action needed and perform it).
-   *
-   * @return void
+   * Run this page (figure out the action needed and perform it).
    */
-  function run() {
+  public function run() {
     $compID = CRM_Utils_Request::retrieve('compid', 'Positive', $this);
     $grouping = CRM_Utils_Request::retrieve('grp', 'String', $this);
     $rows = self::info($compID, $grouping);
@@ -113,5 +97,5 @@ LEFT  JOIN civicrm_component comp
 
     return parent::run();
   }
-}
 
+}

@@ -20,17 +20,12 @@
  */
 
 /**
- *  Include class definitions
- */
-require_once 'CiviTest/CiviUnitTestCase.php';
-
-/**
  *  Test APIv3 civicrm_action_schedule functions
  *
  * @package CiviCRM_APIv3
  * @subpackage API_ActionSchedule
+ * @group headless
  */
-
 class api_v3_DashboardContactTest extends CiviUnitTestCase {
   protected $_params;
   protected $_params2;
@@ -38,55 +33,45 @@ class api_v3_DashboardContactTest extends CiviUnitTestCase {
   protected $_apiversion = 3;
 
   /**
-   *  Test setup for every test
+   * Test setup for every test.
    *
-   *  Connect to the database, truncate the tables that will be used
-   *  and redirect stdin to a temporary file
+   * Connect to the database, truncate the tables that will be used
+   * and redirect stdin to a temporary file
    */
-  public function setUp() {
+  public function setUp(): void {
     //  Connect to the database
     parent::setUp();
+    $this->useTransaction(TRUE);
   }
 
   /**
-   * Tears down the fixture, for example, closes a network connection.
-   * This method is called after a test is executed.
-   *
-   * @access protected
+   * @param int $version
+   * @dataProvider versionThreeAndFour
    */
-  function tearDown() {
-    $tablesToTruncate = array(
-      'civicrm_dashboard',
-      'civicrm_dashboard_contact',
-    );
-    $this->quickCleanup($tablesToTruncate, TRUE);
-  }
-
-  function testDashboardContactCreate() {
-    $dashParams = array(
-      'version' => 3,
+  public function testDashboardContactCreate($version) {
+    $this->_apiversion = $version;
+    $dashParams = [
       'label' => 'New Dashlet element',
       'name' => 'New Dashlet element',
-      'url' => 'civicrm/report/list&compid=99&reset=1&snippet=5',
-      'fullscreen_url' => 'civicrm/report/list&compid=99&reset=1&snippet=5&context=dashletFullscreen',
-    );
+      'url' => 'civicrm/report/list&compid=99&reset=1',
+      'fullscreen_url' => 'civicrm/report/list&compid=99&reset=1&context=dashletFullscreen',
+    ];
     $dashresult = $this->callAPISuccess('dashboard', 'create', $dashParams);
-    $contact = $this->callAPISuccess('contact', 'create', array(
-        'first_name' => 'abc1',
-        'contact_type' => 'Individual',
-        'last_name' => 'xyz1',
-        'email' => 'abc@abc.com'
-      )
-    );
+    $contact = $this->callAPISuccess('contact', 'create', [
+      'first_name' => 'abc1',
+      'contact_type' => 'Individual',
+      'last_name' => 'xyz1',
+      'email' => 'abc@abc.com',
+    ]);
     $oldCount = CRM_Core_DAO::singleValueQuery("select count(*) from civicrm_dashboard_contact where contact_id = {$contact['id']} AND is_active = 1 AND dashboard_id = {$dashresult['id']}");
-    $params = array(
-      'version' => 3,
+    $params = [
       'contact_id' => $contact['id'],
       'dashboard_id' => $dashresult['id'],
       'is_active' => 1,
-    );
-    $dashboradContact = $this->callAPISuccess('dashboard_contact', 'create', $params);
+    ];
+    $this->callAPISuccess('dashboard_contact', 'create', $params);
     $newCount = CRM_Core_DAO::singleValueQuery("select count(*) from civicrm_dashboard_contact where contact_id = {$contact['id']} AND is_active = 1 AND dashboard_id = {$dashresult['id']}");
     $this->assertEquals($oldCount + 1, $newCount);
   }
+
 }

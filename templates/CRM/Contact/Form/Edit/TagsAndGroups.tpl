@@ -1,71 +1,53 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {if $title}
-<div class="crm-accordion-wrapper crm-tagGroup-accordion collapsed">
-  <div class="crm-accordion-header">{$title}</div>
+<details class="crm-accordion-bold crm-tagGroup-accordion">
+  <summary>{$title}</summary>
   <div class="crm-accordion-body" id="tagGroup">
 {/if}
     <table class="form-layout-compressed{if $context EQ 'profile'} crm-profile-tagsandgroups{/if}">
       <tr>
-       {if $groupElementType eq 'select'}
-          <td><span class="label">{if $title}{$form.group.label}{/if}</span>
-            {$form.group.html}
-          </td>
-      {/if}
-      {foreach key=key item=item from=$tagGroup}
-        {* $type assigned from dynamic.tpl *}
-        {if !$type || $type eq $key }
-          <td width={cycle name=tdWidth values="70%","30%"}><span class="label">{if $title}{$form.$key.label}{/if}</span>
-            <div id="crm-tagListWrap">
-              <table id="crm-tagGroupTable">
-                {foreach key=k item=it from=$form.$key}
-                  {if $k|is_numeric}
-                    <tr class={cycle values="'odd-row','even-row'" name=$key} id="crm-tagRow{$k}">
-                      <td>
-                        <strong>{$it.html}</strong><br />
-                        {if $item.$k.description}
-                          <div class="description">
-                            {$item.$k.description}
-                          </div>
-                        {/if}
-                      </td>
-                    </tr>
-                  {/if}
-                {/foreach}
-              </table>
+        <td>
+          {if $form.tag}
+            <div class="crm-section tag-section">
+              {if !empty($title)}{$form.tag.label}<br>{/if}
+              {$form.tag.html}
             </div>
+          {/if}
+          {if $context NEQ 'profile'}
+            {include file="CRM/common/Tagset.tpl"}
+          {/if}
+        </td>
+
+        {if $form.group}
+          <td>
+            {if $groupElementType eq 'select'}
+              <div class="crm-section group-section">
+              {if $title}{$form.group.label}<br>{/if}
+              {$form.group.html}
+            </div>
+            {else}
+              {foreach key=key item=item from=$tagGroup.group}
+                <div class="group-wrapper">
+                  {$form.group.$key.html}
+                    {if $item.description}
+                    <div class="description">{$item.description}</div>
+                  {/if}
+                </div>
+              {/foreach}
+            {/if}
           </td>
         {/if}
-      {/foreach}
-    </tr>
-    {if !$type || $type eq 'tag'}
-      <tr><td>{include file="CRM/common/Tagset.tpl"}</td></tr>
-    {/if}
-  </table>
+      </tr>
+    </table>
 {if $title}
   </div>
-</div><!-- /.crm-accordion-wrapper -->
+</details>
 {/if}

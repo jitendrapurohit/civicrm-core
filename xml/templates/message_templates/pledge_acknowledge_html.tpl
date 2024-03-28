@@ -7,11 +7,10 @@
 <body>
 
 {capture assign=headerStyle}colspan="2" style="text-align: left; padding: 4px; border-bottom: 1px solid #999; background-color: #eee;"{/capture}
-{capture assign=labelStyle }style="padding: 4px; border-bottom: 1px solid #999; background-color: #f7f7f7;"{/capture}
-{capture assign=valueStyle }style="padding: 4px; border-bottom: 1px solid #999;"{/capture}
+{capture assign=labelStyle}style="padding: 4px; border-bottom: 1px solid #999; background-color: #f7f7f7;"{/capture}
+{capture assign=valueStyle}style="padding: 4px; border-bottom: 1px solid #999;"{/capture}
 
-<center>
- <table width="620" border="0" cellpadding="0" cellspacing="0" id="crm-event_receipt" style="font-family: Arial, Verdana, sans-serif; text-align: left;">
+  <table id="crm-event_receipt" style="font-family: Arial, Verdana, sans-serif; text-align: left; width:100%; max-width:700px; padding:0; margin:0; border:0px;">
 
   <!-- BEGIN HEADER -->
   <!-- You can add table row(s) here with logo or other header elements -->
@@ -21,8 +20,8 @@
 
   <tr>
    <td>
-    <p>{ts 1=$contact.display_name}dear %1{/ts},</p>
-    <p>{ts}thank you for your generous pledge. please print this acknowledgment for your records.{/ts}</p>
+    {assign var="greeting" value="{contact.email_greeting_display}"}{if $greeting}<p>{$greeting},</p>{/if}
+    <p>{ts}Thank you for your generous pledge.{/ts}</p>
    </td>
   </tr>
   <tr>
@@ -65,7 +64,7 @@
      </tr>
 
      {if $payments}
-      {assign var="count" value="1"}
+      {assign var="count" value=1}
       {foreach from=$payments item=payment}
        <tr>
         <td {$labelStyle}>
@@ -75,13 +74,13 @@
          {$payment.amount|crmMoney:$currency} {if $payment.status eq 1}{ts}paid{/ts} {$payment.receive_date|truncate:10:''|crmDate}{else}{ts}due{/ts} {$payment.due_date|truncate:10:''|crmDate}{/if}
         </td>
        </tr>
-       {assign var="count" value=`$count+1`}
+       {assign var="count" value=$count+1}
       {/foreach}
      {/if}
 
      <tr>
       <td colspan="2" {$valueStyle}>
-       <p>{ts 1=$domain.phone 2=$domain.email}Please contact us at %1 or send email to %2 if you have questions
+       <p>{ts 1='{domain.phone}' 2='{domain.email}'}Please contact us at %1 or send email to %2 if you have questions
 or need to modify your payment schedule.{/ts}</p>
       </td>
      </tr>
@@ -111,7 +110,6 @@ or need to modify your payment schedule.{/ts}</p>
   </tr>
 
  </table>
-</center>
 
 </body>
 </html>

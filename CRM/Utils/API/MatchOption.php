@@ -1,29 +1,13 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  * Implement the "match" and "match-mandatory" options. If the submitted record doesn't have an ID
@@ -37,7 +21,7 @@
  *   - "match-mandatory" will generate an error
  *   - "match" will allow action to proceed -- thus inserting a new record
  *
- * @code
+ * ```
  * $result = civicrm_api('contact', 'create', array(
  *   'options' => array(
  *     'match' => array('last_name', 'first_name')
@@ -46,14 +30,17 @@
  *   'last_name' => 'Lebowski',
  *   'nick_name' => 'The Dude',
  * ));
- * @endcode
+ * ```
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 require_once 'api/Wrapper.php';
+
+/**
+ * Class CRM_Utils_API_MatchOption
+ */
 class CRM_Utils_API_MatchOption implements API_Wrapper {
 
   /**
@@ -62,6 +49,8 @@ class CRM_Utils_API_MatchOption implements API_Wrapper {
   private static $_singleton = NULL;
 
   /**
+   * Singleton function.
+   *
    * @return CRM_Utils_API_MatchOption
    */
   public static function singleton() {
@@ -72,12 +61,13 @@ class CRM_Utils_API_MatchOption implements API_Wrapper {
   }
 
   /**
-   * {@inheritDoc}
+   * @inheritDoc
    */
   public function fromApiInput($apiRequest) {
+
     // Parse options.match or options.match-mandatory
-    $keys = NULL; // array of fields to match against
-    if (isset($apiRequest['params'], $apiRequest['params']['options'])) {
+    $keys = NULL;
+    if (isset($apiRequest['params'], $apiRequest['params']['options']) && is_array($apiRequest['params']['options'])) {
       if (isset($apiRequest['params']['options']['match-mandatory'])) {
         $isMandatory = TRUE;
         $keys = $apiRequest['params']['options']['match-mandatory'];
@@ -87,19 +77,20 @@ class CRM_Utils_API_MatchOption implements API_Wrapper {
         $keys = $apiRequest['params']['options']['match'];
       }
       if (is_string($keys)) {
-        $keys = array($keys);
+        $keys = [$keys];
       }
     }
 
     // If one of the options was specified, then try to match records.
     // Matching logic differs for 'create' and 'replace' actions.
     if ($keys !== NULL) {
-      switch($apiRequest['action']) {
+      switch ($apiRequest['action']) {
         case 'create':
           if (empty($apiRequest['params']['id'])) {
             $apiRequest['params'] = $this->match($apiRequest['entity'], $apiRequest['params'], $keys, $isMandatory);
           }
           break;
+
         case 'replace':
           // In addition to matching on the listed keys, also match on the set-definition keys.
           // For example, if the $apiRequest is to "replace the set of civicrm_emails for contact_id=123 while
@@ -112,14 +103,15 @@ class CRM_Utils_API_MatchOption implements API_Wrapper {
           ));
 
           // attempt to match each replacement item
-          foreach($apiRequest['params']['values'] as $offset => $createParams) {
+          foreach ($apiRequest['params']['values'] as $offset => $createParams) {
             $createParams = array_merge($baseParams, $createParams);
             $createParams = $this->match($apiRequest['entity'], $createParams, $keys, $isMandatory);
             $apiRequest['params']['values'][$offset] = $createParams;
           }
           break;
+
         default:
-          // be forgiveful of sloppily api calls
+          // be forgiving of sloppy api calls
       }
     }
 
@@ -133,17 +125,20 @@ class CRM_Utils_API_MatchOption implements API_Wrapper {
    * @param array $createParams
    * @param array $keys
    * @param bool $isMandatory
-   * @return array revised $createParams, including 'id' if known
-   * @throws API_Exception
+   *
+   * @return array
+   *   revised $createParams, including 'id' if known
+   * @throws CRM_Core_Exception
    */
   public function match($entity, $createParams, $keys, $isMandatory) {
     $getParams = $this->createGetParams($createParams, $keys);
     $getResult = civicrm_api3($entity, 'get', $getParams);
     if ($getResult['count'] == 0) {
       if ($isMandatory) {
-        throw new API_Exception("Failed to match existing record");
+        throw new CRM_Core_Exception("Failed to match existing record");
       }
-      return $createParams; // OK, don't care
+      // OK, don't care
+      return $createParams;
     }
     elseif ($getResult['count'] == 1) {
       $item = array_shift($getResult['values']);
@@ -151,12 +146,12 @@ class CRM_Utils_API_MatchOption implements API_Wrapper {
       return $createParams;
     }
     else {
-      throw new API_Exception("Ambiguous match criteria");
+      throw new CRM_Core_Exception("Ambiguous match criteria");
     }
   }
 
   /**
-   * {@inheritDoc}
+   * @inheritDoc
    */
   public function toApiOutput($apiRequest, $result) {
     return $result;
@@ -165,17 +160,20 @@ class CRM_Utils_API_MatchOption implements API_Wrapper {
   /**
    * Create APIv3 "get" parameters to lookup an existing record using $keys
    *
-   * @param $origParams
-   * @param array $keys list of keys to match against
+   * @param array $origParams
+   *   Api request.
+   * @param array $keys
+   *   List of keys to match against.
    *
-   * @internal param array $apiRequest
-   * @return array APIv3 $params
+   * @return array
+   *   APIv3 $params
    */
-  function createGetParams($origParams, $keys) {
-    $params = array('version' => 3);
+  public function createGetParams($origParams, $keys) {
+    $params = ['version' => 3];
     foreach ($keys as $key) {
       $params[$key] = CRM_Utils_Array::value($key, $origParams, '');
     }
     return $params;
   }
+
 }

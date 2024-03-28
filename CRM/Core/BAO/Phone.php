@@ -1,99 +1,70 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * Class contains functions for phone
+ * Class contains functions for phone.
  */
-class CRM_Core_BAO_Phone extends CRM_Core_DAO_Phone {
+class CRM_Core_BAO_Phone extends CRM_Core_DAO_Phone implements Civi\Core\HookInterface {
+  use CRM_Contact_AccessTrait;
 
-  /*
-   * Create phone object - note that the create function calls 'add' but
-   * has more business logic
+  /**
+   * @deprecated
    *
-   * @param array $params input parameters
+   * @param array $params
+   * @return CRM_Core_DAO_Phone
+   * @throws CRM_Core_Exception
    */
-  static function create($params) {
-    // Ensure mysql phone function exists
-    CRM_Core_DAO::checkSqlFunctionsExist();
-
-    if (is_numeric(CRM_Utils_Array::value('is_primary', $params)) ||
-      // if id is set & is_primary isn't we can assume no change
-      empty($params['id'])
-    ) {
-      CRM_Core_BAO_Block::handlePrimary($params, get_class());
-    }
-    $phone = self::add($params);
-
-    return $phone;
+  public static function create($params) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
+    return self::writeRecord($params);
   }
 
   /**
-   * takes an associative array and adds phone
-   *
-   * @param array  $params         (reference ) an assoc array of name/value pairs
-   *
-   * @return object       CRM_Core_BAO_Phone object on success, null otherwise
-   * @access public
-   * @static
+   * Event fired before modifying a Phone.
+   * @param \Civi\Core\Event\PreEvent $event
    */
-  static function add(&$params) {
-    // Ensure mysql phone function exists
-    CRM_Core_DAO::checkSqlFunctionsExist();
+  public static function self_hook_civicrm_pre(\Civi\Core\Event\PreEvent $event) {
+    if (in_array($event->action, ['create', 'edit'])) {
+      CRM_Core_BAO_Block::handlePrimary($event->params, __CLASS__);
+    }
+  }
 
-    $hook = empty($params['id']) ? 'create' : 'edit';
-    CRM_Utils_Hook::pre($hook, 'Phone', CRM_Utils_Array::value('id', $params), $params);
-
-    $phone = new CRM_Core_DAO_Phone();
-    $phone->copyValues($params);
-    $phone->save();
-
-    CRM_Utils_Hook::post($hook, 'Phone', $phone->id, $phone);
-    return $phone;
+  /**
+   * @deprecated
+   *
+   * @param array $params
+   * @return CRM_Core_DAO_Phone
+   * @throws \CRM_Core_Exception
+   */
+  public static function add($params) {
+    return self::create($params);
   }
 
   /**
    * Given the list of params in the params array, fetch the object
    * and store the values in the values array
    *
-   * @param array entityBlock input parameters to find object
+   * @param array $entityBlock
    *
-   * @return array    array of phone objects
-   * @access public
-   * @static
+   * @return array
+   *   array of phone objects
+   * @throws \CRM_Core_Exception
    */
-  static function &getValues($entityBlock) {
+  public static function &getValues($entityBlock) {
     $getValues = CRM_Core_BAO_Block::getValues('phone', $entityBlock);
     return $getValues;
   }
@@ -101,25 +72,23 @@ class CRM_Core_BAO_Phone extends CRM_Core_DAO_Phone {
   /**
    * Get all the phone numbers for a specified contact_id, with the primary being first
    *
-   * @param int $id the contact id
-   *
+   * @param int $id
+   *   The contact id.
    * @param bool $updateBlankLocInfo
-   * @param null $type
+   * @param string|null $type
    * @param array $filters
    *
-   * @return array  the array of phone ids which are potential numbers
-   * @access public
-   * @static
+   * @return array
+   *   the array of phone ids which are potential numbers
    */
-  static function allPhones($id, $updateBlankLocInfo = FALSE, $type = NULL, $filters = array(
-    )) {
+  public static function allPhones($id, $updateBlankLocInfo = FALSE, $type = NULL, $filters = []) {
     if (!$id) {
       return NULL;
     }
 
     $cond = NULL;
     if ($type) {
-      $phoneTypeId = array_search($type, CRM_Core_PseudoConstant::get('CRM_Core_DAO_Phone', 'phone_type_id'));
+      $phoneTypeId = CRM_Core_PseudoConstant::getKey('CRM_Core_DAO_Phone', 'phone_type_id', $type);
       if ($phoneTypeId) {
         $cond = " AND civicrm_phone.phone_type_id = $phoneTypeId";
       }
@@ -141,26 +110,25 @@ LEFT JOIN civicrm_location_type ON ( civicrm_phone.location_type_id = civicrm_lo
 WHERE     civicrm_contact.id = %1 $cond
 ORDER BY civicrm_phone.is_primary DESC,  phone_id ASC ";
 
-
-    $params = array(
-      1 => array(
+    $params = [
+      1 => [
         $id,
         'Integer',
-      ),
-    );
+      ],
+    ];
 
-    $numbers = $values = array();
-    $dao     = CRM_Core_DAO::executeQuery($query, $params);
-    $count   = 1;
+    $numbers = $values = [];
+    $dao = CRM_Core_DAO::executeQuery($query, $params);
+    $count = 1;
     while ($dao->fetch()) {
-      $values = array(
+      $values = [
         'locationType' => $dao->locationType,
         'is_primary' => $dao->is_primary,
         'id' => $dao->phone_id,
         'phone' => $dao->phone,
         'locationTypeId' => $dao->locationTypeId,
         'phoneTypeId' => $dao->phoneTypeId,
-      );
+      ];
 
       if ($updateBlankLocInfo) {
         $numbers[$count++] = $values;
@@ -173,18 +141,18 @@ ORDER BY civicrm_phone.is_primary DESC,  phone_id ASC ";
   }
 
   /**
-   * Get all the phone numbers for a specified location_block id, with the primary phone being first
+   * Get all the phone numbers for a specified location_block id, with the primary phone being first.
    *
-   * @param array $entityElements the array containing entity_id and
-   * entity_table name
+   * This is called from CRM_Core_BAO_Block as a calculated function.
    *
-   * @param null $type
+   * @param array $entityElements
+   *   The array containing entity_id and entity_table name
+   * @param string|null $type
    *
-   * @return array  the array of phone ids which are potential numbers
-   * @access public
-   * @static
+   * @return array
+   *   the array of phone ids which are potential numbers
    */
-  static function allEntityPhones($entityElements, $type = NULL) {
+  public static function allEntityPhones($entityElements, $type = NULL) {
     if (empty($entityElements)) {
       return NULL;
     }
@@ -209,22 +177,22 @@ AND   ph.id IN (loc.phone_id, loc.phone_2_id)
 AND   ltype.id = ph.location_type_id
 ORDER BY ph.is_primary DESC, phone_id ASC ";
 
-    $params = array(
-      1 => array(
+    $params = [
+      1 => [
         $entityId,
         'Integer',
-      ),
-    );
-    $numbers = array();
+      ],
+    ];
+    $numbers = [];
     $dao = CRM_Core_DAO::executeQuery($sql, $params);
     while ($dao->fetch()) {
-      $numbers[$dao->phone_id] = array(
+      $numbers[$dao->phone_id] = [
         'locationType' => $dao->locationType,
         'is_primary' => $dao->is_primary,
         'id' => $dao->phone_id,
         'phone' => $dao->phone,
         'locationTypeId' => $dao->locationTypeId,
-      );
+      ];
     }
     return $numbers;
   }
@@ -232,29 +200,25 @@ ORDER BY ph.is_primary DESC, phone_id ASC ";
   /**
    * Set NULL to phone, mapping, uffield
    *
-   * @param $optionId value of option to be deleted
-   *
-   * return void
-   * @static
+   * @param int $optionId
+   *   Value of option to be deleted.
    */
-  static function setOptionToNull($optionId) {
+  public static function setOptionToNull($optionId) {
     if (!$optionId) {
       return;
     }
-    // Ensure mysql phone function exists
-    CRM_Core_DAO::checkSqlFunctionsExist();
 
-    $tables = array(
+    $tables = [
       'civicrm_phone',
       'civicrm_mapping_field',
       'civicrm_uf_field',
-    );
-    $params = array(
-      1 => array(
+    ];
+    $params = [
+      1 => [
         $optionId,
         'Integer',
-      ),
-    );
+      ],
+    ];
 
     foreach ($tables as $tableName) {
       $query = "UPDATE `{$tableName}` SET `phone_type_id` = NULL WHERE `phone_type_id` = %1";
@@ -263,12 +227,50 @@ ORDER BY ph.is_primary DESC, phone_id ASC ";
   }
 
   /**
-   * Call common delete function
+   * Call common delete function.
+   *
+   * @see \CRM_Contact_BAO_Contact::on_hook_civicrm_post
+   *
+   * @param int $id
+   * @deprecated
+   * @return bool
    */
-  static function del($id) {
-    // Ensure mysql phone function exists
-    CRM_Core_DAO::checkSqlFunctionsExist();
-    return CRM_Contact_BAO_Contact::deleteObjectWithPrimary('Phone', $id);
+  public static function del($id) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    return (bool) self::deleteRecord(['id' => $id]);
   }
-}
 
+  /**
+   * Customize search criteria for SMS autocompletes
+   *
+   * @param \Civi\Core\Event\GenericHookEvent $e
+   */
+  public static function on_civi_search_autocompleteDefault(\Civi\Core\Event\GenericHookEvent $e) {
+    $formName = $e->formName ?? '';
+    if (!str_contains($formName, '_Form_Task_SMS') || !is_array($e->savedSearch) || $e->savedSearch['api_entity'] !== 'Phone') {
+      return;
+    }
+    $e->savedSearch['api_params'] = [
+      'version' => 4,
+      'select' => [
+        'id',
+        'phone',
+        'phone_numeric',
+        'phone_type_id:label',
+        'location_type_id:label',
+        'contact_id.sort_name',
+      ],
+      'orderBy' => [],
+      'where' => [
+        ['phone_type_id:name', '=', 'Mobile'],
+        ['contact_id.is_deleted', '=', FALSE],
+        ['contact_id.is_deceased', '=', FALSE],
+        ['contact_id.do_not_sms', '=', FALSE],
+      ],
+      'groupBy' => [],
+      'join' => [],
+      'having' => [],
+    ];
+  }
+
+}

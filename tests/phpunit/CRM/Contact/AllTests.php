@@ -1,17 +1,14 @@
 <?php
-// vim: set si ai expandtab tabstop=4 shiftwidth=4 softtabstop=4:
-
 /**
- *  File for the CRM_Contacts_AllTests class
+ *  File for the CRM_Contact_AllTests class
  *
  *  (PHP 5)
  *
- *   @author Walt Haas <walt@dharmatech.org> (801) 534-1262
- *   @copyright Copyright CiviCRM LLC (C) 2009
- *   @license   http://www.fsf.org/licensing/licenses/agpl-3.0.html
+ * @author Walt Haas <walt@dharmatech.org> (801) 534-1262
+ * @copyright Copyright CiviCRM LLC (C) 2009
+ * @license   http://www.fsf.org/licensing/licenses/agpl-3.0.html
  *              GNU Affero General Public License version 3
- *   @version   $Id: AllTests.php 40328 2012-05-11 23:06:13Z allen $
- *   @package   CiviCRM
+ * @package   CiviCRM
  *
  *   This file is part of CiviCRM
  *
@@ -31,44 +28,28 @@
  */
 
 /**
- *  Include parent class definition
- */
-require_once 'CiviTest/CiviTestSuite.php';
-
-/**
  *  Class containing all test suites
  *
- *  @package   CiviCRM
+ * @package   CiviCRM
  */
-class CRM_Contacts_AllTests extends CiviTestSuite {
+class CRM_Contact_AllTests extends CiviTestSuite {
   private static $instance = NULL;
 
   /**
-   *
    */
   private static function getInstance() {
     if (is_null(self::$instance)) {
-      self::$instance = new self;
+      self::$instance = new self();
     }
     return self::$instance;
   }
 
   /**
-   *  Build test suite dynamically
+   *  Build test suite dynamically.
    */
   public static function suite() {
     $inst = self::getInstance();
     return $inst->implSuite(__FILE__);
   }
+
 }
-// class CRM_Contacts_AllTests
-
-// -- set Emacs parameters --
-// Local variables:
-// mode: php;
-// tab-width: 4
-// c-basic-offset: 4
-// c-hanging-comment-ender-p: nil
-// indent-tabs-mode: nil
-// End:
-

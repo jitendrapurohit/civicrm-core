@@ -1,47 +1,32 @@
 <?php
-
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
  * This loads a smarty help file via ajax and returns as html
  */
 class CRM_Core_Page_Inline_Help {
-  function run() {
+
+  public function run() {
     $args = $_REQUEST;
-    if (!empty($args['file']) && strpos($args['file'], '..') === FALSE) {
-      $file = $args['file'] . '.hlp';
-      $additionalTPLFile = $args['file'] . '.extra.hlp';
+    $file = (string) ($args['file'] ?? '');
+    // windows - just replace so the regex can match
+    $file = str_replace('\\', '/', $file);
+    if (preg_match('@^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$@', $file)) {
+      $additionalTPLFile = "$file.extra.hlp";
+      $file .= '.hlp';
       $smarty = CRM_Core_Smarty::singleton();
       $smarty->assign('id', $args['id']);
       CRM_Utils_Array::remove($args, 'file', 'class_name', 'type', 'q', 'id');
@@ -50,14 +35,21 @@ class CRM_Core_Page_Inline_Help {
       }
       $smarty->assign('params', $args);
 
+      $output = $smarty->fetch($file);
       $extraoutput = '';
       if ($smarty->template_exists($additionalTPLFile)) {
-        //@todo hook has been put here as a conservative approach
-        // but probably should always run. It doesn't run otherwise because of the exit
-        CRM_Utils_Hook::pageRun($this);
         $extraoutput .= trim($smarty->fetch($additionalTPLFile));
+        // Allow override param to replace default text e.g. {hlp id='foo' override=1}
+        if ($smarty->getTemplateVars('override_help_text')) {
+          $output = '';
+        }
       }
-      exit($smarty->fetch($file) . $extraoutput);
+      echo trim($output . $extraoutput);
+      CRM_Utils_System::civiExit();
+    }
+    else {
+      throw new CRM_Core_Exception('File name is not valid');
     }
   }
+
 }

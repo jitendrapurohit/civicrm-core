@@ -1,66 +1,49 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
-<h3>Helo?</h3>
 <div class="crm-block crm-content-block crm-activity-view-block">
       {if $activityTypeDescription}
-        <div id="help">{$activityTypeDescription}</div>
+        <div class="help">{$activityTypeDescription|purify}</div>
       {/if}
       <table class="crm-info-panel">
         <tr>
-            <td class="label">{ts}Added By{/ts}</td><td class="view-value">{$values.source_contact}</td>
+            <td class="label">{ts}Added by{/ts}</td><td class="view-value">{$values.source_contact}</td>
         </tr>
-       {if $values.target_contact_value}
+       {if array_key_exists('target_contact_value', $values)}
            <tr>
                 <td class="label">{ts}With Contact{/ts}</td><td class="view-value">{$values.target_contact_value}</td>
            </tr>
        {/if}
-       {if $values.mailingId}
+       {if (array_key_exists('mailingId', $values) && $values.mailingId)}
            <tr>
-                <td class="label">{ts}With Contact{/ts}</td><td class="view-value"><a href="{$values.mailingId}" title="{ts}View Mailing Report{/ts}">&raquo;{ts}Mailing Report{/ts}</a></td>
+                <td class="label">{ts}With Contact{/ts}</td><td class="view-value"><a href="{$values.mailingId}" title="{ts}View Mailing Report{/ts}"><i class="crm-i fa-chevron-right" aria-hidden="true"></i>{ts}Mailing Report{/ts}</a></td>
            </tr>
        {/if}
         <tr>
             <td class="label">{ts}Subject{/ts}</td><td class="view-value">{$values.subject}</td>
         </tr>
 
-  {if $values.campaign}
+  {if array_key_exists('campaign', $values)}
         <tr>
             <td class="label">{ts}Campaign{/ts}</td><td class="view-value">{$values.campaign}</td>
         </tr>
         {/if}
 
-  {if $values.engagement_level AND
-      call_user_func( array( 'CRM_Campaign_BAO_Campaign', 'isCampaignEnable' ) )}
+  {if array_key_exists('engagement_level', $values) AND
+      call_user_func( array( 'CRM_Campaign_BAO_Campaign', 'isComponentEnabled' ) )}
       <td class="label">{ts}Engagement Level{/ts}</td><td class="view-value">{$values.engagement_level}</td>
   {/if}
 
         <tr>
-            <td class="label">{ts}Date and Time{/ts}</td><td class="view-value">{$values.activity_date_time|crmDate }</td>
+            <td class="label">{ts}Date and Time{/ts}</td><td class="view-value">{$values.activity_date_time|crmDate}</td>
         </tr>
-        {if $values.mailingId}
+        {if (array_key_exists('mailingId', $values) && $values.mailingId)}
             <tr>
                 <td class="label nowrap">
                    # of opens
@@ -100,9 +83,7 @@
                               <td>
                                   {$mailingReport.mailing.body_text|mb_truncate:30|escape|nl2br}
                                   <br />
-                                  {if $values.mailingId}
-                                    <strong><a class="crm-popup" href='{$textViewURL}'>&raquo; {ts}View complete message{/ts}</a></strong>
-                                  {/if}
+                                    <strong><a class="crm-popup" href='{$textViewURL}'><i class="crm-i fa-chevron-right" aria-hidden="true"></i> {ts}View complete message{/ts}</a></strong>
                               </td>
                           </tr>
                       {/if}
@@ -113,9 +94,7 @@
                               <td>
                                   {$mailingReport.mailing.body_html|mb_truncate:30|escape|nl2br}
                                   <br/>
-                                  {if $values.mailingId}
-                                    <strong><a class="crm-popup" href='{$htmlViewURL}'>&raquo; {ts}View complete message{/ts}</a></strong>
-                                  {/if}
+                                    <strong><a class="crm-popup" href='{$htmlViewURL}'><i class="crm-i fa-chevron-right" aria-hidden="true"></i> {ts}View complete message{/ts}</a></strong>
                               </td>
                           </tr>
                       {/if}
@@ -136,7 +115,9 @@
             </tr>
         {else}
              <tr>
-                 <td class="label">{ts}Details{/ts}</td><td class="view-value report">{$values.details|crmStripAlternatives|nl2br}</td>
+                 <td class="label">{ts}Details{/ts}</td><td class="view-value report">
+                   {if array_key_exists('details', $values)}{$values.details|crmStripAlternatives|purify|nl2brIfNotHTML}{/if}
+                 </td>
              </tr>
         {/if}
 {if $values.attachment}
@@ -147,4 +128,3 @@
      </table>
      <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="bottom"}</div>
 </div>
-

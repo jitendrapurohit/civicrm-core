@@ -1,80 +1,132 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
  * Helper authentication class for unit tests
  */
-class CRM_Utils_System_UnitTests extends CRM_Utils_System_Drupal {
-  function __construct() {
+class CRM_Utils_System_UnitTests extends CRM_Utils_System_Base {
+
+  /**
+   */
+  public function __construct() {
     $this->is_drupal = FALSE;
-    $this->supports_form_extensions = False;
+    $this->supports_form_extensions = FALSE;
   }
 
-  function setTitle($title, $pageTitle = NULL) {
-    return;
+  public function initialize() {
+    parent::initialize();
+    $test = $GLOBALS['CIVICRM_TEST_CASE'] ?? NULL;
+    if ($test && $test instanceof \Civi\Test\HeadlessInterface) {
+      $listenerMap = \Civi\Core\Event\EventScanner::findListeners($test);
+      \Civi::dispatcher()->addListenerMap($test, $listenerMap);
+    }
+    \Civi\Test::eventChecker()->addListeners();
   }
 
-  static function authenticate($name, $password, $loadCMSBootstrap = FALSE, $realPath = NULL) {
-    $retVal = array(1, 1, 12345);
+  /**
+   * @internal
+   * @return bool
+   */
+  public function isLoaded(): bool {
+    return TRUE;
+  }
+
+  /**
+   * Send an HTTP Response base on PSR HTTP RespnseInterface response.
+   *
+   * @param \Psr\Http\Message\ResponseInterface $response
+   */
+  public function sendResponse(\Psr\Http\Message\ResponseInterface $response) {
+    // We'll if the simple version passes. If not, then we might need to enable `setHttpHeader()`.
+    // foreach ($response->getHeaders() as $name => $values) {
+    //   CRM_Utils_System::setHttpHeader($name, implode(', ', (array) $values));
+    // }
+    CRM_Utils_System::civiExit(0, ['response' => $response]);
+  }
+
+  /**
+   * @param string $name
+   * @param string $value
+   */
+  public function setHttpHeader($name, $value) {
+    Civi::$statics[__CLASS__]['header'][] = ("$name: $value");
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function authenticate($name, $password, $loadCMSBootstrap = FALSE, $realPath = NULL) {
+    $retVal = [1, 1, 12345];
     return $retVal;
   }
 
-  function appendBreadCrumb($breadCrumbs) {
-    return;
+  /**
+   * Bootstrap the phony CMS.
+   */
+  public function loadBootStrap($params = [], $loadUser = TRUE, $throwError = TRUE, $realPath = NULL) {
+    return TRUE;
   }
 
-  function resetBreadCrumb() {
-    return;
+  public function cmsRootPath() {
+    // There's no particularly sensible value here. We just want to avoid crashes in some tests.
+    return sys_get_temp_dir() . '/UnitTests';
   }
 
-  function addHTMLHead($head) {
-    return;
+  /**
+   * @inheritdoc
+   */
+  public function getCiviSourceStorage(): array {
+    global $civicrm_root;
+
+    if (!defined('CIVICRM_UF_BASEURL')) {
+      throw new RuntimeException('Undefined constant: CIVICRM_UF_BASEURL');
+    }
+
+    return [
+      'url' => CRM_Utils_File::addTrailingSlash('', '/'),
+      'path' => CRM_Utils_File::addTrailingSlash($civicrm_root),
+    ];
   }
 
-  function mapConfigToSSL() {
+  /**
+   * @inheritDoc
+   */
+  public function mapConfigToSSL() {
     global $base_url;
     $base_url = str_replace('http://', 'https://', $base_url);
   }
 
-  function postURL($action) {
-    return;
+  /**
+   * @inheritDoc
+   */
+  public function postURL($action) {
+    return NULL;
   }
 
-  function url($path = NULL, $query = NULL, $absolute = FALSE,
-    $fragment = NULL, $htmlize = TRUE,
-    $frontend = FALSE, $forceBackend = FALSE
+  /**
+   * @inheritDoc
+   */
+  public function url(
+    $path = NULL,
+    $query = NULL,
+    $absolute = FALSE,
+    $fragment = NULL,
+    $frontend = FALSE,
+    $forceBackend = FALSE
   ) {
     $config = CRM_Core_Config::singleton();
     static $script = 'index.php';
@@ -89,19 +141,17 @@ class CRM_Utils_System_UnitTests extends CRM_Utils_System_Drupal {
     }
     $base = $absolute ? $config->userFrameworkBaseURL : $config->useFrameworkRelativeBase;
 
-    $separator = $htmlize ? '&amp;' : '&';
-
     if (!$config->cleanURL) {
-      if (isset($path)) {
-        if (isset($query)) {
-          return $base . $script . '?q=' . $path . $separator . $query . $fragment;
+      if ($path !== NULL && $path !== '' && $path !== FALSE) {
+        if ($query !== NULL && $query !== '' && $query !== FALSE) {
+          return $base . $script . '?q=' . $path . '&' . $query . $fragment;
         }
         else {
           return $base . $script . '?q=' . $path . $fragment;
         }
       }
       else {
-        if (isset($query)) {
+        if ($query !== NULL && $query !== '' && $query !== FALSE) {
           return $base . $script . '?' . $query . $fragment;
         }
         else {
@@ -129,7 +179,10 @@ class CRM_Utils_System_UnitTests extends CRM_Utils_System_Drupal {
     }
   }
 
-  function getUserID($user) {
+  /**
+   * @param $user
+   */
+  public function getUserID($user) {
     //FIXME: look here a bit closer when testing UFMatch
 
     // this puts the appropriate values in the session, so
@@ -137,51 +190,19 @@ class CRM_Utils_System_UnitTests extends CRM_Utils_System_Drupal {
     CRM_Core_BAO_UFMatch::synchronize($user, TRUE, 'Standalone', 'Individual');
   }
 
-  function getAllowedToLogin($user) {
-    return TRUE;
-  }
-
-  function setMessage($message) {
-    return;
-  }
-
-  function permissionDenied() {
-    CRM_Core_Error::fatal(ts('You do not have permission to access this page'));
-  }
-
-  function logout() {
+  /**
+   * @inheritDoc
+   */
+  public function logout() {
     session_destroy();
-    header("Location:index.php");
-  }
-
-  function getUFLocale() {
-    return NULL;
-  }
-
-  function getModules() {
-    return array();
+    CRM_Utils_System::setHttpHeader("Location", "index.php");
   }
 
   /**
-   * Get user login URL for hosting CMS (method declared in each CMS system class)
-   *
-   * @param string $destination - if present, add destination to querystring (works for Drupal only)
-   *
-   * @throws Exception
-   * @return string - loginURL for the current CMS
-   * @static
+   * @inheritDoc
    */
   public function getLoginURL($destination = '') {
     throw new Exception("Method not implemented: getLoginURL");
   }
 
-  /**
-   * Over-ridable function to get timezone as a string eg.
-   * @return string Timezone e.g. 'America/Los_Angeles'
-   */
-  function getTimeZoneString() {
-    // This class extends Drupal, but we don't want Drupal's behavior; reproduce CRM_Utils_System_Base::getTimeZoneString
-    return date_default_timezone_get();
-  }
 }
-

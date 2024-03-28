@@ -1,29 +1,13 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
-{if $action eq 1 or $action eq 2 or $action eq 8} {* add, update or view *}
+{if $action eq 1 or $action eq 2 or $action eq 8} {* add, update or delete *}
     {include file="CRM/Event/Form/Participant.tpl"}
 {elseif $action eq 4}
     {include file="CRM/Event/Form/ParticipantView.tpl"}
@@ -31,24 +15,24 @@
     {if $permission EQ 'edit'}{capture assign=newEventURL}{crmURL p="civicrm/contact/view/participant" q="reset=1&action=add&cid=`$contactId`&context=participant"}{/capture}
     {/if}
 
-    <div id="help">
+    <div class="help">
         <p>{ts 1=$displayName}This page lists all event registrations for %1 since inception.{/ts}
-        {capture assign="link"}class="action-item" href="{$newEventURL}"{/capture}
-        {if $permission EQ 'edit'}{ts 1=$link}Click <a %1>Add Event Registration</a> to register this contact for an event.{/ts}{/if}
+        {capture assign="link"}class="action-item" href="{$newEventURL|smarty:nodefaults}"{/capture}
+        {if $permission EQ 'edit'}{ts 1=$link|smarty:nodefaults}Click <a %1>Add Event Registration</a> to register this contact for an event.{/ts}{/if}
         {if $accessContribution and $newCredit}
             {capture assign=newCreditURL}{crmURL p="civicrm/contact/view/participant" q="reset=1&action=add&cid=`$contactId`&context=participant&mode=live"}{/capture}
-            {capture assign="link"}class="action-item" href="{$newCreditURL}"{/capture}
-            {ts 1=$link}Click <a %1>Submit Credit Card Event Registration</a> to process a new New Registration on behalf of the participant using their credit card.{/ts}
+            {capture assign="link"}class="action-item" href="{$newCreditURL|smarty:nodefaults}"{/capture}
+            {ts 1=$link|smarty:nodefaults}Click <a %1>Submit Credit Card Event Registration</a> to process a new New Registration on behalf of the participant using their credit card.{/ts}
         {/if}
         </p>
     </div>
     {if $action eq 16 and $permission EQ 'edit'}
        <div class="action-link">
-           <a accesskey="N" href="{$newEventURL}" class="button"><span><div class="icon add-icon"></div>{ts}Add Event Registration{/ts}</span></a>
+           <a accesskey="N" href="{$newEventURL|smarty:nodefaults}" class="button"><span><i class="crm-i fa-plus-circle" aria-hidden="true"></i> {ts}Add Event Registration{/ts}</span></a>
             {if $accessContribution and $newCredit}
-                <a accesskey="N" href="{$newCreditURL}" class="button"><span><div class="icon add-icon"></div>{ts}Submit Credit Card Event Registration{/ts}</a></span>
+                <a accesskey="N" href="{$newCreditURL|smarty:nodefaults}" class="button"><span><i class="crm-i fa-credit-card" aria-hidden="true"></i> {ts}Submit Credit Card Event Registration{/ts}</a></span>
             {/if}
-            <br/ ><br/ >
+            <br/><br/>
        </div>
    {/if}
 
@@ -59,7 +43,7 @@
     {else}
        <div class="messages status no-popup">
            <table class="form-layout">
-             <tr><div class="icon inform-icon"></div>
+             <tr>{icon icon="fa-info-circle"}{/icon}
                    {ts}No event registrations have been recorded for this contact.{/ts}
              </tr>
            </table>

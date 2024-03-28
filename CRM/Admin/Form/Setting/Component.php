@@ -1,165 +1,72 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class generates form components for Component
+ * This class generates form components for Component.
  */
 class CRM_Admin_Form_Setting_Component extends CRM_Admin_Form_Setting {
   protected $_components;
 
   /**
-   * Function to build the form
+   * Subset of settings on the page as defined using the legacy method.
    *
-   * @return void
-   * @access public
+   * @var array
+   *
+   * @deprecated - do not add new settings here - the page to display
+   * settings on should be defined in the setting metadata.
+   */
+  protected $_settings = [
+    // @todo remove these, define any not yet defined in the setting metadata.
+    'enable_components' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+  ];
+
+  /**
+   * Build the form object.
    */
   public function buildQuickForm() {
-    CRM_Utils_System::setTitle(ts('Settings - Enable Components'));
-    $components = $this->_getComponentSelectValues();
-    $include = &$this->addElement('advmultiselect', 'enableComponents',
-      ts('Components') . ' ', $components,
-      array(
-        'size' => 5,
-        'style' => 'width:150px',
-        'class' => 'advmultiselect',
-      )
-    );
-
-    $include->setButtonAttributes('add', array('value' => ts('Enable >>')));
-    $include->setButtonAttributes('remove', array('value' => ts('<< Disable')));
-
-    $this->addFormRule(array('CRM_Admin_Form_Setting_Component', 'formRule'), $this);
-
+    $this->addFormRule(['CRM_Admin_Form_Setting_Component', 'formRule'], $this);
     parent::buildQuickForm();
   }
 
   /**
-   * global form rule
+   * Global form rule.
    *
-   * @param array $fields  the input form values
-   * @param array $files   the uploaded files if any
-   * @param array $options additional user data
+   * @param array $fields
+   *   The input form values.
+   * @param array $files
+   *   The uploaded files if any.
+   * @param array $options
+   *   Additional user data.
    *
-   * @return true if no errors, else array of errors
-   * @access public
-   * @static
+   * @return bool|array
+   *   true if no errors, else array of errors
    */
-  static function formRule($fields, $files, $options) {
-    $errors = array();
+  public static function formRule($fields, $files, $options) {
+    $errors = [];
 
-    if (array_key_exists('enableComponents', $fields) && is_array($fields['enableComponents'])) {
-      if (in_array('CiviPledge', $fields['enableComponents']) &&
-        !in_array('CiviContribute', $fields['enableComponents'])
+    if (array_key_exists('enable_components', $fields) && is_array($fields['enable_components'])) {
+      if (!empty($fields['enable_components']['CiviPledge']) &&
+        empty($fields['enable_components']['CiviContribute'])
       ) {
-        $errors['enableComponents'] = ts('You need to enable CiviContribute before enabling CiviPledge.');
-      }
-      if (in_array('CiviCase', $fields['enableComponents']) &&
-        !CRM_Core_DAO::checkTriggerViewPermission(TRUE, FALSE)
-      ) {
-        $errors['enableComponents'] = ts('CiviCase requires CREATE VIEW and DROP VIEW permissions for the database.');
+        $errors['enable_components'] = ts('You need to enable CiviContribute before enabling CiviPledge.');
       }
     }
 
     return $errors;
   }
 
-  private function _getComponentSelectValues() {
-    $ret = array();
-    $this->_components = CRM_Core_Component::getComponents();
-    foreach ($this->_components as $name => $object) {
-      $ret[$name] = $object->info['translatedName'];
-    }
-
-    return $ret;
-  }
-
-  public function postProcess() {
-    $params = $this->controller->exportValues($this->_name);
-
-    CRM_Case_Info::onToggleComponents($this->_defaults['enableComponents'], $params['enableComponents'], NULL);
-    parent::commonProcess($params);
-
-    // reset navigation when components are enabled / disabled
-    CRM_Core_BAO_Navigation::resetNavigation();
-  }
-
-  public static function loadCaseSampleData($dsn, $fileName, $lineMode = FALSE) {
-    global $crmPath;
-
-    $db = &DB::connect($dsn);
-    if (PEAR::isError($db)) {
-      die("Cannot open $dsn: " . $db->getMessage());
-    }
-
-    if (!$lineMode) {
-      $string = file_get_contents($fileName);
-
-      // change \r\n to fix windows issues
-      $string = str_replace("\r\n", "\n", $string);
-
-      //get rid of comments starting with # and --
-
-      $string = preg_replace("/^#[^\n]*$/m", "\n", $string);
-      $string = preg_replace("/^(--[^-]).*/m", "\n", $string);
-
-      $queries = preg_split('/;$/m', $string);
-      foreach ($queries as $query) {
-        $query = trim($query);
-        if (!empty($query)) {
-          $res = &$db->query($query);
-          if (PEAR::isError($res)) {
-            die("Cannot execute $query: " . $res->getMessage());
-          }
-        }
-      }
-    }
-    else {
-      $fd = fopen($fileName, "r");
-      while ($string = fgets($fd)) {
-        $string = preg_replace("/^#[^\n]*$/m", "\n", $string);
-        $string = preg_replace("/^(--[^-]).*/m", "\n", $string);
-
-        $string = trim($string);
-        if (!empty($string)) {
-          $res = &$db->query($string);
-          if (PEAR::isError($res)) {
-            die("Cannot execute $string: " . $res->getMessage());
-          }
-        }
-      }
-    }
-  }
 }
-

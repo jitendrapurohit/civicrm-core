@@ -1,51 +1,43 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
  * Format the given monetary amount (and currency) for display
  *
- * @param float $amount the monetary amount up for display
- * @param string $currency the (optional) currency
+ * @param string|int|float $amount
+ *   The monetary amount up for display.
+ * @param string|null $currency
+ *   The (optional) currency.
+ * @param string|null $locale
+ *   The (optional) locale.
  *
- * @param null $format
- * @param bool $onlyNumber
- *
- * @return string  formatted monetary amount
- * @access public
+ * @return string
+ *   formatted monetary amount
  */
-function smarty_modifier_crmMoney($amount, $currency = NULL, $format = NULL, $onlyNumber = FALSE) {
-  return CRM_Utils_Money::format($amount, $currency, $format, $onlyNumber);
+function smarty_modifier_crmMoney($amount, ?string $currency = NULL, ?string $locale = NULL): string {
+  try {
+    return Civi::format()->money($amount, $currency, $locale);
+  }
+  catch (CRM_Core_Exception $e) {
+    // @todo escalate this to a deprecation notice. It turns out to be depressingly
+    // common for us to double process amount strings - if they are > 1000 then
+    // they wind up throwing an exception in the money function.
+    // It would be more correct to format in the smarty layer, only.
+    Civi::log()->warning('Invalid amount passed in as money - {money}', ['money' => $amount]);
+    return $amount;
+  }
 }
-

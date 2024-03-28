@@ -1,40 +1,18 @@
 <?php
 /*
-  +--------------------------------------------------------------------+
-  | CiviCRM version 4.5                                                |
-  +--------------------------------------------------------------------+
-  | Copyright CiviCRM LLC (c) 2004-2014                                |
-  +--------------------------------------------------------------------+
-  | This file is a part of CiviCRM.                                    |
-  |                                                                    |
-  | CiviCRM is free software; you can copy, modify, and distribute it  |
-  | under the terms of the GNU Affero General Public License           |
-  | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
-  |                                                                    |
-  | CiviCRM is distributed in the hope that it will be useful, but     |
-  | WITHOUT ANY WARRANTY; without even the implied warranty of         |
-  | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
-  | See the GNU Affero General Public License for more details.        |
-  |                                                                    |
-  | You should have received a copy of the GNU Affero General Public   |
-  | License and the CiviCRM Licensing Exception along                  |
-  | with this program; if not, contact CiviCRM LLC                     |
-  | at info[AT]civicrm[DOT]org. If you have questions about the        |
-  | GNU Affero General Public License or the licensing of CiviCRM,     |
-  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
-  +--------------------------------------------------------------------+
+ +--------------------------------------------------------------------+
+ | Copyright CiviCRM LLC. All rights reserved.                        |
+ |                                                                    |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
+ +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
- */
-
-/**
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Mailing_Form_Approve extends CRM_Core_Form {
 
@@ -44,21 +22,17 @@ class CRM_Mailing_Form_Approve extends CRM_Core_Form {
   }
 
   /**
-   * Function to set variables up before form is built
-   *
-   * @return void
-   * @access public
+   * Set variables up before form is built.
    */
   public function preProcess() {
     if (CRM_Mailing_Info::workflowEnabled()) {
-      if (!CRM_Core_Permission::check('approve mailings')) {
+      if (!CRM_Core_Permission::check('approve mailings') && !CRM_Core_Permission::check('access CiviMail')) {
         $this->redirectToListing();
       }
     }
     else {
       $this->redirectToListing();
     }
-
 
     // when user come from search context.
     $this->_searchBasedMailing = CRM_Contact_Form_Search::isSearchContext($this->get('context'));
@@ -82,14 +56,10 @@ class CRM_Mailing_Form_Approve extends CRM_Core_Form {
   }
 
   /**
-   * This function sets the default values for the form.
-   *
-   * @access public
-   *
-   * @return void
+   * Set default values for the form.
    */
-  function setDefaultValues() {
-    $defaults = array();
+  public function setDefaultValues() {
+    $defaults = [];
     if ($this->_mailingID) {
       $defaults['approval_status_id'] = $this->_mailing->approval_status_id;
       $defaults['approval_note'] = $this->_mailing->approval_note;
@@ -99,48 +69,41 @@ class CRM_Mailing_Form_Approve extends CRM_Core_Form {
   }
 
   /**
-   * Build the form for the approval/rejection mailing
-   *
-   * @param
-   *
-   * @return void
-   * @access public
+   * Build the form object for the approval/rejection mailing.
    */
   public function buildQuickform() {
     $title = ts('Approve/Reject Mailing') . " - {$this->_mailing->name}";
-    CRM_Utils_System::setTitle($title);
+    $this->setTitle($title);
 
     $this->addElement('textarea', 'approval_note', ts('Approve/Reject Note'));
 
-    $mailApprovalStatus = CRM_Core_OptionGroup::values('mail_approval_status');
+    $mailApprovalStatus = CRM_Core_PseudoConstant::get('CRM_Mailing_BAO_Mailing', 'approval_status_id');
 
     // eliminate the none option
-    $noneOptionID = CRM_Core_OptionGroup::getValue('mail_approval_status',
-      'None',
-      'name'
-    );
+    $noneOptionID = CRM_Core_PseudoConstant::getKey('CRM_Mailing_BAO_Mailing', 'approval_status_id', 'None');
     if ($noneOptionID) {
       unset($mailApprovalStatus[$noneOptionID]);
     }
 
-    $this->addRadio('approval_status_id', ts('Approval Status'), $mailApprovalStatus, TRUE, NULL, TRUE);
+    $this->addRadio('approval_status_id', ts('Approval Status'), $mailApprovalStatus, [], NULL, TRUE);
 
-    $buttons = array(
-      array('type' => 'next',
+    $buttons = [
+      [
+        'type' => 'next',
         'name' => ts('Save'),
         'spacing' => '&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;',
         'isDefault' => TRUE,
-      ),
-      array(
+      ],
+      [
         'type' => 'cancel',
         'name' => ts('Cancel'),
-      ),
-    );
+      ],
+    ];
 
     $this->addButtons($buttons);
 
     // add the preview elements
-    $preview = array();
+    $preview = [];
 
     $preview['subject'] = CRM_Core_DAO::getFieldValue('CRM_Mailing_DAO_Mailing',
       $this->_mailingID,
@@ -156,41 +119,32 @@ class CRM_Mailing_Form_Approve extends CRM_Core_Form {
     $preview['type'] = $this->_mailing->body_html ? 'html' : 'text';
     $preview['attachment'] = CRM_Core_BAO_File::attachmentInfo('civicrm_mailing', $this->_mailingID);
 
-    $this->assign_by_ref('preview', $preview);
+    $this->assign('preview', $preview);
   }
 
   /**
    * Process the posted form values.  Approve /reject a mailing.
-   *
-   * @param
-   *
-   * @return void
-   * @access public
    */
   public function postProcess() {
     // get the submitted form values.
     $params = $this->controller->exportValues($this->_name);
 
-    $ids = array();
     if (isset($this->_mailingID)) {
-      $ids['mailing_id'] = $this->_mailingID;
+      $params['id'] = $this->_mailingID;
     }
     else {
-      $ids['mailing_id'] = $this->get('mailing_id');
+      $params['id'] = $this->get('mailing_id');
     }
 
-    if (!$ids['mailing_id']) {
-      CRM_Core_Error::fatal();
+    if (!$params['id']) {
+      CRM_Core_Error::statusBounce(ts('No mailing id has been able to be determined'));
     }
 
     $params['approver_id'] = $this->_contactID;
     $params['approval_date'] = date('YmdHis');
 
     // if rejected, then we need to reset the scheduled date and scheduled id
-    $rejectOptionID = CRM_Core_OptionGroup::getValue('mail_approval_status',
-      'Rejected',
-      'name'
-    );
+    $rejectOptionID = CRM_Core_PseudoConstant::getKey('CRM_Mailing_BAO_Mailing', 'approval_status_id', 'Rejected');
     if ($rejectOptionID &&
       $params['approval_status_id'] == $rejectOptionID
     ) {
@@ -199,19 +153,20 @@ class CRM_Mailing_Form_Approve extends CRM_Core_Form {
 
       // also delete any jobs associated with this mailing
       $job = new CRM_Mailing_BAO_MailingJob();
-      $job->mailing_id = $ids['mailing_id'];
-      $job->delete();
+      $job->mailing_id = $params['id'];
+      while ($job->fetch()) {
+        CRM_Mailing_BAO_MailingJob::deleteRecord(['id' => $job->id]);
+      }
     }
     else {
       $mailing = new CRM_Mailing_BAO_Mailing();
-      $mailing->id = $ids['mailing_id'];
+      $mailing->id = $params['id'];
       $mailing->find(TRUE);
 
       $params['scheduled_date'] = CRM_Utils_Date::processDate($mailing->scheduled_date);
     }
 
-    CRM_Mailing_BAO_Mailing::create($params, $ids);
-
+    CRM_Mailing_BAO_Mailing::create($params);
 
     //when user perform mailing from search context
     //redirect it to search result CRM-3711
@@ -245,19 +200,18 @@ class CRM_Mailing_Form_Approve extends CRM_Core_Form {
 
     $session = CRM_Core_Session::singleton();
     $session->pushUserContext(CRM_Utils_System::url('civicrm/mailing/browse/scheduled',
-        'reset=1&scheduled=true'
-      ));
+      'reset=1&scheduled=true'
+    ));
   }
 
   /**
-   * Display Name of the form
+   * Display Name of the form.
    *
-   * @access public
    *
    * @return string
    */
   public function getTitle() {
     return ts('Approve/Reject Mailing');
   }
-}
 
+}

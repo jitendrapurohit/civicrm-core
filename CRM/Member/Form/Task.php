@@ -1,113 +1,68 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
+
+use Civi\Api4\Membership;
 
 /**
- * Class for civimember task actions
- *
+ * Class for member form task actions.
+ * FIXME: This needs refactoring to properly inherit from CRM_Core_Form_Task and share more functions.
  */
-class CRM_Member_Form_Task extends CRM_Core_Form {
+class CRM_Member_Form_Task extends CRM_Core_Form_Task {
 
   /**
-   * the task being performed
-   *
-   * @var int
-   */
-  protected $_task;
-
-  /**
-   * The additional clause that we restrict the search with
-   *
-   * @var string
-   */
-  protected $_componentClause = NULL;
-
-  /**
-   * The array that holds all the component ids
-   *
-   * @var array
-   */
-  protected $_componentIds;
-
-  /**
-   * The array that holds all the contact ids
-   *
-   * @var array
-   */
-  public $_contactIds;
-
-  /**
-   * The array that holds all the member ids
+   * The array that holds all the member ids.
    *
    * @var array
    */
   protected $_memberIds;
 
   /**
-   * build all the data structures needed to build the form
-   *
-   * @param
+   * Build all the data structures needed to build the form.
    *
    * @return void
-   * @access public
+   * @throws \CRM_Core_Exception
    */
-  function preProcess() {
+  public function preProcess() {
     self::preProcessCommon($this);
   }
 
-  static function preProcessCommon(&$form, $useTable = FALSE) {
-    $form->_memberIds = array();
+  /**
+   * @param \CRM_Core_Form_Task $form
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public static function preProcessCommon(&$form) {
+    $form->_memberIds = [];
 
-    $values = $form->controller->exportValues($form->get('searchFormName'));
+    $values = $form->getSearchFormValues();
 
     $form->_task = $values['task'];
-    $memberTasks = CRM_Member_Task::tasks();
-    $form->assign('taskName', $memberTasks[$form->_task]);
-
-    $ids = array();
-    if ($values['radio_ts'] == 'ts_sel') {
-      foreach ($values as $name => $value) {
-        if (substr($name, 0, CRM_Core_Form::CB_PREFIX_LEN) == CRM_Core_Form::CB_PREFIX) {
-          $ids[] = substr($name, CRM_Core_Form::CB_PREFIX_LEN);
-        }
-      }
+    $tasks = CRM_Member_Task::permissionedTaskTitles(CRM_Core_Permission::getPermission());
+    if (!array_key_exists($form->_task, $tasks)) {
+      CRM_Core_Error::statusBounce(ts('You do not have permission to access this page.'));
     }
-    else {
+
+    $ids = $form->getSelectedIDs($values);
+
+    if (!$ids) {
       $queryParams = $form->get('queryParams');
-      $sortOrder = null;
-      if ( $form->get( CRM_Utils_Sort::SORT_ORDER  ) ) {
-        $sortOrder = $form->get( CRM_Utils_Sort::SORT_ORDER );
+      $sortOrder = NULL;
+      if ($form->get(CRM_Utils_Sort::SORT_ORDER)) {
+        $sortOrder = $form->get(CRM_Utils_Sort::SORT_ORDER);
       }
       $query = new CRM_Contact_BAO_Query($queryParams, NULL, NULL, FALSE, FALSE,
         CRM_Contact_BAO_Query::MODE_MEMBER
@@ -127,25 +82,7 @@ class CRM_Member_Form_Task extends CRM_Core_Form {
     }
 
     $form->_memberIds = $form->_componentIds = $ids;
-
-    //set the context for redirection for any task actions
-    $session = CRM_Core_Session::singleton();
-
-    $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form);
-    $urlParams = 'force=1';
-    if (CRM_Utils_Rule::qfKey($qfKey)) {
-      $urlParams .= "&qfKey=$qfKey";
-    }
-
-    $searchFormName = strtolower($form->get('searchFormName'));
-    if ($searchFormName == 'search') {
-      $session->replaceUserContext(CRM_Utils_System::url('civicrm/member/search', $urlParams));
-    }
-    else {
-      $session->replaceUserContext(CRM_Utils_System::url("civicrm/contact/search/$searchFormName",
-          $urlParams
-        ));
-    }
+    $form->setNextUrl('member');
   }
 
   /**
@@ -153,38 +90,50 @@ class CRM_Member_Form_Task extends CRM_Core_Form {
    * since its used for things like send email
    */
   public function setContactIDs() {
-    $this->_contactIds = &CRM_Core_DAO::getContactIDsFromComponent($this->_memberIds,
+    $this->_contactIds = CRM_Core_DAO::getContactIDsFromComponent($this->_memberIds,
       'civicrm_membership'
     );
   }
 
   /**
-   * simple shell that derived classes can call to add buttons to
-   * the form with a customized title for the main Submit
-   *
-   * @param string $title title of the main button
-   * @param string $nextType
-   * @param string $backType
-   * @param bool $submitOnce
-   *
-   * @internal param string $type button type for the form after processing
-   *
-   * @return void
-   * @access public
+   * @return array
    */
-  function addDefaultButtons($title, $nextType = 'next', $backType = 'back', $submitOnce = FALSE) {
-    $this->addButtons(array(
-        array(
-          'type' => $nextType,
-          'name' => $title,
-          'isDefault' => TRUE,
-        ),
-        array(
-          'type' => $backType,
-          'name' => ts('Cancel'),
-        ),
-      )
-    );
+  protected function getIDS() {
+    return $this->_memberIds;
   }
-}
 
+  /**
+   * Get the rows form the search, keyed to make the token processor happy.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  protected function getRows(): array {
+    if (empty($this->rows)) {
+      // checkPermissions set to false - in case form is bypassing in some way.
+      $memberships = Membership::get(FALSE)
+        ->addWhere('id', 'IN', $this->getIDs())
+        ->setSelect(['id', 'contact_id'])->execute();
+      foreach ($memberships as $membership) {
+        $this->rows[] = [
+          'contact_id' => $membership['contact_id'],
+          'membership_id' => $membership['id'],
+          'schema' => [
+            'contactId' => $membership['contact_id'],
+            'membershipId' => $membership['id'],
+          ],
+        ];
+      }
+    }
+    return $this->rows;
+  }
+
+  /**
+   * Get the token processor schema required to list any tokens for this task.
+   *
+   * @return array
+   */
+  public function getTokenSchema(): array {
+    return ['membershipId', 'contactId'];
+  }
+
+}

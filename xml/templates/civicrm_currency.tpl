@@ -1,25 +1,9 @@
 -- +--------------------------------------------------------------------+
--- | CiviCRM version 4.5                                                |
--- +--------------------------------------------------------------------+
--- | Copyright CiviCRM LLC (c) 2004-2014                                |
--- +--------------------------------------------------------------------+
--- | This file is a part of CiviCRM.                                    |
+-- | Copyright CiviCRM LLC. All rights reserved.                        |
 -- |                                                                    |
--- | CiviCRM is free software; you can copy, modify, and distribute it  |
--- | under the terms of the GNU Affero General Public License           |
--- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
--- |                                                                    |
--- | CiviCRM is distributed in the hope that it will be useful, but     |
--- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
--- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
--- | See the GNU Affero General Public License for more details.        |
--- |                                                                    |
--- | You should have received a copy of the GNU Affero General Public   |
--- | License and the CiviCRM Licensing Exception along                  |
--- | with this program; if not, contact CiviCRM LLC                     |
--- | at info[AT]civicrm[DOT]org. If you have questions about the        |
--- | GNU Affero General Public License or the licensing of CiviCRM,     |
--- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+-- | This work is published under the GNU AGPLv3 license with some      |
+-- | permitted exceptions and without any warranty. For full license    |
+-- | and copyright information, see https://civicrm.org/licensing       |
 -- +--------------------------------------------------------------------+
 --
 -- Generated from {$smarty.template}
@@ -66,7 +50,7 @@ INSERT INTO civicrm_currency (id, name, symbol, numeric_code, full_name) VALUES
 ( 37, "BSD",  "$", "044", "Bahamian Dollar"),
 ( 38, "BTN", NULL, "064", "Bhutan Ngultrum"),
 ( 39, "BWP",  "P", "072", "Botswana Pula"),
-( 40, "BYR", "p.", "974", "Belarussian Rouble"),
+( 40, "BYN", "p.", "974", "Belarussian Rouble"),
 ( 41, "BZD","BZ$", "084", "Belize Dollar"),
 ( 42, "CDF", NULL, "976", "Franc Congolais"),
 ( 43, "CHE", NULL, "947", "WIR Euro"),
@@ -81,7 +65,6 @@ INSERT INTO civicrm_currency (id, name, symbol, numeric_code, full_name) VALUES
 ( 52, "RSD", "Дин.","941", "Serbian Dinar"),
 ( 53, "CUP",  "₱", "192", "Cuban Peso"),
 ( 54, "CVE", NULL, "132", "Cape Verde Escudo"),
-( 55, "CYP",  "£", "196", "Cyprus Pound"),
 ( 56, "CZK", "Kč", "203", "Czech Koruna"),
 ( 57, "DJF", NULL, "262", "Djibouti Franc"),
 ( 58, "DKK", "kr", "208", "Danish Krone"),
@@ -93,12 +76,11 @@ INSERT INTO civicrm_currency (id, name, symbol, numeric_code, full_name) VALUES
 ( 65, "FJD",  "$", "242", "Fiji Dollar"),
 ( 66, "FKP",  "£", "238", "Falkland Islands Pound"),
 ( 67, "GEL", NULL, "981", "Georgian Lari"),
-( 68, "GHC",  "¢", "288", "Ghanaian Cedi"),
+( 68, "GHS",  "¢", "288", "Ghanaian Cedi"),
 ( 69, "GIP",  "£", "292", "Gibraltar Pound"),
 ( 70, "GMD", NULL, "270", "Gambian Dalasi"),
 ( 71, "GNF", NULL, "324", "Guinea Franc"),
 ( 72, "GTQ",  "Q", "320", "Guatemalan Quetzal"),
-( 73, "GWP", NULL, "624", "Guinea-Bissau Peso"),
 ( 74, "GYD",  "$", "328", "Guyana Dollar"),
 ( 75, "HKD","HK$", "344", "Hong Kong Dollar"),
 ( 76, "HNL",  "L", "340", "Honduran Lempira"),
@@ -123,8 +105,6 @@ INSERT INTO civicrm_currency (id, name, symbol, numeric_code, full_name) VALUES
 ( 95, "LKR",  "₨", "144", "Sri Lanka Rupee"),
 ( 96, "LRD",  "$", "430", "Liberian Dollar"),
 ( 97, "LSL", NULL, "426", "Lesotho Loti"),
-( 98, "LTL", "Lt", "440", "Lithuanian Litas"),
-( 99, "LVL", "Ls", "428", "Latvian Lats"),
 (100, "LYD", NULL, "434", "Libyan Dinar"),
 (101, "MAD", NULL, "504", "Moroccan Dirham"),
 (102, "MDL", NULL, "498", "Moldovan Leu"),
@@ -133,7 +113,6 @@ INSERT INTO civicrm_currency (id, name, symbol, numeric_code, full_name) VALUES
 (105, "MMK", NULL, "104", "Myanmar Kyat"),
 (106, "MOP", NULL, "446", "Macao Pataca"),
 (107, "MRO", NULL, "478", "Mauritanian Ouguiya"),
-(108, "MTL", "Lm", "470", "Maltese Lira"),
 (109, "MUR",  "₨", "480", "Mauritius Rupee"),
 (110, "MVR", NULL, "462", "Maldive Rufiyaa"),
 (111, "MWK", NULL, "454", "Malawi Kwacha"),
@@ -154,28 +133,23 @@ INSERT INTO civicrm_currency (id, name, symbol, numeric_code, full_name) VALUES
 (126, "PKR",  "₨", "586", "Pakistan Rupee"),
 (127, "PYG", "Gs", "600", "Paraguay Guarani"),
 (128, "QAR",  "﷼", "634", "Qatari Rial"),
-(129, "ROL", NULL, "642", "Romanian Old Leu"),
 (130, "RON","lei", "946", "Romanian New Leu"),
 (131, "RUB","руб", "643", "Russian Rouble"),
 (132, "RWF", NULL, "646", "Rwanda Franc"),
 (133, "SAR",  "﷼", "682", "Saudi Riyal"),
 (134, "SBD",  "$", "090", "Solomon Islands Dollar"),
 (135, "SCR",  "₨", "690", "Seychelles Rupee"),
-(136, "SDD", NULL, "736", "Sudanese Dinar"),
 (137, "SEK", "kr", "752", "Swedish Krona"),
 (138, "SGD",  "$", "702", "Singapore Dollar"),
 (139, "SHP",  "£", "654", "Saint Helena Pound"),
-(140, "SIT", NULL, "705", "Slovenian Tolar"),
-(141, "SKK","SIT", "703", "Slovak Koruna"),
 (142, "SLL", NULL, "694", "Leone"),
 (143, "SOS",  "S", "706", "Somali Shilling"),
 (144, "SRD",  "$", "968", "Surinam Dollar"),
 (145, "STD", NULL, "678", "São Tome and Principe Dobra"),
 (146, "SVC",  "$", "222", "El Salvador Colon"),
 (147, "SYP",  "£", "760", "Syrian Pound"),
-(148, "SZL", NULL, "748", "Swaziland Lilangeni"),
+(148, "SZL", NULL, "748", "Eswatini Lilangeni"),
 (149, "TJS", NULL, "972", "Tajik Somoni"),
-(150, "TMM", NULL, "795", "Turkmenistan Manat"),
 (151, "TND", NULL, "788", "Tunisian Dinar"),
 (152, "TOP", NULL, "776", "Tongan Pa'anga"),
 (153, "TRY","YTL", "949", "New Turkish Lira"),
@@ -211,4 +185,3 @@ INSERT INTO civicrm_currency (id, name, symbol, numeric_code, full_name) VALUES
 (183, "YER",  "﷼", "886", "Yemeni Rial"),
 (184, "ZMK", NULL, "894", "Zambian Kwacha"),
 (185, "ZWD", "Z$", "716", "Zimbabwe Dollar");
-

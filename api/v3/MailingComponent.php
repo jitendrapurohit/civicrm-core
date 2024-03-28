@@ -1,84 +1,77 @@
 <?php
-
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
- * File for the CiviCRM APIv3 mailing_component functions
+ * This api exposes CiviCRM MailingComponent (header and footer).
  *
  * @package CiviCRM_APIv3
- * @subpackage API_mailing_component
- *
  */
 
 /**
- * Save a mailing_component
+ * Save a MailingComponent.
  *
- * Allowed @params array keys are:
- * {@getfields mailing_component_create}
- * @example mailing_componentCreate.php
+ * @param array $params
  *
- * @param $params
- *
- * @throws API_Exception
- * @return array of newly created mailing_component property values.
- * @access public
+ * @throws CRM_Core_Exception
+ * @return array
+ *   API result array.
  */
 function civicrm_api3_mailing_component_create($params) {
-  return _civicrm_api3_basic_create(_civicrm_api3_get_BAO(__FUNCTION__), $params);
+  return _civicrm_api3_basic_create(_civicrm_api3_get_BAO(__FUNCTION__), $params, 'MailingComponent');
 }
 
 /**
- * Get a mailing_component
+ * Adjust Metadata for Create action.
  *
- * Allowed @params array keys are:
- * {@getfields mailing_component_get}
- * @example mailing_componentCreate.php
+ * The metadata is used for setting defaults, documentation & validation.
  *
- * @param $params
+ * @param array $spec
+ *   Array of parameters determined by getfields.
+ */
+function _civicrm_api3_mailing_component_create_spec(&$spec) {
+  $spec['is_active']['api.default'] = 1;
+  $spec['name']['api.required'] = 1;
+  $spec['component_type']['api.required'] = 1;
+}
+
+/**
+ * Get a MailingComponent.
  *
- * @return array of retrieved mailing_component property values.
- * @access public
+ * @param array $params
+ *
+ * @return array
+ *   API result array.
  */
 function civicrm_api3_mailing_component_get($params) {
   return _civicrm_api3_basic_get(_civicrm_api3_get_BAO(__FUNCTION__), $params);
 }
 
 /**
- * Delete a mailing_component
+ * Adjust metadata for get.
  *
- * Allowed @params array keys are:
- * {@getfields mailing_component_delete}
- * @example mailing_componentCreate.php
+ * @param array $params
+ */
+function _civicrm_api3_mailing_component_get_spec(&$params) {
+  // fetch active records by default
+  $params['is_active']['api.default'] = 1;
+}
+
+/**
+ * Delete a MailingComponent.
  *
- * @param $params
+ * @param array $params
  *
- * @throws API_Exception
- * @return array of deleted values.
- * @access public
+ * @throws CRM_Core_Exception
+ * @return array
+ *   API result array.
  */
 function civicrm_api3_mailing_component_delete($params) {
   return _civicrm_api3_basic_delete(_civicrm_api3_get_BAO(__FUNCTION__), $params);

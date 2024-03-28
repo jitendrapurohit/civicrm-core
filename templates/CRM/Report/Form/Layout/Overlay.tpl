@@ -1,26 +1,10 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {if (!$chartEnabled || !$chartSupported )&& $rows}
@@ -38,14 +22,14 @@
                    {if $header.colspan}
                       <td colspan={$header.colspan}>{$header.title}</td>
                       {assign var=skip value=true}
-                      {assign var=skipCount value=`$header.colspan`}
+                      {assign var=skipCount value=$header.colspan}
                       {assign var=skipMade  value=1}
                    {else}
                       <td>{$header.title}</td>
                        {assign var=skip value=false}
                    {/if}
                 {else} {* for skip case *}
-                   {assign var=skipMade value=`$skipMade+1`}
+                   {assign var=skipMade value=$skipMade+1}
                    {if $skipMade >= $skipCount}{assign var=skip value=false}{/if}
                 {/if}
             {/foreach}
@@ -99,10 +83,14 @@
                     {assign var=fieldClass value=$field|cat:"_class"}
                     <td class="crm-report-{$field}{if $header.type eq 1024 OR $header.type eq 1} report-contents-right{elseif $row.$field eq 'Subtotal'} report-label{/if}">
                         {if $row.$fieldLink}
-                            <a title="{$row.$fieldHover}" href="{$row.$fieldLink}" {$row.$fieldClass}>
+                            <a title="{$row.$fieldHover|escape}" href="{$row.$fieldLink}" {$row.$fieldClass}>
                         {/if}
 
-                        {if $row.$field eq 'Subtotal'}
+                        {if is_array($row.$field)}
+                            {foreach from=$row.$field item=fieldrow key=fieldid}
+                                <div class="crm-report-{$field}-row-{$fieldid}">{$fieldrow}</div>
+                            {/foreach}
+                        {elseif $row.$field eq 'Subtotal'}
                             {$row.$field}
                         {elseif $header.type & 4 OR $header.type & 256}
                             {if $header.group_by eq 'MONTH' or $header.group_by eq 'QUARTER'}
@@ -110,7 +98,7 @@
                             {elseif $header.group_by eq 'YEAR'}
                                 {$row.$field|crmDate:$config->dateformatYear}
                             {else}
-                                {if $header.type & 4}
+                                {if $header.type == 4}
                                    {$row.$field|truncate:10:''|crmDate}
                                 {else}
                                    {$row.$field|crmDate}
@@ -147,7 +135,7 @@
     </div>
     {if $pager and $pager->_response and $pager->_response.numPages > 1}
         <div class="report-pager">
-            {include file="CRM/common/pager.tpl" }
+            {include file="CRM/common/pager.tpl"}
         </div>
     {/if}
 {/if}

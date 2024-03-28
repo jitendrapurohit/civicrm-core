@@ -1,127 +1,149 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class generates form components for Miscellaneous
- *
+ * This class generates form components for Miscellaneous.
  */
 class CRM_Admin_Form_Setting_Miscellaneous extends CRM_Admin_Form_Setting {
 
-  protected $_settings = array(
+  /**
+   * Subset of settings on the page as defined using the legacy method.
+   *
+   * @var array
+   *
+   * @deprecated - do not add new settings here - the page to display
+   * settings on should be defined in the setting metadata.
+   */
+  protected $_settings = [
+    // @todo remove these, define any not yet defined in the setting metadata.
     'max_attachments' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'max_attachments_backend' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
     'contact_undelete' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
-    'versionAlert' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
-    'versionCheck' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
     'empoweredBy' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'logging' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'enableBackgroundQueue' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
     'maxFileSize' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
     'doNotAttachPDFReceipt' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'recordGeneratedLetters' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
     'secondDegRelPermissions' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
-  );
+    'checksum_timeout' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'dompdf_font_dir' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'dompdf_chroot' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'dompdf_enable_remote' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'weasyprint_path' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'wkhtmltopdfPath' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'recentItemsMaxCount' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'recentItemsProviders' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'dedupe_default_limit' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'remote_profile_submissions' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'allow_alert_autodismissal' => CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
+    'prevNextBackend' => CRM_Core_BAO_Setting::SEARCH_PREFERENCES_NAME,
+    'import_batch_size' => CRM_Core_BAO_Setting::SEARCH_PREFERENCES_NAME,
+  ];
 
   /**
-   * Function to build the form
-   *
-   * @return void
-   * @access public
+   * Basic setup.
    */
-  public function buildQuickForm() {
-    CRM_Utils_System::setTitle(ts('Misc (Undelete, PDFs, Limits, Logging, Captcha, etc.)'));
+  public function preProcess(): void {
+    $maxImportFileSize = CRM_Utils_Number::formatUnitSize(ini_get('upload_max_filesize'));
+    $postMaxSize = CRM_Utils_Number::formatUnitSize(ini_get('post_max_size'));
+    if ($maxImportFileSize > $postMaxSize) {
+      CRM_Core_Session::setStatus(ts("Note: Upload max filesize ('upload_max_filesize') should not exceed Post max size ('post_max_size') as defined in PHP.ini, please check with your system administrator."), ts("Warning"), "alert");
+    }
 
-    // also check if we can enable triggers
-    $validTriggerPermission = CRM_Core_DAO::checkTriggerViewPermission(FALSE);
-
-    // FIXME: for now, disable logging for multilingual sites OR if triggers are not permittted
-    $domain = new CRM_Core_DAO_Domain;
-    $domain->find(TRUE);
-    $attribs = $domain->locales || !$validTriggerPermission ?
-      array('disabled' => 'disabled') : array();
-
-    $this->assign('validTriggerPermission', $validTriggerPermission);
-    $this->addYesNo('logging', ts('Logging'), NULL, NULL, $attribs);
-
-    $this->addElement(
-      'text',
-      'wkhtmltopdfPath', ts('Path to wkhtmltopdf executable'),
-      array('size' => 64, 'maxlength' => 256)
-    );
-
-    $this->addElement(
-      'text', 'recaptchaPublicKey', ts('Public Key'),
-      array('size' => 64, 'maxlength' => 64)
-    );
-    $this->addElement(
-      'text', 'recaptchaPrivateKey', ts('Private Key'),
-      array('size' => 64, 'maxlength' => 64)
-    );
-
-    $this->addElement(
-      'text', 'dashboardCacheTimeout', ts('Dashboard cache timeout'),
-      array('size' => 3, 'maxlength' => 5)
-    );
-    $this->addElement(
-      'text', 'checksumTimeout', ts('CheckSum Lifespan'),
-      array('size' => 2, 'maxlength' => 8)
-    );
-    $this->addElement(
-      'text', 'recaptchaOptions', ts('Recaptcha Options'),
-      array('size' => 64, 'maxlength' => 64)
-    );
-
-    $this->addRule('checksumTimeout', ts('Value should be a positive number'), 'positiveInteger');
-
-    $this->addFormRule(array('CRM_Admin_Form_Setting_Miscellaneous', 'formRule'), $this);
-
-    parent::buildQuickForm();
+    // This is a temp hack for the fact we really don't need to hard-code each setting in the tpl but
+    // we haven't worked through NOT doing that. These settings have been un-hardcoded.
+    $this->assign('pure_config_settings', [
+      'empoweredBy',
+      'max_attachments',
+      'max_attachments_backend',
+      'maxFileSize',
+      'secondDegRelPermissions',
+      'recentItemsMaxCount',
+      'recentItemsProviders',
+      'dedupe_default_limit',
+      'prevNextBackend',
+      'import_batch_size',
+    ]);
   }
 
   /**
-   * global form rule
-   *
-   * @param array $fields  the input form values
-   * @param array $files   the uploaded files if any
-   * @param array $options additional user data
-   *
-   * @return true if no errors, else array of errors
-   * @access public
-   * @static
+   * Build the form object.
    */
-  static function formRule($fields, $files, $options) {
-    $errors = array();
+  public function buildQuickForm() {
+    $this->setTitle(ts('Misc (Undelete, PDFs, Limits, Logging, etc.)'));
 
+    $this->assign('validTriggerPermission', CRM_Core_DAO::checkTriggerViewPermission(FALSE));
+    // dev/core#1812 Assign multilingual status.
+    $this->assign('isMultilingual', CRM_Core_I18n::isMultilingual());
+
+    $this->addFormRule(['CRM_Admin_Form_Setting_Miscellaneous', 'formRule'], $this);
+
+    parent::buildQuickForm();
+    $this->addRule('checksum_timeout', ts('Value should be a positive number'), 'positiveInteger');
+  }
+
+  /**
+   * Global form rule.
+   *
+   * @param array $fields
+   *   The input form values.
+   * @param array $files
+   *   The uploaded files if any.
+   * @param array $options
+   *   Additional user data.
+   *
+   * @return bool|array
+   *   true if no errors, else array of errors
+   */
+  public static function formRule($fields, $files, $options) {
+    $errors = [];
+
+    // validate max file size
+    $iniBytes = CRM_Utils_Number::formatUnitSize(ini_get('upload_max_filesize'));
+    $inputBytes = ((int) $fields['maxFileSize']) * 1024 * 1024;
+
+    if ($inputBytes > $iniBytes) {
+      $errors['maxFileSize'] = ts("Maximum file size cannot exceed limit defined in \"php.ini\" (\"upload_max_filesize=%1\").", [
+        1 => ini_get('upload_max_filesize'),
+      ]);
+    }
+
+    // validate recent items stack size
+    if ($fields['recentItemsMaxCount'] && ($fields['recentItemsMaxCount'] < 1 || $fields['recentItemsMaxCount'] > CRM_Utils_Recent::MAX_ITEMS)) {
+      $errors['recentItemsMaxCount'] = ts("Illegal stack size. Use values between 1 and %1.", [1 => CRM_Utils_Recent::MAX_ITEMS]);
+    }
+
+    if (!empty($fields['weasyprint_path'])) {
+      // check and ensure that this path leads to the weasyprint binary
+      // and it is a valid executable binary
+      // Only check the first space separated piece to allow for a value
+      // such as /usr/bin/xvfb-run -- weasyprint (CRM-13292)
+      $pieces = explode(' ', $fields['weasyprint_path']);
+      $path = $pieces[0];
+      if (
+        !file_exists($path) ||
+        !is_executable($path)
+      ) {
+        $errors['weasyprint_path'] = ts('The path for %1 does not exist or is not valid', [1 => 'weasyprint']);
+      }
+    }
     if (!empty($fields['wkhtmltopdfPath'])) {
-      // check and ensure that thi leads to the wkhtmltopdf binary
+      // check and ensure that this path leads to the wkhtmltopdf binary
       // and it is a valid executable binary
       // Only check the first space separated piece to allow for a value
       // such as /usr/bin/xvfb-run -- wkhtmltopdf (CRM-13292)
@@ -131,44 +153,10 @@ class CRM_Admin_Form_Setting_Miscellaneous extends CRM_Admin_Form_Setting {
         !file_exists($path) ||
         !is_executable($path)
       ) {
-        $errors['wkhtmltopdfPath'] = ts('The wkhtmltodfPath does not exist or is not valid');
+        $errors['wkhtmltopdfPath'] = ts('The path for %1 does not exist or is not valid', [1 => 'wkhtmltopdf']);
       }
     }
     return $errors;
   }
 
-  function setDefaultValues() {
-    parent::setDefaultValues();
-
-    $this->_defaults['checksumTimeout'] =
-      CRM_Core_BAO_Setting::getItem(
-        CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME,
-        'checksum_timeout',
-        NULL,
-        7
-      );
-    return $this->_defaults;
-  }
-
-  public function postProcess() {
-    // store the submitted values in an array
-    $config = CRM_Core_Config::singleton();
-    $params = $this->controller->exportValues($this->_name);
-
-    // get current logging status
-    $values = $this->exportValues();
-
-    parent::postProcess();
-
-    if ($config->logging != $values['logging']) {
-      $logging = new CRM_Logging_Schema;
-      if ($values['logging']) {
-        $logging->enableLogging();
-      }
-      else {
-        $logging->disableLogging();
-      }
-    }
-  }
 }
-

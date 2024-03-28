@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id: $
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -39,112 +21,130 @@
 class CRM_Core_BAO_Job extends CRM_Core_DAO_Job {
 
   /**
-   * class constructor
+   * Add the payment-processor type in the db
+   *
+   * @param array $params
+   *   An assoc array of name/value pairs.
+   *
+   * @return CRM_Core_DAO_Job
    */
-  function __construct() {
-    parent::__construct();
-  }
-
-  /**
-   * Function to add the payment-processor type in the db
-   *
-   * @param array $params (reference ) an assoc array of name/value pairs
-   *
-   * @internal param array $ids the array that holds all the db ids
-   *
-   * @return object CRM_Financial_DAO_PaymentProcessorType
-   * @access public
-   * @static
-   */
-  static function create($params) {
+  public static function create($params) {
     $job = new CRM_Core_DAO_Job();
     $job->copyValues($params);
     return $job->save();
   }
 
   /**
-   * Takes a bunch of params that are needed to match certain criteria and
-   * retrieves the relevant objects. It also stores all the retrieved
-   * values in the default array
-   *
-   * @param array $params   (reference ) an assoc array of name/value pairs
-   * @param array $defaults (reference ) an assoc array to hold the flattened values
-   *
-   * @return object CRM_Core_DAO_Job object on success, null otherwise
-   * @access public
-   * @static
+   * @deprecated
+   * @param array $params
+   * @param array $defaults
+   * @return self|null
    */
-  static function retrieve(&$params, &$defaults) {
-    $job = new CRM_Core_DAO_Job();
-    $job->copyValues($params);
-    if ($job->find(TRUE)) {
-      CRM_Core_DAO::storeValues($job, $defaults);
-      return $job;
-    }
-    return NULL;
+  public static function retrieve($params, &$defaults) {
+    CRM_Core_Error::deprecatedFunctionWarning('API');
+    return self::commonRetrieve(self::class, $params, $defaults);
   }
 
   /**
-   * update the is_active flag in the db
-   *
-   * @param int      $id        id of the database record
-   * @param boolean  $is_active value we want to set the is_active field
-   *
-   * @return Object             DAO object on sucess, null otherwise
-   *
-   * @access public
-   * @static
+   * @deprecated - this bypasses hooks.
+   * @param int $id
+   * @param bool $is_active
+   * @return bool
    */
-  static function setIsActive($id, $is_active) {
+  public static function setIsActive($id, $is_active) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
     return CRM_Core_DAO::setFieldValue('CRM_Core_DAO_Job', $id, 'is_active', $is_active);
   }
 
   /**
-   * Function  to delete scheduled job
+   * Function  to delete scheduled job.
    *
    * @param $jobID
    *
-   * @internal param int $jobId ID of the job to be deleted.
-   *
    * @return bool|null
-   * @access public
-   * @static
+   * @deprecated
+   * @throws CRM_Core_Exception
    */
-  static function del($jobID) {
-    if (!$jobID) {
-      CRM_Core_Error::fatal(ts('Invalid value passed to delete function'));
-    }
-
-    $dao = new CRM_Core_DAO_Job();
-    $dao->id = $jobID;
-    if (!$dao->find(TRUE)) {
-      return NULL;
-    }
-
-    if ($dao->delete()) {
-      return TRUE;
-    }
+  public static function del($jobID) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    self::deleteRecord(['id' => $jobID]);
+    return TRUE;
   }
 
   /**
-   * Trim job table on a regular basis to keep it at a good size
+   * Trim job table on a regular basis to keep it at a good size.
    *
-   * CRM-10513
+   * @see https://issues.civicrm.org/jira/browse/CRM-10513
+   *
+   * @param int $maxEntriesToKeep
+   * @param int $minDaysToKeep
    */
-  static function cleanup($maxEntriesToKeep = 1000, $minDaysToKeep = 30) {
+  public static function cleanup($maxEntriesToKeep = 1000, $minDaysToKeep = 30) {
     // Prevent the job log from getting too big
     // For now, keep last minDays days and at least maxEntries records
     $query = 'SELECT COUNT(*) FROM civicrm_job_log';
-    $count = CRM_Core_DAO::singleValueQuery($query);
+    $count = (int) CRM_Core_DAO::singleValueQuery($query);
 
-    if ( $count <= $maxEntriesToKeep) {
+    if ($count <= $maxEntriesToKeep) {
       return;
     }
 
-    $count = $count - $maxEntriesToKeep;
+    $count = $count - (int) $maxEntriesToKeep;
 
-    $query = "DELETE FROM civicrm_job_log WHERE run_time < SUBDATE(NOW(), $minDaysToKeep) LIMIT $count";
+    $minDaysToKeep = (int) $minDaysToKeep;
+    $query = "DELETE FROM civicrm_job_log WHERE run_time < SUBDATE(NOW(), $minDaysToKeep) ORDER BY id LIMIT $count";
     CRM_Core_DAO::executeQuery($query);
+  }
+
+  /**
+   * Make a copy of a Job.
+   *
+   * @param int $id The job id to copy.
+   * @param array $params
+   * @return CRM_Core_DAO
+   */
+  public static function copy($id, $params = []) {
+    $fieldsFix = [
+      'suffix' => [
+        'name' => ' - ' . ts('Copy'),
+      ],
+      'replace' => $params,
+    ];
+    $copy = CRM_Core_DAO::copyGeneric('CRM_Core_DAO_Job', ['id' => $id], NULL, $fieldsFix);
+    $copy->save();
+    CRM_Utils_Hook::copy('Job', $copy, $id);
+
+    return $copy;
+  }
+
+  /**
+   * Parse multi-line `$parameters` string into an array
+   *
+   * @param string|null $parameters
+   * @return array
+   * @throws CRM_Core_Exception
+   */
+  public static function parseParameters(?string $parameters): array {
+    $parameters = trim($parameters ?? '');
+    if (!empty($parameters) && $parameters[0] === '{') {
+      try {
+        return json_decode($parameters, TRUE, 512, JSON_THROW_ON_ERROR);
+      }
+      catch (JsonException $e) {
+        throw new CRM_Core_Exception('Job parameters error: ' . $e->getMessage() . '. Parameters: ' . print_r($parameters, TRUE));
+      }
+    }
+    $result = ['version' => 3];
+    $lines = $parameters ? explode("\n", $parameters) : [];
+
+    foreach ($lines as $line) {
+      $pair = explode("=", $line);
+      if ($pair === FALSE || count($pair) !== 2 || !trim($pair[0]) || trim($pair[1]) === '') {
+        throw new CRM_Core_Exception('Malformed API parameters in scheduled job');
+      }
+      $result[trim($pair[0])] = trim($pair[1]);
+    }
+    return $result;
   }
 
 }

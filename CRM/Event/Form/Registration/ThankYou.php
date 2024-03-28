@@ -1,134 +1,133 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
+use Civi\Api4\PCPBlock;
 
 /**
  * This class generates form components for processing Event
- *
  */
 class CRM_Event_Form_Registration_ThankYou extends CRM_Event_Form_Registration {
 
   /**
-   * Function to set variables up before form is built
+   * Set variables up before form is built.
    *
    * @return void
-   * @access public
+   * @throws \CRM_Core_Exception
    */
-  function preProcess() {
+  public function preProcess(): void {
     parent::preProcess();
-    $this->_params      = $this->get('params');
-    $this->_lineItem    = $this->get('lineItem');
-    $this->_part        = $this->get('part');
-    $this->_totalAmount = $this->get('totalAmount');
-    $this->_receiveDate = $this->get('receiveDate');
-    $this->_trxnId      = $this->get('trxnId');
-    $finalAmount        = $this->get('finalAmount');
+    $this->_params = $this->get('params');
+    $this->_lineItem = $this->get('lineItem');
+    $finalAmount = $this->get('finalAmount');
     $this->assign('finalAmount', $finalAmount);
     $participantInfo = $this->get('participantInfo');
-    $this->assign('part', $this->_part);
+    $this->assign('part', $this->get('part'));
     $this->assign('participantInfo', $participantInfo);
     $customGroup = $this->get('customProfile');
     $this->assign('customProfile', $customGroup);
+    $this->assign('individual', $this->get('individual'));
 
     CRM_Event_Form_Registration_Confirm::assignProfiles($this);
 
-    CRM_Utils_System::setTitle(CRM_Utils_Array::value('thankyou_title', $this->_values['event']));
+    $this->setTitle(CRM_Utils_Array::value('thankyou_title', $this->_values['event']));
   }
 
   /**
-   * overwrite action, since we are only showing elements in frozen mode
+   * Overwrite action, since we are only showing elements in frozen mode
    * no help display needed
    *
    * @return int
-   * @access public
    */
-  function getAction() {
+  public function getAction(): int {
     if ($this->_action & CRM_Core_Action::PREVIEW) {
       return CRM_Core_Action::VIEW | CRM_Core_Action::PREVIEW;
     }
-    else {
-      return CRM_Core_Action::VIEW;
-    }
+
+    return CRM_Core_Action::VIEW;
   }
 
   /**
-   * Function to build the form
+   * Build the form object.
    *
    * @return void
-   * @access public
+   * @throws \CRM_Core_Exception
    */
   public function buildQuickForm() {
     // Assign the email address from a contact id lookup as in CRM_Event_BAO_Event->sendMail()
     $primaryContactId = $this->get('primaryContactId');
+    $email = NULL;
     if ($primaryContactId) {
-      list($displayName, $email) = CRM_Contact_BAO_Contact_Location::getEmailDetails($primaryContactId);
-      $this->assign('email', $email);
+      $email = CRM_Utils_Array::valueByRegexKey('/^email-/', current($this->_params));
+      if (!$email) {
+        $email = CRM_Contact_BAO_Contact::getPrimaryEmail($primaryContactId);
+      }
     }
+    $this->assign('email', $email ?? NULL);
+    $this->assign('eventConfirmText', $this->getEventValue('is_monetary') ? $this->getPaymentProcessorObject()->getText('eventConfirmText', []) : '');
+    $this->assign('eventConfirmEmailText', ($email && $this->getEventValue('is_monetary')) ? $this->getPaymentProcessorObject()->getText('eventConfirmEmailText', ['email' => $email]) : '');
+
     $this->assignToTemplate();
 
-    if ($this->_priceSetId && !CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $this->_priceSetId, 'is_quick_config')) {
-      $lineItemForTemplate = array();
+    $invoicing = \Civi::settings()->get('invoicing');
+    $taxAmount = 0;
+
+    $lineItemForTemplate = [];
+    if (!empty($this->_lineItem) && is_array($this->_lineItem)) {
       foreach ($this->_lineItem as $key => $value) {
-        if (!empty($value)) {
+        if (!empty($value) && $value !== 'skip') {
           $lineItemForTemplate[$key] = $value;
+          if ($invoicing) {
+            foreach ($value as $v) {
+              if (isset($v['tax_amount']) || isset($v['tax_rate'])) {
+                $taxAmount += $v['tax_amount'];
+              }
+            }
+          }
         }
-      }
-      if (!empty($lineItemForTemplate)) {
-        $this->assign('lineItem', $lineItemForTemplate);
       }
     }
 
-    $this->assign('totalAmount', $this->_totalAmount);
+    if ($this->_priceSetId &&
+      !CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $this->_priceSetId, 'is_quick_config') &&
+      !empty($lineItemForTemplate)
+    ) {
+      $this->assignLineItemsToTemplate($lineItemForTemplate);
+    }
+
+    if ($invoicing) {
+      $this->assign('totalTaxAmount', $taxAmount);
+    }
+    $this->assign('totalAmount', $this->get('totalAmount'));
 
     $hookDiscount = $this->get('hookDiscount');
     if ($hookDiscount) {
       $this->assign('hookDiscount', $hookDiscount);
     }
 
-    $this->assign('receive_date', $this->_receiveDate);
-    $this->assign('trxn_id', $this->_trxnId);
-
-    //cosider total amount.
-    $this->assign('isAmountzero', ($this->_totalAmount <= 0) ? TRUE : FALSE);
+    $this->assign('receive_date', $this->get('receiveDate'));
+    $this->assign('trxn_id', $this->get('trxnId'));
+    $this->assign('isAmountzero', $this->get('totalAmount') <= 0);
 
     $this->assign('defaultRole', FALSE);
-    if (CRM_Utils_Array::value('defaultRole', $this->_params[0]) == 1) {
+    if (($this->_params[0]['defaultRole'] ?? NULL) == 1) {
       $this->assign('defaultRole', TRUE);
     }
-    $defaults = array();
-    $fields = array();
+    $defaults = [];
+    $fields = [];
     if (!empty($this->_fields)) {
       foreach ($this->_fields as $name => $dontCare) {
         $fields[$name] = 1;
@@ -138,7 +137,7 @@ class CRM_Event_Form_Registration_ThankYou extends CRM_Event_Form_Registration {
     foreach ($fields as $name => $dontCare) {
       if (isset($this->_params[0][$name])) {
         $defaults[$name] = $this->_params[0][$name];
-        if (substr($name, 0, 7) == 'custom_') {
+        if (str_starts_with($name, 'custom_')) {
           $timeField = "{$name}_time";
           if (isset($this->_params[0][$timeField])) {
             $defaults[$timeField] = $this->_params[0][$timeField];
@@ -158,7 +157,7 @@ class CRM_Event_Form_Registration_ThankYou extends CRM_Event_Form_Registration {
 
     $params['entity_id'] = $this->_eventId;
     $params['entity_table'] = 'civicrm_event';
-    $data = array();
+    $data = [];
     CRM_Friend_BAO_Friend::retrieve($params, $data);
     if (!empty($data['is_active'])) {
       $friendText = $data['title'];
@@ -176,6 +175,9 @@ class CRM_Event_Form_Registration_ThankYou extends CRM_Event_Form_Registration {
       $this->assign('friendURL', $url);
     }
 
+    $this->assign('iCal', CRM_Event_BAO_Event::getICalLinks($this->_eventId));
+    $this->assign('isShowICalIconsInline', TRUE);
+
     $this->freeze();
 
     //lets give meaningful status message, CRM-4320.
@@ -188,18 +190,8 @@ class CRM_Event_Form_Registration_ThankYou extends CRM_Event_Form_Registration {
     }
     $this->assign('isOnWaitlist', $isOnWaitlist);
     $this->assign('isRequireApproval', $isRequireApproval);
-
-    // find pcp info
-    $dao               = new CRM_PCP_DAO_PCPBlock();
-    $dao->entity_table = 'civicrm_event';
-    $dao->entity_id    = $this->_eventId;
-    $dao->is_active    = 1;
-    $dao->find(TRUE);
-
-    if ($dao->id) {
-      $this->assign('pcpLink', CRM_Utils_System::url('civicrm/contribute/campaign', 'action=add&reset=1&pageId=' . $this->_eventId . '&component=event'));
-      $this->assign('pcpLinkText', $dao->link_text);
-    }
+    $this->assign('pcpLink', $this->getPCPBlockID() ? CRM_Utils_System::url('civicrm/contribute/campaign', 'action=add&reset=1&pageId=' . $this->getEventID() . '&component=event') : NULL);
+    $this->assign('pcpLinkText', $this->getPCPBlockID() ? $this->getPCPBlockValue('link_text') : NULL);
 
     // Assign Participant Count to Lineitem Table
     $this->assign('pricesetFieldsCount', CRM_Price_BAO_PriceSet::getPricesetCount($this->_priceSetId));
@@ -209,23 +201,56 @@ class CRM_Event_Form_Registration_ThankYou extends CRM_Event_Form_Registration {
   }
 
   /**
-   * Function to process the form
+   * Process the form submission.
    *
-   * @access public
    *
    * @return void
    */
-  public function postProcess() {}
-  //end of function
+  public function postProcess(): void {
+  }
 
   /**
    * Return a descriptive name for the page, used in wizard header
    *
    * @return string
-   * @access public
    */
-  public function getTitle() {
+  public function getTitle(): string {
     return ts('Thank You Page');
   }
-}
 
+  /**
+   * @return int|null
+   * @throws \CRM_Core_Exception
+   */
+  public function getPCPBlockID(): ?int {
+    if (!$this->isDefined('PCPBlock')) {
+      $pcpBlock = PCPBlock::get(FALSE)
+        ->addWhere('entity_table', '=', 'civicrm_event')
+        ->addWhere('entity_id', '=', $this->getEventID())
+        ->addWhere('is_active', '=', TRUE)
+        ->execute()->first();
+      if (!$pcpBlock) {
+        return NULL;
+      }
+      $this->define('PCPBlock', 'PCPBlock', $pcpBlock);
+    }
+    return $this->lookup('PCPBlock', 'id');
+  }
+
+  /**
+   * Get a PCP Block value.
+   *
+   * @param string $value
+   *
+   * @return mixed|null
+   * @throws \CRM_Core_Exception
+   * @todo - this should probably be on a trait & made public like similar getValue functions.
+   */
+  protected function getPCPBlockValue(string $value) {
+    if (!$this->getPCPBlockID()) {
+      return NULL;
+    }
+    return $this->lookup('PCPBlock', $value);
+  }
+
+}

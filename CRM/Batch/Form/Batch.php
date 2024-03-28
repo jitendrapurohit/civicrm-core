@@ -1,56 +1,44 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
-/**
- *
- * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
- */
+use Civi\Api4\Batch;
 
 /**
- * This class generates form components for batch entry
- *
+ * This class generates form components for batch entry.
  */
 class CRM_Batch_Form_Batch extends CRM_Admin_Form {
 
+  protected $submittableMoneyFields = ['total'];
+
+  /**
+   * Explicitly declare the entity api name.
+   */
+  public function getDefaultEntity() {
+    return 'Batch';
+  }
+
+  /**
+   * PreProcess function.
+   */
   public function preProcess() {
     parent::preProcess();
-    // set the usercontext
+    // Set the user context.
     $session = CRM_Core_Session::singleton();
     $session->replaceUserContext(CRM_Utils_System::url('civicrm/batch', "reset=1"));
   }
 
   /**
-   * Function to build the form
+   * Build the form object.
    *
-   * @return void
-   * @access public
+   * @throws \CRM_Core_Exception
    */
   public function buildQuickForm() {
     parent::buildQuickForm();
@@ -65,9 +53,6 @@ class CRM_Batch_Form_Batch extends CRM_Admin_Form {
 
     $batchTypes = CRM_Batch_BAO_Batch::buildOptions('type_id');
 
-    // unset non-related types
-    unset($batchTypes[3]);
-    unset($batchTypes[4]);
     $type = $this->add('select', 'type_id', ts('Type'), $batchTypes);
 
     if ($this->_action & CRM_Core_Action::UPDATE) {
@@ -75,22 +60,18 @@ class CRM_Batch_Form_Batch extends CRM_Admin_Form {
     }
 
     $this->add('textarea', 'description', ts('Description'), $attributes['description']);
-    $this->add('text', 'item_count', ts('Number of items'), $attributes['item_count'], TRUE);
+    $this->add('text', 'item_count', ts('Number of Items'), $attributes['item_count'], TRUE);
     $this->add('text', 'total', ts('Total Amount'), $attributes['total'], TRUE);
   }
 
   /**
-   * This function sets the default values for the form.
-   *
-   * @access public
-   *
-   * @return void
+   * Set default values for the form.
    */
-  function setDefaultValues() {
-    $defaults = array();
+  public function setDefaultValues() {
+    $defaults = [];
 
     if ($this->_action & CRM_Core_Action::ADD) {
-      // set batch name default
+      // Set batch name default.
       $defaults['title'] = CRM_Batch_BAO_Batch::generateBatchName();
     }
     else {
@@ -100,42 +81,37 @@ class CRM_Batch_Form_Batch extends CRM_Admin_Form {
   }
 
   /**
-   * Function to process the form
+   * Process the form submission.
    *
-   * @access public
-   *
-   * @return void
+   * @throws \CRM_Core_Exception
    */
-  public function postProcess() {
-    $params = $this->controller->exportValues($this->_name);
+  public function postProcess(): void {
     if ($this->_action & CRM_Core_Action::DELETE) {
-      CRM_Core_Session::setStatus("", ts("Batch Deleted"), "success");
+      CRM_Core_Session::setStatus('', ts('Batch Deleted'), 'success');
       CRM_Batch_BAO_Batch::deleteBatch($this->_id);
       return;
     }
 
-    if ($this->_id) {
-      $params['id'] = $this->_id;
+    $batchID = Batch::save(FALSE)->setRecords([
+      [
+        // Always create with data entry status.
+        'status_id:name' => 'Data Entry',
+        'id' => $this->_id,
+        'title' => $this->getSubmittedValue('title'),
+        'description' => $this->getSubmittedValue('description'),
+        'type_id' => $this->getSubmittedValue('type_id'),
+        'total' => $this->getSubmittedValue('total'),
+        'item_count' => $this->getSubmittedValue('item_count'),
+      ],
+    ])->execute()->first()['id'];
+
+    // Redirect to batch entry page.
+    if ($this->_action & CRM_Core_Action::ADD) {
+      CRM_Core_Session::singleton()->replaceUserContext(CRM_Utils_System::url('civicrm/batch/entry', "id={$batchID}&reset=1&action=add"));
     }
     else {
-      $session = CRM_Core_Session::singleton();
-      $params['created_id'] = $session->get('userID');
-      $params['created_date'] = CRM_Utils_Date::processDate( date( "Y-m-d" ), date( "H:i:s" ) );
-    }
-
-    // always create with data entry status
-    $params['status_id'] = CRM_Core_OptionGroup::getValue('batch_status','Data Entry', 'name');
-    $batch = CRM_Batch_BAO_Batch::create($params);
-
-    // redirect to batch entry page.
-    $session = CRM_Core_Session::singleton();
-    if ( $this->_action & CRM_Core_Action::ADD ) {
-      $session->replaceUserContext(CRM_Utils_System::url('civicrm/batch/entry', "id={$batch->id}&reset=1&action=add"));
-    }
-    else {
-      $session->replaceUserContext(CRM_Utils_System::url('civicrm/batch/entry', "id={$batch->id}&reset=1"));
+      CRM_Core_Session::singleton()->replaceUserContext(CRM_Utils_System::url('civicrm/batch/entry', "id={$batchID}&reset=1"));
     }
   }
-  //end of function
-}
 
+}

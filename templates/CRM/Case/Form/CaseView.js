@@ -2,11 +2,7 @@
 (function($, CRM) {
 
   function refresh(table) {
-    if (table) {
-      $(table).dataTable().fnDraw();
-    } else {
-      $('#crm-main-content-wrapper').crmSnippet('refresh');
-    }
+    $('#crm-main-content-wrapper').crmSnippet('refresh');
   }
 
   function open(url, options, table) {
@@ -37,7 +33,7 @@
   var miniForms = {
     '#manageTagsDialog': {
       post: function(data) {
-        var tagsChecked = $("#tags", this) ? $("#tags", this).select2('val').join(',') : '',
+        var tagsChecked = $("#tags", this) ? $("#tags", this).val() : '',
           tagList = {},
           url = CRM.url('civicrm/case/ajax/processtags');
         $("input[name^=case_taglist]", this).each(function() {
@@ -70,12 +66,23 @@
     },
     '#addCaseRoleDialog': {
       pre: function() {
-        $('[name=role_type]', this).val('').change();
-        $('[name=add_role_contact_id]', this).val('').crmEntityRef({create: true, api: {params: {contact_type: 'Individual'}}});
+        var $contactField = $('[name=add_role_contact_id]', this);
+        $('[name=role_type]', this)
+          .off('.miniform')
+          .on('change.miniform', function() {
+            var val = $(this).val();
+            $contactField.val('').change().prop('disabled', !val);
+            if (val) {
+              prepareRelationshipField(val, $contactField);
+            }
+          })
+          .val('')
+          .change();
+        $contactField.val('').crmEntityRef();
       },
       post: function(data) {
-        var contactID = $('[name=add_role_contact_id]').val(),
-          relType = $('[name=role_type]').val();
+        var contactID = $('[name=add_role_contact_id]', this).val(),
+          relType = $('[name=role_type]', this).val();
         if (contactID && relType) {
           $.extend(data, {
             case_id: caseId(),
@@ -89,11 +96,13 @@
       }
     },
     '#editCaseRoleDialog': {
-      pre: function() {
-        $('[name=edit_role_contact_id]', this).val('').crmEntityRef({create: true, api: {params: {contact_type: 'Individual'}}});
+      pre: function(data) {
+        // Clear stale value since this form can be reused multiple times
+        $('[name=edit_role_contact_id]', this).val('');
+        prepareRelationshipField(data.rel_type, $('[name=edit_role_contact_id]', this));
       },
       post: function(data) {
-        data.rel_contact = $('[name=edit_role_contact_id]').val();
+        data.rel_contact = $('[name=edit_role_contact_id]', this).val();
         if (data.rel_contact) {
           $.extend(data, {
             case_id: caseId(),
@@ -109,7 +118,7 @@
         $('[name=add_client_id]', this).val('').crmEntityRef({create: true});
       },
       post: function(data) {
-        data.contactID = $('[name=add_client_id]').val();
+        data.contactID = $('[name=add_client_id]', this).val();
         if (data.contactID) {
           data.caseID = caseId();
           return $.post(CRM.url('civicrm/case/ajax/addclient'), data);
@@ -119,12 +128,16 @@
     },
     '#addMembersToGroupDialog': {
       pre: function() {
-        $('[name=add_member_to_group_contact_id]', this).val('').crmEntityRef({create: true});
+        $('[name=add_member_to_group_contact_id]', this).val('').crmEntityRef({create: true, select: {multiple: true}});
       },
       post: function(data) {
-        data.contact_id = $('[name=add_member_to_group_contact_id]').val();
-        if (data.contact_id) {
-          return CRM.api3('group_contact', 'create', data);
+        var requests = [],
+          cids = $('[name=add_member_to_group_contact_id]', this).val();
+        if (cids) {
+          $.each(cids.split(','), function (k, cid) {
+            requests.push(['group_contact', 'create', $.extend({contact_id: cid}, data)]);
+          });
+          return CRM.api3(requests);
         }
         return false;
       }
@@ -132,11 +145,42 @@
   },
     detached = {};
 
+  function prepareRelationshipField(relType, $contactField) {
+    var
+      pieces = relType.split('_'),
+      rType = pieces[0],
+      target = pieces[2], // b or a
+      relationshipType = CRM.vars.relationshipTypes[rType],
+      api = {params: {}};
+    if (relationshipType['contact_type_' + target]) {
+      api.params.contact_type = relationshipType['contact_type_' + target];
+    }
+    if (relationshipType['contact_sub_type_' + target]) {
+      api.params.contact_sub_type = relationshipType['contact_sub_type_' + target];
+    }
+    if (relationshipType['group_' + target]) {
+      api.params.group = {IN: relationshipType['group_' + target]};
+    }
+    $contactField
+      .data('create-links', !relationshipType['group_' + target])
+      .data('api-params', api)
+      .data('user-filter', {})
+      .attr('placeholder', relationshipType['placeholder_' + target])
+      .change()
+      .crmEntityRef();
+  }
+
   function detachMiniForms() {
     detached = {};
     $.each(miniForms, function(selector) {
       detached[selector] = $(selector).detach().removeClass('hiddenElement');
     });
+  }
+
+  function showHideInactiveRoles() {
+    let showInactive = $('#role_inactive').prop('checked');
+    $('[id^=caseRoles-selector] tbody tr').not('.disabled').toggle(!showInactive);
+    $('[id^=caseRoles-selector] tbody tr.disabled').toggle(showInactive);
   }
 
   $('#crm-container').on('crmLoad', '#crm-main-content-wrapper', detachMiniForms);
@@ -174,6 +218,21 @@
           $(this).select2('val', '');
         }
       })
+      // When changing case subject, record an activity
+      .on('crmFormSuccess', '[data-field=subject]', function(e, value) {
+        var id = caseId();
+        CRM.api3('Activity', 'create', {
+          case_id: id,
+          activity_type_id: 'Change Case Subject',
+          subject: value,
+          status_id: 'Completed'
+        }).done(function() {
+          $('#case_id_' + id).dataTable().api().draw();
+        });
+      })
+      // Toggle to show/hide inactive case roles
+      .on('crmLoad', 'table#caseRoles-selector-' + caseId(), showHideInactiveRoles)
+      .on('change', '#role_inactive', showHideInactiveRoles)
       .on('click', 'a.case-miniform', function(e) {
         var dialog,
           $el = $(this),
@@ -183,7 +242,7 @@
           var submission = miniForms[target].post.call(dialog[0], $.extend({}, $el.data()));
           // Function should return a deferred object
           if (submission) {
-            dialog.parent().block();
+            dialog.block();
             submission.done(function(data) {
               dialog.dialog('close');
               var table = $el.closest('table.dataTable');
@@ -200,7 +259,7 @@
               if (!$(this).val()) {
                 $(this).crmError(ts('Please select a value'));
               }
-            })
+            });
           }
           return submission;
         }
@@ -208,7 +267,10 @@
           title: $(this).attr('title') || $(this).text(),
           message: detached[target],
           resizable: true,
-          open: miniForms[target].pre
+          options: {yes: ts('Save'), no: ts('Cancel')},
+          open: function() {
+            if (miniForms[target].pre) miniForms[target].pre.call(this, $el.data());
+          }
         })
           .on('dialogclose', function() {
             detached[target] = $(target, dialog).detach();
@@ -237,4 +299,4 @@
         }
       });
   });
-}(cj, CRM))
+}(cj, CRM));

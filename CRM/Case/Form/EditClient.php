@@ -1,54 +1,32 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * This class assigns the current case to another client
- *
+ * This class assigns the current case to another client.
  */
 class CRM_Case_Form_EditClient extends CRM_Core_Form {
 
   /**
-   * build all the data structures needed to build the form
-   *
-   * @return void
-   * @access public
+   * Build all the data structures needed to build the form.
    */
   public function preProcess() {
     $cid = CRM_Utils_Request::retrieve('cid', 'Positive', $this, TRUE);
     CRM_Utils_Request::retrieve('id', 'Positive', $this, TRUE);
-    $context = CRM_Utils_Request::retrieve('context', 'String', $this);
+    $context = CRM_Utils_Request::retrieve('context', 'Alphanumeric', $this);
 
     //get current client name.
     $this->assign('currentClientName', CRM_Contact_BAO_Contact::displayName($cid));
@@ -67,8 +45,7 @@ class CRM_Case_Form_EditClient extends CRM_Core_Form {
     elseif ($context == 'dashboard') {
       $url = CRM_Utils_System::url('civicrm/case', 'reset=1');
     }
-    elseif (in_array($context, array(
-      'dashlet', 'dashletFullscreen'))) {
+    elseif (in_array($context, ['dashlet', 'dashletFullscreen'])) {
       $url = CRM_Utils_System::url('civicrm/dashboard', 'reset=1');
     }
     $session = CRM_Core_Session::singleton();
@@ -76,35 +53,38 @@ class CRM_Case_Form_EditClient extends CRM_Core_Form {
   }
 
   /**
-   * Function to build the form
-   *
-   * @return void
-   * @access public
+   * Build the form object.
    */
   public function buildQuickForm() {
-    $this->addEntityRef('reassign_contact_id', ts('Select Contact'), array('create' => TRUE), TRUE);
-    $this->addButtons(array(
-      array(
-        'type' => 'cancel',
-        'name' => ts('Cancel'),
-      ),
-      array(
+    $this->addEntityRef('reassign_contact_id', ts('Select Contact'), ['create' => TRUE], TRUE);
+    $this->addButtons([
+      [
         'type' => 'done',
         'name' => ts('Reassign Case'),
-      ),
-    ));
+      ],
+      [
+        'type' => 'cancel',
+        'name' => ts('Cancel'),
+      ],
+    ]);
 
     // This form may change the url structure so should not submit via ajax
     $this->preventAjaxSubmit();
   }
 
-
-  function addRules() {
-    $this->addFormRule(array(get_class($this), 'formRule'), $this);
+  public function addRules() {
+    $this->addFormRule([get_class($this), 'formRule'], $this);
   }
 
-  static function formRule($vals, $rule, $form) {
-    $errors = array();
+  /**
+   * @param $vals
+   * @param $rule
+   * @param CRM_Core_Form $form
+   *
+   * @return array
+   */
+  public static function formRule($vals, $rule, $form) {
+    $errors = [];
     if (empty($vals['reassign_contact_id']) || $vals['reassign_contact_id'] == $form->get('cid')) {
       $errors['reassign_contact_id'] = ts("Please select a different contact.");
     }
@@ -112,10 +92,7 @@ class CRM_Case_Form_EditClient extends CRM_Core_Form {
   }
 
   /**
-   * Process the form
-   *
-   * @return void
-   * @access public
+   * Process the form.
    */
   public function postProcess() {
     $params = $this->controller->exportValues($this->_name);
@@ -129,5 +106,5 @@ class CRM_Case_Form_EditClient extends CRM_Core_Form {
     );
     CRM_Core_Session::singleton()->pushUserContext($url);
   }
-}
 
+}

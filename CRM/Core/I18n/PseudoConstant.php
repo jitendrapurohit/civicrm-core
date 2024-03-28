@@ -1,51 +1,41 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Core_I18n_PseudoConstant {
 
-  static function longForShort($short) {
+  /**
+   * @param $short
+   *
+   * @return mixed
+   */
+  public static function longForShort($short) {
     $longForShortMapping = self::longForShortMapping();
     return $longForShortMapping[$short];
   }
 
-  static function &longForShortMapping() {
+  /**
+   * @return array
+   */
+  public static function &longForShortMapping() {
     static $longForShortMapping = NULL;
     if ($longForShortMapping === NULL) {
-      $rows = array();
-      CRM_Core_OptionValue::getValues(array('name' => 'languages'), $rows);
+      $rows = [];
+      CRM_Core_OptionValue::getValues(['name' => 'languages'], $rows);
 
-      $longForShortMapping = array();
+      $longForShortMapping = [];
       foreach ($rows as $row) {
         $longForShortMapping[$row['value']] = $row['name'];
       }
@@ -57,12 +47,34 @@ class CRM_Core_I18n_PseudoConstant {
       $longForShortMapping['fr'] = defined("CIVICRM_LANGUAGE_MAPPING_FR") ? CIVICRM_LANGUAGE_MAPPING_FR : 'fr_FR';
       $longForShortMapping['pt'] = defined("CIVICRM_LANGUAGE_MAPPING_PT") ? CIVICRM_LANGUAGE_MAPPING_PT : 'pt_PT';
       $longForShortMapping['es'] = defined("CIVICRM_LANGUAGE_MAPPING_ES") ? CIVICRM_LANGUAGE_MAPPING_ES : 'es_ES';
+      $longForShortMapping['nl'] = defined("CIVICRM_LANGUAGE_MAPPING_NL") ? CIVICRM_LANGUAGE_MAPPING_NL : 'nl_NL';
     }
     return $longForShortMapping;
   }
 
-  static function shortForLong($long) {
+  /**
+   * @param string $long
+   *
+   * @return string
+   */
+  public static function shortForLong($long) {
     return substr($long, 0, 2);
   }
-}
 
+  /**
+   * Returns a list of ISO 639-1 "right-to-left" language codes.
+   *
+   * @return array
+   */
+  public static function getRTLlanguages() {
+    $rtl = [
+      'ar',
+      'fa',
+      'he',
+      'ur',
+    ];
+
+    return $rtl;
+  }
+
+}

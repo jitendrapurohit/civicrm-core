@@ -1,56 +1,37 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Contact_Page_View_ContactSmartGroup extends CRM_Core_Page {
 
   /**
-   * @var int contact id
+   * Contact id.
+   *
+   * @var int
    */
   public $_contactId;
 
   /**
-   * This function is called when action is browse
-   *
-   * return null
-   * @access public
+   * Called when action is browse.
    */
-  function browse() {
+  public function browse() {
     $in = CRM_Contact_BAO_GroupContact::getContactGroup($this->_contactId, 'Added');
 
     // keep track of all 'added' contact groups so we can remove them from the smart group
     // section
-    $staticGroups = array();
+    $staticGroups = [];
     if (!empty($in)) {
       foreach ($in as $group) {
         $staticGroups[$group['group_id']] = 1;
@@ -58,11 +39,11 @@ class CRM_Contact_Page_View_ContactSmartGroup extends CRM_Core_Page {
     }
 
     $allGroup = CRM_Contact_BAO_GroupContactCache::contactGroup($this->_contactId);
-    $this->assign('groupSmart'  , NULL);
+    $this->assign('groupSmart', NULL);
     $this->assign('groupParent', NULL);
 
     if (!empty($allGroup)) {
-      $smart = $parent = array( );
+      $smart = $parent = [];
       foreach ($allGroup['group'] as $group) {
         // delete all smart groups which are also in static groups
         if (isset($staticGroups[$group['id']])) {
@@ -77,16 +58,16 @@ class CRM_Contact_Page_View_ContactSmartGroup extends CRM_Core_Page {
       }
 
       if (!empty($smart)) {
-        $this->assign_by_ref('groupSmart', $smart);
+        $this->assign('groupSmart', $smart);
       }
       if (!empty($parent)) {
-        $this->assign_by_ref('groupParent', $parent);
+        $this->assign('groupParent', $parent);
       }
     }
   }
 
-  function preProcess() {
-    $this->_contactId = CRM_Utils_Request::retrieve('cid', 'Positive', $this, TRUE);
+  public function preProcess() {
+    $this->_contactId = (int) CRM_Utils_Request::retrieve('cid', 'Positive', $this, TRUE);
     $this->assign('contactId', $this->_contactId);
 
     $displayName = CRM_Contact_BAO_Contact::displayName($this->_contactId);
@@ -97,16 +78,16 @@ class CRM_Contact_Page_View_ContactSmartGroup extends CRM_Core_Page {
   }
 
   /**
-   * This function is the main function that is called
+   * the main function that is called
    * when the page loads, it decides the which action has
    * to be taken for the page.
    *
-   * return null
-   * @access public
+   * @return null
    */
-  function run() {
+  public function run() {
     $this->preProcess();
     $this->browse();
     return parent::run();
   }
+
 }

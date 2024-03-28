@@ -1,225 +1,121 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  * A queue implementation which stores items in the CiviCRM SQL database
  */
 class CRM_Queue_Queue_Sql extends CRM_Queue_Queue {
 
+  use CRM_Queue_Queue_SqlTrait;
+
   /**
    * Create a reference to queue. After constructing the queue, one should
    * usually call createQueue (if it's a new queue) or loadQueue (if it's
    * known to be an existing queue).
    *
-   * @param $queueSpec, array with keys:
-   *   - type: string, required, e.g. "interactive", "immediate", "stomp", "beanstalk"
+   * @param array $queueSpec
+   *   Array with keys:
+   *   - type: string, required, e.g. "interactive", "immediate", "stomp",
+   *     "beanstalk"
    *   - name: string, required, e.g. "upgrade-tasks"
-   *   - reset: bool, optional; if a queue is found, then it should be flushed; default to TRUE
-   *   - (additional keys depending on the queue provider)
+   *   - reset: bool, optional; if a queue is found, then it should be
+   *     flushed; default to TRUE
+   *   - (additional keys depending on the queue provider).
    */
-  function __construct($queueSpec) {
+  public function __construct($queueSpec) {
     parent::__construct($queueSpec);
   }
 
   /**
-   * Perform any registation or resource-allocation for a new queue
-   */
-  function createQueue() {
-    // nothing to do -- just start CRUDing items in the appropriate table
-  }
-
-  /**
-   * Perform any loading or pre-fetch for an existing queue.
-   */
-  function loadQueue() {
-    // nothing to do -- just start CRUDing items in the appropriate table
-  }
-
-  /**
-   * Release any resources claimed by the queue (memory, DB rows, etc)
-   */
-  function deleteQueue() {
-    return CRM_Core_DAO::singleValueQuery("
-      DELETE FROM civicrm_queue_item
-      WHERE queue_name = %1
-    ", array(
-        1 => array($this->getName(), 'String'),
-      ));
-  }
-
-  /**
-   * Check if the queue exists
+   * Get the next item.
    *
-   * @return bool
+   * @param int|null $lease_time
+   *   Hold a lease on the claimed item for $X seconds.
+   *   If NULL, inherit a queue default (`$queueSpec['lease_time']`) or system default (`DEFAULT_LEASE_TIME`).
+   * @return object
+   *   With key 'data' that matches the inputted data.
    */
-  function existsQueue() {
-    return ($this->numberOfItems() > 0);
-  }
+  public function claimItem($lease_time = NULL) {
+    $lease_time = $lease_time ?: $this->getSpec('lease_time') ?: static::DEFAULT_LEASE_TIME;
 
-  /**
-   * Add a new item to the queue
-   *
-   * @param $data serializable PHP object or array
-   * @param array|\queue $options queue-dependent options; for example, if this is a
-   *   priority-queue, then $options might specify the item's priority
-   *
-   * @return bool, TRUE on success
-   */
-  function createItem($data, $options = array()) {
-    $dao              = new CRM_Queue_DAO_QueueItem();
-    $dao->queue_name  = $this->getName();
-    $dao->submit_time = CRM_Utils_Time::getTime('YmdHis');
-    $dao->data        = serialize($data);
-    $dao->weight      = CRM_Utils_Array::value('weight', $options, 0);
-    $dao->save();
-  }
-
-  /**
-   * Determine number of items remaining in the queue
-   *
-   * @return int
-   */
-  function numberOfItems() {
-    return CRM_Core_DAO::singleValueQuery("
-      SELECT count(*)
-      FROM civicrm_queue_item
-      WHERE queue_name = %1
-    ", array(
-        1 => array($this->getName(), 'String'),
-      ));
-  }
-
-  /**
-   * Get the next item
-   *
-   * @param int|\seconds $lease_time seconds
-   *
-   * @return object with key 'data' that matches the inputted data
-   */
-  function claimItem($lease_time = 3600) {
-    $sql = "
-      SELECT id, queue_name, submit_time, release_time, data
-      FROM civicrm_queue_item
-      WHERE queue_name = %1
-      ORDER BY weight ASC, id ASC
-      LIMIT 1
-    ";
-    $params = array(
-      1 => array($this->getName(), 'String'),
-    );
+    $result = NULL;
+    CRM_Core_DAO::executeQuery('LOCK TABLES civicrm_queue_item WRITE;');
+    $sql = '
+        SELECT first_in_queue.* FROM (
+          SELECT id, queue_name, submit_time, release_time, run_count, data
+          FROM civicrm_queue_item
+          WHERE queue_name = %1
+          ORDER BY weight, id
+          LIMIT 1
+        ) first_in_queue
+        WHERE release_time IS NULL OR UNIX_TIMESTAMP(release_time) < %2
+      ';
+    $params = [
+      1 => [$this->getName(), 'String'],
+      2 => [CRM_Utils_Time::time(), 'Integer'],
+    ];
     $dao = CRM_Core_DAO::executeQuery($sql, $params, TRUE, 'CRM_Queue_DAO_QueueItem');
-    if (is_a($dao, 'DB_Error')) {
-      // FIXME - Adding code to allow tests to pass
-      CRM_Core_Error::fatal();
-    }
 
     if ($dao->fetch()) {
       $nowEpoch = CRM_Utils_Time::getTimeRaw();
-      if ($dao->release_time === NULL || strtotime($dao->release_time) < $nowEpoch) {
-        CRM_Core_DAO::executeQuery("UPDATE civicrm_queue_item SET release_time = %1 WHERE id = %2", array(
-            '1' => array(date('YmdHis', $nowEpoch + $lease_time), 'String'),
-            '2' => array($dao->id, 'Integer'),
-          ));
-        // work-around: inconsistent date-formatting causes unintentional breakage
-        #        $dao->submit_time = date('YmdHis', strtotime($dao->submit_time));
-        #        $dao->release_time = date('YmdHis', $nowEpoch + $lease_time);
-        #        $dao->save();
-        $dao->data = unserialize($dao->data);
-        return $dao;
-      }
-      else {
-        CRM_Core_Error::debug_var('not ready for release', $dao);
-        return FALSE;
-      }
+      $dao->run_count++;
+      $sql = 'UPDATE civicrm_queue_item SET release_time = from_unixtime(unix_timestamp() + %1), run_count = %3 WHERE id = %2';
+      $sqlParams = [
+        '1' => [CRM_Utils_Time::delta() + $lease_time, 'Integer'],
+        '2' => [$dao->id, 'Integer'],
+        '3' => [$dao->run_count, 'Integer'],
+      ];
+      CRM_Core_DAO::executeQuery($sql, $sqlParams);
+      $dao->data = unserialize($dao->data);
+      $result = $dao;
     }
-    else {
-      CRM_Core_Error::debug_var('no items found');
-      return FALSE;
-    }
+
+    CRM_Core_DAO::executeQuery('UNLOCK TABLES;');
+
+    return $result;
   }
 
   /**
    * Get the next item, even if there's an active lease
    *
-   * @param int|\seconds $lease_time seconds
-   *
-   * @return object with key 'data' that matches the inputted data
+   * @param int|null $lease_time
+   *   Hold a lease on the claimed item for $X seconds.
+   *   If NULL, inherit a queue default (`$queueSpec['lease_time']`) or system default (`DEFAULT_LEASE_TIME`).
+   * @return object
+   *   With key 'data' that matches the inputted data.
    */
-  function stealItem($lease_time = 3600) {
+  public function stealItem($lease_time = NULL) {
+    $lease_time = $lease_time ?: $this->getSpec('lease_time') ?: static::DEFAULT_LEASE_TIME;
+
     $sql = "
-      SELECT id, queue_name, submit_time, release_time, data
+      SELECT id, queue_name, submit_time, release_time, run_count, data
       FROM civicrm_queue_item
       WHERE queue_name = %1
       ORDER BY weight ASC, id ASC
       LIMIT 1
     ";
-    $params = array(
-      1 => array($this->getName(), 'String'),
-    );
+    $params = [
+      1 => [$this->getName(), 'String'],
+    ];
     $dao = CRM_Core_DAO::executeQuery($sql, $params, TRUE, 'CRM_Queue_DAO_QueueItem');
     if ($dao->fetch()) {
       $nowEpoch = CRM_Utils_Time::getTimeRaw();
-      CRM_Core_DAO::executeQuery("UPDATE civicrm_queue_item SET release_time = %1 WHERE id = %2", array(
-          '1' => array(date('YmdHis', $nowEpoch + $lease_time), 'String'),
-          '2' => array($dao->id, 'Integer'),
-        ));
+      $dao->run_count++;
+      CRM_Core_DAO::executeQuery("UPDATE civicrm_queue_item SET release_time = from_unixtime(unix_timestamp() + %1) WHERE id = %2", [
+        '1' => [CRM_Utils_Time::delta() + $lease_time, 'Integer'],
+        '2' => [$dao->id, 'Integer'],
+      ]);
       $dao->data = unserialize($dao->data);
       return $dao;
     }
-    else {
-      CRM_Core_Error::debug_var('no items found');
-      return FALSE;
-    }
   }
 
-  /**
-   * Remove an item from the queue
-   *
-   * @param $dao object The item returned by claimItem
-   */
-  function deleteItem($dao) {
-    $dao->delete();
-    $dao->free();
-  }
-
-  /**
-   * Return an item that could not be processed
-   *
-   * @param $dao object The item returned by claimItem
-   *
-   * @return bool
-   */
-  function releaseItem($dao) {
-    $sql = "UPDATE civicrm_queue_item SET release_time = NULL WHERE id = %1";
-    $params = array(
-      1 => array($dao->id, 'Integer'),
-    );
-    CRM_Core_DAO::executeQuery($sql, $params);
-    $dao->free();
-  }
 }
-

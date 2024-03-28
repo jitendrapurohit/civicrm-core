@@ -1,98 +1,87 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
- * form helper class for address section
+ * Form helper class for address section.
  */
 class CRM_Contact_Form_Inline_Address extends CRM_Contact_Form_Inline {
 
   /**
-   * location block no
+   * Location block no
+   * @var int
    */
   private $_locBlockNo;
 
   /**
    * Do we want to parse street address.
+   * @var bool
    */
   public $_parseStreetAddress;
 
   /**
-   * store address values
+   * Store address values
+   * @var array
    */
   public $_values;
 
   /**
-   * form action
+   * Form action
+   * @var string
    */
   public $_action;
 
   /**
-   * address id
+   * Address id
+   * @var int
    */
   public $_addressId;
 
   /**
+   * Class constructor.
+   *
    * Since we are using same class / code to generate multiple instances
    * of address block, we need to generate unique form name for each,
-   * hence calling parent contructor
+   * hence calling parent constructor
    */
-  function __construct() {
-    $locBlockNo = CRM_Utils_Request::retrieve('locno', 'Positive', CRM_Core_DAO::$_nullObject, TRUE, NULL, $_REQUEST);
+  public function __construct() {
+    $locBlockNo = CRM_Utils_Request::retrieve('locno', 'Positive', CRM_Core_DAO::$_nullObject, TRUE);
     $name = "Address_{$locBlockNo}";
 
-    parent::__construct(null, CRM_Core_Action::NONE, 'post', $name);
+    parent::__construct(NULL, CRM_Core_Action::NONE, 'post', $name);
   }
 
   /**
-   * call preprocess
+   * Call preprocess.
    */
   public function preProcess() {
     parent::preProcess();
 
-    $this->_locBlockNo = CRM_Utils_Request::retrieve('locno', 'Positive', $this, TRUE, NULL, $_REQUEST);
+    $this->_locBlockNo = CRM_Utils_Request::retrieve('locno', 'Positive', $this, TRUE);
     $this->assign('blockId', $this->_locBlockNo);
 
     $addressSequence = CRM_Core_BAO_Address::addressSequence();
     $this->assign('addressSequence', $addressSequence);
 
-    $this->_values = array();
-    $this->_addressId = CRM_Utils_Request::retrieve('aid', 'Positive', $this, FALSE, NULL, $_REQUEST);
+    $this->_values = [];
+    $this->_addressId = CRM_Utils_Request::retrieve('aid', 'Positive', $this);
 
     $this->_action = CRM_Core_Action::ADD;
     if ($this->_addressId) {
-      $params = array('id' => $this->_addressId);
+      $params = ['id' => $this->_addressId];
       $address = CRM_Core_BAO_Address::getValues($params, FALSE, 'id');
       $this->_values['address'][$this->_locBlockNo] = array_pop($address);
       $this->_action = CRM_Core_Action::UPDATE;
@@ -120,21 +109,18 @@ class CRM_Contact_Form_Inline_Address extends CRM_Contact_Form_Inline {
   }
 
   /**
-   * build the form elements for an address object
-   *
-   * @return void
-   * @access public
+   * Build the form object elements for an address object.
    */
   public function buildQuickForm() {
     parent::buildQuickForm();
     CRM_Contact_Form_Edit_Address::buildQuickForm($this, $this->_locBlockNo, TRUE, TRUE);
+    $this->addFormRule(['CRM_Contact_Form_Edit_Address', 'formRule'], $this);
   }
 
   /**
-   * set defaults for the form
+   * Set defaults for the form.
    *
    * @return array
-   * @access public
    */
   public function setDefaultValues() {
     $defaults = $this->_values;
@@ -154,31 +140,15 @@ class CRM_Contact_Form_Inline_Address extends CRM_Contact_Form_Inline {
       }
 
       $address['country_id'] = $config->defaultContactCountry;
+      $address['state_province_id'] = $config->defaultContactStateProvince;
       $defaults['address'][$this->_locBlockNo] = $address;
     }
-
-    $values = $defaults['address'][$this->_locBlockNo];
-
-    CRM_Contact_Form_Edit_Address::fixStateSelect($this,
-      "address[$this->_locBlockNo][country_id]",
-      "address[$this->_locBlockNo][state_province_id]",
-      "address[$this->_locBlockNo][county_id]",
-      CRM_Utils_Array::value('country_id',
-        $values, $config->defaultContactCountry
-      ),
-      CRM_Utils_Array::value('state_province_id',
-        $values, $config->defaultContactStateProvince
-      )
-    );
 
     return $defaults;
   }
 
   /**
-   * process the form
-   *
-   * @return void
-   * @access public
+   * Process the form.
    */
   public function postProcess() {
     $params = $this->exportValues();
@@ -199,10 +169,11 @@ class CRM_Contact_Form_Inline_Address extends CRM_Contact_Form_Inline {
     }
 
     // save address changes
-    $address = CRM_Core_BAO_Address::create($params, TRUE);
+    $address = CRM_Core_BAO_Address::legacyCreate($params, TRUE);
 
     $this->log();
     $this->ajaxResponse['addressId'] = $address[0]->id;
     $this->response();
   }
+
 }

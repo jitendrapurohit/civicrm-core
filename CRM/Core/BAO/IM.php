@@ -1,90 +1,83 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
  * This class contain function for IM handling
  */
-class CRM_Core_BAO_IM extends CRM_Core_DAO_IM {
+class CRM_Core_BAO_IM extends CRM_Core_DAO_IM implements Civi\Core\HookInterface {
+  use CRM_Contact_AccessTrait;
 
   /**
-   * takes an associative array and adds im
+   * @deprecated
    *
-   * @param array  $params         (reference ) an assoc array of name/value pairs
-   *
-   * @return object       CRM_Core_BAO_IM object on success, null otherwise
-   * @access public
-   * @static
+   * @param array $params
+   * @return CRM_Core_DAO_IM
+   * @throws CRM_Core_Exception
    */
-  static function add(&$params) {
-    $hook = empty($params['id']) ? 'create' : 'edit';
-    CRM_Utils_Hook::pre($hook, 'IM', CRM_Utils_Array::value('id', $params), $params);
+  public static function create($params) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
+    return self::writeRecord($params);
+  }
 
-    $im = new CRM_Core_DAO_IM();
-    $im->copyValues($params);
-    $im->save();
+  /**
+   * Event fired before modifying an IM.
+   * @param \Civi\Core\Event\PreEvent $event
+   */
+  public static function self_hook_civicrm_pre(\Civi\Core\Event\PreEvent $event) {
+    if (in_array($event->action, ['create', 'edit'])) {
+      CRM_Core_BAO_Block::handlePrimary($event->params, __CLASS__);
+    }
+  }
 
-    CRM_Utils_Hook::post($hook, 'IM', $im->id, $im);
-    return $im;
+  /**
+   * @deprecated
+   *
+   * @param array $params
+   * @return CRM_Core_DAO_IM
+   * @throws CRM_Core_Exception
+   */
+  public static function add($params) {
+    return self::create($params);
   }
 
   /**
    * Given the list of params in the params array, fetch the object
    * and store the values in the values array
    *
-   * @param array entityBlock input parameters to find object
+   * @param array $entityBlock input parameters to find object
    *
-   * @return boolean
-   * @access public
-   * @static
+   * @return bool
    */
-  static function &getValues($entityBlock) {
+  public static function &getValues($entityBlock) {
     return CRM_Core_BAO_Block::getValues('im', $entityBlock);
   }
 
   /**
    * Get all the ims for a specified contact_id, with the primary im being first
    *
-   * @param int $id the contact id
+   * @param int $id
+   *   The contact id.
    *
    * @param bool $updateBlankLocInfo
    *
-   * @return array  the array of im details
-   * @access public
-   * @static
+   * @return array
+   *   the array of im details
    */
-  static function allIMs($id, $updateBlankLocInfo = FALSE) {
+  public static function allIMs($id, $updateBlankLocInfo = FALSE) {
     if (!$id) {
       return NULL;
     }
@@ -100,20 +93,20 @@ WHERE
   civicrm_contact.id = %1
 ORDER BY
   civicrm_im.is_primary DESC, im_id ASC ";
-    $params = array(1 => array($id, 'Integer'));
+    $params = [1 => [$id, 'Integer']];
 
-    $ims   = $values = array();
-    $dao   = CRM_Core_DAO::executeQuery($query, $params);
+    $ims = $values = [];
+    $dao = CRM_Core_DAO::executeQuery($query, $params);
     $count = 1;
     while ($dao->fetch()) {
-      $values = array(
+      $values = [
         'locationType' => $dao->locationType,
         'is_primary' => $dao->is_primary,
         'id' => $dao->im_id,
         'name' => $dao->im,
         'locationTypeId' => $dao->locationTypeId,
         'providerId' => $dao->providerId,
-      );
+      ];
 
       if ($updateBlankLocInfo) {
         $ims[$count++] = $values;
@@ -128,23 +121,19 @@ ORDER BY
   /**
    * Get all the ims for a specified location_block id, with the primary im being first
    *
-   * @param array  $entityElements the array containing entity_id and
-   * entity_table name
+   * @param array $entityElements
+   *   The array containing entity_id and.
+   *   entity_table name
    *
-   * @return array  the array of im details
-   * @access public
-   * @static
+   * @return array
+   *   the array of im details
    */
-  static function allEntityIMs(&$entityElements) {
+  public static function allEntityIMs(&$entityElements) {
     if (empty($entityElements)) {
       return NULL;
     }
-
-
     $entityId = $entityElements['entity_id'];
     $entityTable = $entityElements['entity_table'];
-
-
     $sql = "SELECT cim.name as im, ltype.name as locationType, cim.is_primary as is_primary, cim.id as im_id, cim.location_type_id as locationTypeId
 FROM civicrm_loc_block loc, civicrm_im cim, civicrm_location_type ltype, {$entityTable} ev
 WHERE ev.id = %1
@@ -153,27 +142,34 @@ AND   cim.id IN (loc.im_id, loc.im_2_id)
 AND   ltype.id = cim.location_type_id
 ORDER BY cim.is_primary DESC, im_id ASC ";
 
-    $params = array(1 => array($entityId, 'Integer'));
+    $params = [1 => [$entityId, 'Integer']];
 
-    $ims = array();
+    $ims = [];
     $dao = CRM_Core_DAO::executeQuery($sql, $params);
     while ($dao->fetch()) {
-      $ims[$dao->im_id] = array(
+      $ims[$dao->im_id] = [
         'locationType' => $dao->locationType,
         'is_primary' => $dao->is_primary,
         'id' => $dao->im_id,
         'name' => $dao->im,
         'locationTypeId' => $dao->locationTypeId,
-      );
+      ];
     }
     return $ims;
   }
 
   /**
-   * Call common delete function
+   * Call common delete function.
+   *
+   * @see \CRM_Contact_BAO_Contact::on_hook_civicrm_post
+   *
+   * @param int $id
+   * @deprecated
+   * @return bool
    */
-  static function del($id) {
-    return CRM_Contact_BAO_Contact::deleteObjectWithPrimary('IM', $id);
+  public static function del($id) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    return (bool) self::deleteRecord(['id' => $id]);
   }
-}
 
+}

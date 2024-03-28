@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -47,15 +29,13 @@ class CRM_Core_Page {
    * The name of the page (auto generated from class name)
    *
    * @var string
-   * @access protected
    */
   protected $_name;
 
   /**
-   * the title associated with this page
+   * The title associated with this page.
    *
    * @var object
-   * @access protected
    */
   protected $_title;
 
@@ -63,7 +43,6 @@ class CRM_Core_Page {
    * A page can have multiple modes. (i.e. displays
    * a different set of data based on the input
    * @var int
-   * @access protected
    */
   protected $_mode;
 
@@ -72,8 +51,7 @@ class CRM_Core_Page {
    * so the display routine needs to not do any work. (The
    * parent object takes care of the display)
    *
-   * @var boolean
-   * @access protected
+   * @var bool
    */
   protected $_embedded = FALSE;
 
@@ -81,26 +59,23 @@ class CRM_Core_Page {
    * Are we in print mode? if so we need to modify the display
    * functionality to do a minimal display :)
    *
-   * @var boolean
-   * @access protected
+   * @var int|string
+   *   Should match a CRM_Core_Smarty::PRINT_* constant,
+   *   or equal 0 if not in print mode
    */
   protected $_print = FALSE;
 
   /**
-   * cache the smarty template for efficiency reasons
+   * Cache the smarty template for efficiency reasons
    *
    * @var CRM_Core_Smarty
-   * @access protected
-   * @static
    */
   static protected $_template;
 
   /**
-   * cache the session for efficiency reasons
+   * Cache the session for efficiency reasons
    *
    * @var CRM_Core_Session
-   * @access protected
-   * @static
    */
   static protected $_session;
 
@@ -109,14 +84,14 @@ class CRM_Core_Page {
    *
    * @var array
    */
-  public $ajaxResponse = array();
+  public $ajaxResponse = [];
 
   /**
    * Url path used to reach this page
    *
    * @var array
    */
-  public $urlPath = array();
+  public $urlPath = [];
 
   /**
    * Should crm.livePage.js be added to the page?
@@ -125,23 +100,84 @@ class CRM_Core_Page {
   public $useLivePageJS;
 
   /**
-   * class constructor
+   * Variables smarty expects to have set.
    *
-   * @param string $title title of the page
-   * @param int    $mode  mode of the page
+   * We ensure these are assigned (value = NULL) when Smarty is instantiated in
+   * order to avoid e-notices / having to use empty or isset in the template layer.
+   *
+   * @var string[]
+   */
+  public $expectedSmartyVariables = [
+    'isForm',
+    'hookContent',
+    'hookContentPlacement',
+    // required for footer.tpl
+    'contactId',
+    // required for info.tpl
+    'infoMessage',
+    'infoTitle',
+    'infoType',
+    'infoOptions',
+    // required for Summary.tpl (contact summary) but seems
+    // likely to be used more broadly to warrant inclusion here.
+    'context',
+    // for CMSPrint.tpl
+    'urlIsPublic',
+    'breadcrumb',
+    'pageTitle',
+    'isDeleted',
+    // Required for footer.tpl,
+    // See ExampleHookTest:testPageOutput.
+    'footer_status_severity',
+    // in 'body.tpl
+    'suppressForm',
+    'beginHookFormElements',
+    // This is checked in validate.tpl
+    'snippet_type',
+  ];
+
+  /**
+   * The permission we have on this contact
+   *
+   * @var string
+   */
+  public $_permission;
+
+  /**
+   * @var int
+   */
+  protected $_action;
+
+  /**
+   * @var int
+   */
+  protected $_id;
+
+  /**
+   * Class constructor.
+   *
+   * @param string $title
+   *   Title of the page.
+   * @param int $mode
+   *   Mode of the page.
    *
    * @return CRM_Core_Page
    */
-  function __construct($title = NULL, $mode = NULL) {
-    $this->_name  = CRM_Utils_System::getClassName($this);
+  public function __construct($title = NULL, $mode = NULL) {
+    $this->_name = CRM_Utils_System::getClassName($this);
     $this->_title = $title;
-    $this->_mode  = $mode;
+    $this->_mode = $mode;
 
     // let the constructor initialize this, should happen only once
     if (!isset(self::$_template)) {
       self::$_template = CRM_Core_Smarty::singleton();
       self::$_session = CRM_Core_Session::singleton();
     }
+    // Smarty $_template is a static var which persists between tests, so
+    // if something calls clearTemplateVars(), the static still exists but
+    // our ensured variables get blown away, so we need to set them even if
+    // it's already been initialized.
+    self::$_template->ensureVariablesAreAssigned($this->expectedSmartyVariables);
 
     // FIXME - why are we messing with 'snippet'? Why not just pass it directly into $this->_print?
     if (!empty($_REQUEST['snippet'])) {
@@ -153,7 +189,7 @@ class CRM_Core_Page {
         $this->_print = CRM_Core_Smarty::PRINT_NOFORM;
       }
       // Support 'json' as well as legacy value '6'
-      elseif (in_array($_REQUEST['snippet'], array(CRM_Core_Smarty::PRINT_JSON, 6))) {
+      elseif (in_array($_REQUEST['snippet'], [CRM_Core_Smarty::PRINT_JSON, 6])) {
         $this->_print = CRM_Core_Smarty::PRINT_JSON;
       }
       else {
@@ -168,15 +204,13 @@ class CRM_Core_Page {
   }
 
   /**
-   * This function takes care of all the things common to all
-   * pages. This typically involves assigning the appropriate
-   * smarty variable :)
+   * This function takes care of all the things common to all pages.
    *
-   * @return string The content generated by running this page
+   * This typically involves assigning the appropriate smarty variables :)
    */
-  function run() {
+  public function run() {
     if ($this->_embedded) {
-      return;
+      return NULL;
     }
 
     self::$_template->assign('mode', $this->_mode);
@@ -184,12 +218,18 @@ class CRM_Core_Page {
     $pageTemplateFile = $this->getHookedTemplateFileName();
     self::$_template->assign('tplFile', $pageTemplateFile);
 
+    self::$_template->addExpectedTabHeaderKeys();
+
     // invoke the pagRun hook, CRM-3906
     CRM_Utils_Hook::pageRun($this);
 
     if ($this->_print) {
-      if (in_array( $this->_print, array( CRM_Core_Smarty::PRINT_SNIPPET,
-        CRM_Core_Smarty::PRINT_PDF, CRM_Core_Smarty::PRINT_NOFORM, CRM_Core_Smarty::PRINT_JSON ))) {
+      if (in_array($this->_print, [
+        CRM_Core_Smarty::PRINT_SNIPPET,
+        CRM_Core_Smarty::PRINT_PDF,
+        CRM_Core_Smarty::PRINT_NOFORM,
+        CRM_Core_Smarty::PRINT_JSON,
+      ])) {
         $content = self::$_template->fetch('CRM/common/snippet.tpl');
       }
       else {
@@ -204,12 +244,10 @@ class CRM_Core_Page {
       //its time to call the hook.
       CRM_Utils_Hook::alterContent($content, 'page', $pageTemplateFile, $this);
 
-      if ($this->_print == CRM_Core_Smarty::PRINT_PDF) {
-        CRM_Utils_PDF_Utils::html2pdf($content, "{$this->_name}.pdf", FALSE,
-          array('paper_size' => 'a3', 'orientation' => 'landscape')
-        );
+      if ($this->_print === CRM_Core_Smarty::PRINT_PDF) {
+        CRM_Utils_PDF_Utils::html2pdf($content, "{$this->_name}.pdf", FALSE);
       }
-      elseif ($this->_print == CRM_Core_Smarty::PRINT_JSON) {
+      elseif ($this->_print === CRM_Core_Smarty::PRINT_JSON) {
         $this->ajaxResponse['content'] = $content;
         CRM_Core_Page_AJAX::returnJsonResponse($this->ajaxResponse);
       }
@@ -221,15 +259,15 @@ class CRM_Core_Page {
 
     $config = CRM_Core_Config::singleton();
 
-    // Version check and intermittent alert to admins
-    CRM_Utils_VersionCheck::singleton()->versionAlert();
+    // @fixme this is probably the wrong place for this.  It is required by jsortable.tpl which is inherited from many page templates.
+    //   So we have to add it here to deprecate $config->defaultCurrencySymbol
+    $this->assign('defaultCurrencySymbol', CRM_Core_BAO_Country::defaultCurrencySymbol());
+
+    // Intermittent alert to admins
     CRM_Utils_Check::singleton()->showPeriodicAlerts();
 
-    if ($this->useLivePageJS &&
-      CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'ajaxPopupsEnabled', NULL, TRUE))
-    {
-      CRM_Core_Resources::singleton()->addScriptFile('civicrm', 'js/crm.livePage.js');
-      $this->assign('includeWysiwygEditor', TRUE);
+    if ($this->useLivePageJS && Civi::settings()->get('ajaxPopupsEnabled')) {
+      CRM_Core_Resources::singleton()->addScriptFile('civicrm', 'js/crm.livePage.js', 1, 'html-header');
     }
 
     $content = self::$_template->fetch('CRM/common/' . strtolower($config->userFramework) . '.tpl');
@@ -244,110 +282,108 @@ class CRM_Core_Page {
     CRM_Utils_Hook::alterContent($content, 'page', $pageTemplateFile, $this);
 
     echo CRM_Utils_System::theme($content, $this->_print);
-    return;
   }
 
   /**
-   * Store the variable with the value in the form scope
+   * Store the variable with the value in the form scope.
    *
-   * @param  string|array $name  name  of the variable or an assoc array of name/value pairs
-   * @param  mixed        $value value of the variable if string
-   *
-   * @access public
-   *
-   * @return void
-   *
+   * @param string|array $name name of the variable or an assoc array of name/value pairs
+   * @param mixed $value
+   *   Value of the variable if string.
    */
-  function set($name, $value = NULL) {
+  public function set($name, $value = NULL) {
     self::$_session->set($name, $value, $this->_name);
   }
 
   /**
-   * Get the variable from the form scope
+   * Get the variable from the form scope.
    *
-   * @param  string name  : name  of the variable
-   *
-   * @access public
+   * @param string $name name of the variable
    *
    * @return mixed
-   *
    */
-  function get($name) {
+  public function get($name) {
     return self::$_session->get($name, $this->_name);
   }
 
   /**
-   * assign value to name in template
+   * Assign value to name in template.
    *
-   * @param $var
-   * @param mixed $value value of varaible
-   *
-   * @internal param array|string $name name  of variable
-   * @return void
-   * @access public
+   * @param string $var
+   * @param mixed $value
+   *   Value of variable.
    */
-  function assign($var, $value = NULL) {
+  public function assign($var, $value = NULL) {
     self::$_template->assign($var, $value);
   }
 
   /**
-   * assign value to name in template by reference
+   * Assign value to name in template by reference.
    *
-   * @param $var
-   * @param mixed $value (reference) value of varaible
+   * @param string $var
+   * @param mixed $value
+   *   (reference) value of variable.
    *
-   * @internal param array|string $name name  of variable
-   * @return void
-   * @access public
+   * @deprecated since 5.72 will be removed around 5.84
    */
-  function assign_by_ref($var, &$value) {
-    self::$_template->assign_by_ref($var, $value);
+  public function assign_by_ref($var, &$value) {
+    CRM_Core_Error::deprecatedFunctionWarning('assign');
+    self::$_template->assign($var, $value);
   }
 
   /**
-   * appends values to template variables
+   * Appends values to template variables.
    *
    * @param array|string $tpl_var the template variable name(s)
-   * @param mixed $value the value to append
+   * @param mixed $value
+   *   The value to append.
    * @param bool $merge
    */
-  function append($tpl_var, $value=NULL, $merge=FALSE) {
+  public function append($tpl_var, $value = NULL, $merge = FALSE) {
     self::$_template->append($tpl_var, $value, $merge);
   }
 
   /**
-   * Returns an array containing template variables
+   * Returns an array containing template variables.
+   *
+   * @deprecated since 5.69 will be removed around 5.93. use getTemplateVars.
    *
    * @param string $name
    *
-   * @internal param string $type
    * @return array
    */
-  function get_template_vars($name=null) {
-    return self::$_template->get_template_vars($name);
+  public function get_template_vars($name = NULL) {
+    return $this->getTemplateVars($name);
   }
 
   /**
-   * function to destroy all the session state of this page.
+   * Get the value/s assigned to the Template Engine (Smarty).
    *
-   * @access public
-   *
-   * @return void
+   * @param string|null $name
    */
-  function reset() {
+  public function getTemplateVars($name = NULL) {
+    return self::$_template->getTemplateVars($name);
+  }
+
+  /**
+   * Destroy all the session state of this page.
+   */
+  public function reset() {
     self::$_session->resetScope($this->_name);
   }
 
   /**
-   * Use the form name to create the tpl file name
+   * Use the form name to create the tpl file name.
    *
    * @return string
-   * @access public
    */
-  function getTemplateFileName() {
-    return str_replace('_',
-      DIRECTORY_SEPARATOR,
-      CRM_Utils_System::getClassName($this)
+  public function getTemplateFileName() {
+    return strtr(
+      CRM_Utils_System::getClassName($this),
+      [
+        '_' => DIRECTORY_SEPARATOR,
+        '\\' => DIRECTORY_SEPARATOR,
+      ]
     ) . '.tpl';
   }
 
@@ -355,7 +391,7 @@ class CRM_Core_Page {
    * A wrapper for getTemplateFileName that includes calling the hook to
    * prevent us from having to copy & paste the logic of calling the hook
    */
-  function getHookedTemplateFileName() {
+  public function getHookedTemplateFileName() {
     $pageTemplateFile = $this->getTemplateFileName();
     CRM_Utils_Hook::alterTemplateFile(get_class($this), $this, 'page', $pageTemplateFile);
     return $pageTemplateFile;
@@ -366,66 +402,175 @@ class CRM_Core_Page {
    * i.e. we dont override
    *
    * @return string
-   * @access public
    */
-  function overrideExtraTemplateFileName() {
+  public function overrideExtraTemplateFileName() {
     return NULL;
   }
 
   /**
-   * setter for embedded
+   * Setter for embedded.
    *
-   * @param boolean $embedded
-   *
-   * @return void
-   * @access public
+   * @param bool $embedded
    */
-  function setEmbedded($embedded) {
+  public function setEmbedded($embedded) {
     $this->_embedded = $embedded;
   }
 
   /**
-   * getter for embedded
+   * Getter for embedded.
    *
-   * @return boolean return the embedded value
-   * @access public
+   * @return bool
+   *   return the embedded value
    */
-  function getEmbedded() {
+  public function getEmbedded() {
     return $this->_embedded;
   }
 
   /**
-   * setter for print
+   * Setter for print.
    *
-   * @param boolean $print
+   * @param int|string $print
+   *   Should match a CRM_Core_Smarty::PRINT_* constant,
+   *   or equal 0 if not in print mode
    *
    * @return void
-   * @access public
    */
-  function setPrint($print) {
+  public function setPrint($print) {
     $this->_print = $print;
   }
 
   /**
-   * getter for print
+   * Getter for print.
    *
-   * @return boolean return the print value
-   * @access public
+   * @return int|string
+   *   Value matching a CRM_Core_Smarty::PRINT_* constant,
+   *   or 0 if not in print mode
    */
-  function getPrint() {
+  public function getPrint() {
     return $this->_print;
   }
 
-  static function &getTemplate() {
+  /**
+   * @return CRM_Core_Smarty
+   */
+  public static function &getTemplate() {
     return self::$_template;
   }
 
-  function getVar($name) {
-    return isset($this->$name) ? $this->$name : NULL;
+  /**
+   * @param string $name
+   *
+   * @return null
+   */
+  public function getVar($name) {
+    return $this->$name ?? NULL;
   }
 
-  function setVar($name, $value) {
+  /**
+   * @param string $name
+   * @param $value
+   */
+  public function setVar($name, $value) {
     $this->$name = $value;
   }
-}
 
+  /**
+   * Assign metadata about fields to the template.
+   *
+   * In order to allow the template to format fields we assign information about them to the template.
+   *
+   * At this stage only date field metadata is assigned as that is the only use-case in play and
+   * we don't want to assign a lot of unneeded data.
+   *
+   * @param string $entity
+   *   The entity being queried.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  protected function assignFieldMetadataToTemplate($entity) {
+    $fields = civicrm_api3($entity, 'getfields', ['action' => 'get']);
+    $dateFields = [];
+    foreach ($fields['values'] as $fieldName => $fieldMetaData) {
+      if (isset($fieldMetaData['html']) && ($fieldMetaData['html']['type'] ?? NULL) == 'Select Date') {
+        $dateFields[$fieldName] = CRM_Utils_Date::addDateMetadataToField($fieldMetaData, $fieldMetaData);
+      }
+    }
+    $this->assign('fields', $dateFields);
+  }
+
+  /**
+   * Handy helper to produce the standard markup for an icon with alternative
+   * text for a title and screen readers.
+   *
+   * See also the smarty block function `icon`
+   *
+   * @param string $icon
+   *   The class name of the icon to display.
+   * @param string $text
+   *   The translated text to display.
+   * @param bool $condition
+   *   Whether to display anything at all. This helps simplify code when a
+   *   checkmark should appear if something is true.
+   * @param array $attribs
+   *   Attributes to set or override on the icon element.  Any standard
+   *   attribute can be unset by setting the value to an empty string.
+   *
+   * @return string
+   *   The whole bit to drop in.
+   */
+  public static function crmIcon($icon, $text = NULL, $condition = TRUE, $attribs = []) {
+    if (!$condition) {
+      return '';
+    }
+
+    // Add icon classes to any that might exist in $attribs
+    $classes = array_key_exists('class', $attribs) ? explode(' ', $attribs['class']) : [];
+    $classes[] = 'crm-i';
+    $classes[] = $icon;
+    $attribs['class'] = implode(' ', array_unique($classes));
+
+    $standardAttribs = ['aria-hidden' => 'true'];
+    if ($text === NULL || $text === '') {
+      $sr = '';
+    }
+    else {
+      $standardAttribs['title'] = $text;
+      $sr = "<span class=\"sr-only\">$text</span>";
+    }
+
+    // Assemble attribs
+    $attribString = '';
+    // Strip out title if $attribs specifies a blank title
+    $attribs = array_merge($standardAttribs, $attribs);
+    foreach ($attribs as $attrib => $val) {
+      if (strlen($val)) {
+        $val = htmlspecialchars($val, ENT_COMPAT);
+        $attribString .= " $attrib=\"$val\"";
+      }
+    }
+
+    return "<i$attribString></i>$sr";
+  }
+
+  /**
+   * Add an expected smarty variable to the array.
+   *
+   * @param string $elementName
+   */
+  public function addExpectedSmartyVariable(string $elementName): void {
+    $this->expectedSmartyVariables[] = $elementName;
+  }
+
+  /**
+   * Add an expected smarty variable to the array.
+   *
+   * @param array $elementNames
+   */
+  public function addExpectedSmartyVariables(array $elementNames): void {
+    foreach ($elementNames as $elementName) {
+      // Duplicates don't actually matter....
+      $this->addExpectedSmartyVariable($elementName);
+    }
+  }
+
+}

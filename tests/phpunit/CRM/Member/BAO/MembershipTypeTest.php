@@ -1,366 +1,364 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
+use Civi\Api4\MembershipBlock;
+use Civi\Api4\MembershipType;
+use Civi\Test\ContributionPageTestTrait;
 
-require_once 'CiviTest/CiviUnitTestCase.php';
+/**
+ * Class CRM_Member_BAO_MembershipTypeTest
+ * @group headless
+ */
 class CRM_Member_BAO_MembershipTypeTest extends CiviUnitTestCase {
-  function get_info() {
-    return array(
-      'name' => 'MembershipType BAOs',
-      'description' => 'Test all Member_BAO_MembershipType methods.',
-      'group' => 'CiviCRM BAO Tests',
-    );
-  }
 
-  function setUp() {
+  use ContributionPageTestTrait;
+
+  /**
+   * @throws \CRM_Core_Exception
+   */
+  public function setUp(): void {
     parent::setUp();
 
     //create relationship
-    $params = array(
+    $params = [
       'name_a_b' => 'Relation 1',
       'name_b_a' => 'Relation 2',
       'contact_type_a' => 'Individual',
       'contact_type_b' => 'Organization',
       'is_reserved' => 1,
       'is_active' => 1,
-    );
-    $this->_relationshipTypeId = $this->relationshipTypeCreate($params);
-    $this->_orgContactID = $this->organizationCreate();
-    $this->_indiviContactID = $this->individualCreate();
-    $this->_financialTypeId = 1;
-    $this->_membershipStatusID = $this->membershipStatusCreate('test status');
+    ];
+    $this->ids['RelationshipType'][0] = $this->relationshipTypeCreate($params);
+    $this->ids['Contact']['organization'] = $this->organizationCreate();
+    $this->ids['Contact']['individual'] = $this->individualCreate();
+    $this->ids['MembershipStatus']['test'] = $this->membershipStatusCreate('test status');
   }
 
   /**
    * Tears down the fixture, for example, closes a network connection.
    * This method is called after a test is executed.
    *
+   * @throws \CRM_Core_Exception
    */
-  function tearDown() {
-    $this->relationshipTypeDelete($this->_relationshipTypeId);
-    $this->membershipStatusDelete($this->_membershipStatusID);
-    $this->contactDelete($this->_orgContactID);
-    $this->contactDelete($this->_indiviContactID);
+  public function tearDown(): void {
+    $this->relationshipTypeDelete($this->ids['RelationshipType'][0]);
+    $this->membershipStatusDelete($this->ids['MembershipStatus']['test']);
+    $this->quickCleanUpFinancialEntities();
+    parent::tearDown();
   }
 
-  /* check function add()
-     *
-     */
-  function testAdd() {
-    $ids = array();
-    $params = array(
+  /**
+   * Test add.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testAdd(): void {
+    $params = [
       'name' => 'test type',
       'domain_id' => 1,
       'description' => NULL,
       'minimum_fee' => 10,
       'duration_unit' => 'year',
-      'member_of_contact_id' => $this->_orgContactID,
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
       'period_type' => 'fixed',
       'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
       'visibility' => 'Public',
-    );
+    ];
 
-    $membershipType = CRM_Member_BAO_MembershipType::add($params, $ids);
+    MembershipType::create()->setValues($params)->execute();
 
-    $membership = $this->assertDBNotNull('CRM_Member_BAO_MembershipType', $this->_orgContactID,
+    $membership = $this->assertDBNotNull('CRM_Member_BAO_MembershipType', $this->ids['Contact']['organization'],
       'name', 'member_of_contact_id',
       'Database check on updated membership record.'
     );
-
-    $this->assertEquals($membership, 'test type', 'Verify membership type name.');
-    $this->membershipTypeDelete(array('id' => $membershipType->id));
+    $this->assertEquals('test type', $membership, 'Verify membership type name.');
   }
 
-  /* check function retrive()
-     *
-     */
-  function testRetrieve() {
-    $ids = array();
-    $params = array(
+  /**
+   * Test retrieve().
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testRetrieve(): void {
+    $params = [
       'name' => 'General',
       'description' => NULL,
       'domain_id' => 1,
       'minimum_fee' => 100,
       'duration_unit' => 'year',
       'period_type' => 'fixed',
-      'member_of_contact_id' => $this->_orgContactID,
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
       'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
       'visibility' => 'Public',
-    );
-    $membershipType = CRM_Member_BAO_MembershipType::add($params, $ids);
+    ];
+    MembershipType::create()->setValues($params)->execute();
 
-    $params  = array('name' => 'General');
-    $default = array();
-    $result  = CRM_Member_BAO_MembershipType::retrieve($params, $default);
-    $this->assertEquals($result->name, 'General', 'Verify membership type name.');
-    $this->membershipTypeDelete(array('id' => $membershipType->id));
+    $params = ['name' => 'General'];
+    $default = [];
+    $result = CRM_Member_BAO_MembershipType::retrieve($params, $default);
+    $this->assertEquals('General', $result->name, 'Verify membership type name.');
   }
 
-  /* check function isActive()
-     *
-     */
-  function testSetIsActive() {
-    $ids = array();
-    $params = array(
-      'name' => 'General',
-      'description' => NULL,
-      'domain_id' => 1,
-      'minimum_fee' => 100,
-      'duration_unit' => 'year',
-      'period_type' => 'fixed',
-      'duration_interval' => 1,
-      'member_of_contact_id' => $this->_orgContactID,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
-      'visibility' => 'Public',
-      'is_active' => 1,
-    );
-    $membership = CRM_Member_BAO_MembershipType::add($params, $ids);
-
-    CRM_Member_BAO_MembershipType::setIsActive($membership->id, 0);
-
-    $isActive = $this->assertDBNotNull('CRM_Member_BAO_MembershipType', $membership->id,
-      'is_active', 'id',
-      'Database check on membership type status.'
-    );
-
-    $this->assertEquals($isActive, 0, 'Verify membership type status.');
-    $this->membershipTypeDelete(array('id' => $membership->id));
+  /**
+   * Test delete.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testDelete(): void {
+    $membershipTypeID = $this->createGeneralMembershipType();
+    MembershipType::delete()->addWhere('id', '=', $membershipTypeID)->execute();
+    $this->assertCount(0, MembershipType::get()->addWhere('id', '=', $membershipTypeID)->execute());
   }
 
-  /* check function del()
-     *
-     */
-  function testdel() {
-    $ids = array();
-    $params = array(
+  /**
+   * Test convertDayFormat.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testConvertDayFormat(): void {
+    $params = [
       'name' => 'General',
       'description' => NULL,
       'minimum_fee' => 100,
       'domain_id' => 1,
       'duration_unit' => 'year',
       'period_type' => 'fixed',
-      'member_of_contact_id' => $this->_orgContactID,
-      'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
-      'visibility' => 'Public',
-      'is_active' => 1,
-    );
-    $membership = CRM_Member_BAO_MembershipType::add($params, $ids);
-
-    $result = CRM_Member_BAO_MembershipType::del($membership->id);
-
-    $this->assertEquals($result, TRUE, 'Verify membership deleted.');
-  }
-
-  /* check function convertDayFormat( )
-     *
-     */
-  function testConvertDayFormat() {
-    $ids = array();
-    $params = array(
-      'name' => 'General',
-      'description' => NULL,
-      'minimum_fee' => 100,
-      'domain_id' => 1,
-      'duration_unit' => 'year',
-      'period_type' => 'fixed',
-      'member_of_contact_id' => $this->_orgContactID,
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
       'fixed_period_start_day' => 1213,
       'fixed_period_rollover_day' => 1214,
       'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
       'visibility' => 'Public',
       'is_active' => 1,
-    );
-    $membership = CRM_Member_BAO_MembershipType::add($params, $ids);
-    $membershipType[$membership->id] = $params;
+    ];
+    $membershipTypeID = MembershipType::create()->setValues($params)->execute()->first()['id'];
+    $membershipType[$membershipTypeID] = $params;
 
     CRM_Member_BAO_MembershipType::convertDayFormat($membershipType);
-
-    $this->assertEquals($membershipType[$membership->id]['fixed_period_rollover_day'], 'Dec 14', 'Verify memberFixed Period Rollover Day.');
-    $this->membershipTypeDelete(array('id' => $membership->id));
+    $this->assertEquals('Dec 14', $membershipType[$membershipTypeID]['fixed_period_rollover_day'], 'Verify memberFixed Period Rollover Day.');
   }
 
-  /* check function getMembershipTypes( )
-     *
-     */
-  function testGetMembershipTypes() {
-    $ids = array();
-    $params = array(
+  /**
+   * Test getMembershipTypes.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testGetMembershipTypes(): void {
+    $params = [
       'name' => 'General',
       'description' => NULL,
       'minimum_fee' => 100,
       'domain_id' => 1,
       'duration_unit' => 'year',
-      'member_of_contact_id' => $this->_orgContactID,
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
       'period_type' => 'fixed',
       'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
       'visibility' => 'Public',
       'is_active' => 1,
-    );
-    $membership = CRM_Member_BAO_MembershipType::add($params, $ids);
+    ];
+    $membershipTypeID = MembershipType::create()->setValues($params)->execute()->first()['id'];
     $result = CRM_Member_BAO_MembershipType::getMembershipTypes();
-    $this->assertEquals($result[$membership->id], 'General', 'Verify membership types.');
-    $this->membershipTypeDelete(array('id' => $membership->id));
+    $this->assertEquals('General', $result[$membershipTypeID], 'Verify membership types.');
   }
 
-  /* check function getMembershipTypeDetails( )
-     *
-     */
-  function testGetMembershipTypeDetails() {
-    $ids = array();
-    $params = array(
+  /**
+   * check function getMembershipTypeDetails( )
+   *
+   */
+  public function testGetMembershipTypeDetails(): void {
+    $membershipTypeID = $this->createGeneralMembershipType();
+    $result = CRM_Member_BAO_MembershipType::getMembershipTypeDetails($membershipTypeID);
+
+    $this->assertEquals('General', $result['name'], 'Verify membership type details.');
+    $this->assertEquals('year', $result['duration_unit'], 'Verify membership types details.');
+  }
+
+  /**
+   * Test getDatesForMembershipType.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testGetDatesForMembershipType(): void {
+    $params = [
       'name' => 'General',
       'description' => NULL,
       'minimum_fee' => 100,
       'domain_id' => 1,
       'duration_unit' => 'year',
-      'period_type' => 'fixed',
-      'member_of_contact_id' => $this->_orgContactID,
-      'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
-      'visibility' => 'Public',
-      'is_active' => 1,
-    );
-    $membership = CRM_Member_BAO_MembershipType::add($params, $ids);
-    $result = CRM_Member_BAO_MembershipType::getMembershipTypeDetails($membership->id);
-
-    $this->assertEquals($result['name'], 'General', 'Verify membership type details.');
-    $this->assertEquals($result['duration_unit'], 'year', 'Verify membership types details.');
-    $this->membershipTypeDelete(array('id' => $membership->id));
-  }
-
-  /* check function getDatesForMembershipType( )
-     *
-     */
-  function testGetDatesForMembershipType() {
-    $ids = array();
-    $params = array(
-      'name' => 'General',
-      'description' => NULL,
-      'minimum_fee' => 100,
-      'domain_id' => 1,
-      'duration_unit' => 'year',
-      'member_of_contact_id' => $this->_orgContactID,
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
       'period_type' => 'rolling',
       'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
       'visibility' => 'Public',
       'is_active' => 1,
-    );
-    $membership = CRM_Member_BAO_MembershipType::add($params, $ids);
+    ];
+    $membershipTypeID = MembershipType::create()->setValues($params)->execute()->first()['id'];
 
-    $membershipDates = CRM_Member_BAO_MembershipType::getDatesForMembershipType($membership->id);
+    $membershipDates = CRM_Member_BAO_MembershipType::getDatesForMembershipType($membershipTypeID);
     $this->assertEquals($membershipDates['start_date'], date('Ymd'), 'Verify membership types details.');
-    $this->membershipTypeDelete(array('id' => $membership->id));
   }
 
-  /* check function getRenewalDatesForMembershipType( )
-     *
-     */
-  function testGetRenewalDatesForMembershipType() {
-    $ids = array();
-    $params = array(
+  /**
+   * Test getRenewalDatesForMembershipType.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testGetRenewalDatesForMembershipType(): void {
+    $params = [
       'name' => 'General',
       'domain_id' => 1,
       'description' => NULL,
       'minimum_fee' => 100,
       'duration_unit' => 'year',
-      'member_of_contact_id' => $this->_orgContactID,
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
       'period_type' => 'rolling',
       'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
       'visibility' => 'Public',
       'is_active' => 1,
-    );
-    $membershipType = CRM_Member_BAO_MembershipType::add($params, $ids);
+    ];
+    $membershipTypeID = MembershipType::create()->setValues($params)->execute()->first()['id'];
 
-    $params = array(
-      'contact_id' => $this->_indiviContactID,
-      'membership_type_id' => $membershipType->id,
+    $params = [
+      'contact_id' => $this->ids['Contact']['individual'],
+      'membership_type_id' => $membershipTypeID,
       'join_date' => '20060121000000',
       'start_date' => '20060121000000',
       'end_date' => '20070120000000',
       'source' => 'Payment',
       'is_override' => 1,
-      'status_id' => $this->_membershipStatusID,
-    );
-    $ids = array();
-    $membership = CRM_Member_BAO_Membership::create($params, $ids);
+      'status_id' => $this->ids['MembershipStatus']['test'],
+    ];
 
-    $membershipRenewDates = CRM_Member_BAO_MembershipType::getRenewalDatesForMembershipType($membership->id);
+    $membership = $this->callAPISuccess('Membership', 'create', $params);
 
-    $this->assertEquals($membershipRenewDates['start_date'], '20060121', 'Verify membership renewal start date.');
-    $this->assertEquals($membershipRenewDates['end_date'], '20080120', 'Verify membership renewal end date.');
+    $membershipRenewDates = CRM_Member_BAO_MembershipType::getRenewalDatesForMembershipType($membership['id']);
 
-    $this->membershipDelete($membership->id);
-    $this->membershipTypeDelete(array('id' => $membershipType->id));
+    $this->assertEquals('20060121', $membershipRenewDates['start_date'], 'Verify membership renewal start date.');
+    $this->assertEquals('20080120', $membershipRenewDates['end_date'], 'Verify membership renewal end date.');
+
+    $this->membershipDelete($membership['id']);
+    $this->membershipTypeDelete(['id' => $membershipTypeID]);
   }
 
-  /* check function getMembershipTypesByOrg( )
-     *
-     */
-  function testGetMembershipTypesByOrg() {
-    $ids = array();
-    $params = array(
+  /**
+   * Test getMembershipTypesByOrg.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testGetMembershipTypesByOrg(): void {
+    $params = [
       'name' => 'General',
       'description' => NULL,
       'domain_id' => 1,
       'minimum_fee' => 100,
       'duration_unit' => 'year',
-      'member_of_contact_id' => $this->_orgContactID,
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
       'period_type' => 'rolling',
       'duration_interval' => 1,
-      'financial_type_id' => $this->_financialTypeId,
-      'relationship_type_id' => $this->_relationshipTypeId,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
       'visibility' => 'Public',
       'is_active' => 1,
-    );
-    $membershipType = CRM_Member_BAO_MembershipType::add($params, $ids);
+    ];
+    MembershipType::create()->setValues($params)->execute();
 
-    $result = CRM_Member_BAO_MembershipType::getMembershipTypesByOrg($this->_orgContactID);
-    $this->assertEquals(empty($result), FALSE, 'Verify membership types for organization.');
+    $result = $this->callAPISuccess('MembershipType', 'get', [
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
+      'options' => [
+        'limit' => 0,
+      ],
+    ])['values'];
+    $this->assertEquals(FALSE, empty($result), 'Verify membership types for organization.');
 
-    $result = CRM_Member_BAO_MembershipType::getMembershipTypesByOrg(501);
-    $this->assertEquals(empty($result), TRUE, 'Verify membership types for organization.');
-
-    $this->membershipTypeDelete(array('id' => $membershipType->id));
+    $result = $this->callAPISuccess('MembershipType', 'get', [
+      'member_of_contact_id' => 501,
+      'options' => [
+        'limit' => 0,
+      ],
+    ])['values'];
+    $this->assertEquals(TRUE, empty($result), 'Verify membership types for organization.');
   }
-}
 
+  /**
+   * Create a general membership type.
+   *
+   * @return int
+   */
+  private function createGeneralMembershipType(): int {
+    $params = [
+      'name' => 'General',
+      'description' => NULL,
+      'minimum_fee' => 100,
+      'domain_id' => 1,
+      'duration_unit' => 'year',
+      'period_type' => 'fixed',
+      'member_of_contact_id' => $this->ids['Contact']['organization'],
+      'duration_interval' => 1,
+      'financial_type_id:name' => 'Donation',
+      'relationship_type_id' => $this->ids['RelationshipType'][0],
+      'visibility' => 'Public',
+      'is_active' => 1,
+    ];
+    try {
+      return MembershipType::create()
+        ->setValues($params)
+        ->execute()
+        ->first()['id'];
+    }
+    catch (CRM_Core_Exception $e) {
+      $this->fail($e->getMessage());
+      return 0;
+    }
+  }
+
+  /**
+   * Test that when renewal settings are modified membership blocks are updated.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testRenewModification(): void {
+    $this->contributionPageQuickConfigCreate();
+    $autoRenew = MembershipBlock::get(FALSE)->execute()->first()['membership_types'];
+    $this->assertEquals(1, reset($autoRenew));
+
+    // Disable auto-renew on membership type - block should update to 0 (no auto-renew).
+    MembershipType::update()
+      ->addWhere('name', '=', 'General')
+      ->setValues(['auto_renew' => 0])->execute();
+    $autoRenew = MembershipBlock::get(FALSE)->execute()->first()['membership_types'];
+    $this->assertEquals(0, reset($autoRenew));
+
+    // Force auto-renew on membership type - block should update to 2 (force auto-renew).
+    MembershipType::update()->addWhere('name', '=', 'General')
+      ->setValues(['auto_renew' => 2])->execute();
+    $autoRenew = MembershipBlock::get(FALSE)->execute()->first()['membership_types'];
+    $this->assertEquals(2, reset($autoRenew));
+
+    // Make auto-renew optional on membership type - block should stay at 2 (force autorenew).
+    // If the membership type is optional if can be made more or less restrictive at
+    // the block level.
+    MembershipType::update()->addWhere('name', '=', 'General')
+      ->setValues(['auto_renew' => 1])->execute();
+    $autoRenew = MembershipBlock::get(FALSE)->execute()->first()['membership_types'];
+    $this->assertEquals(2, reset($autoRenew));
+  }
+
+}

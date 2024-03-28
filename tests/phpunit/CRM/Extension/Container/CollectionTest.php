@@ -1,59 +1,42 @@
 <?php
 /*
  +--------------------------------------------------------------------+
-| CiviCRM version 4.5                                                |
-+--------------------------------------------------------------------+
-| Copyright CiviCRM LLC (c) 2004-2014                                |
-+--------------------------------------------------------------------+
-| This file is a part of CiviCRM.                                    |
-|                                                                    |
-| CiviCRM is free software; you can copy, modify, and distribute it  |
-| under the terms of the GNU Affero General Public License           |
-| Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
-|                                                                    |
-| CiviCRM is distributed in the hope that it will be useful, but     |
-| WITHOUT ANY WARRANTY; without even the implied warranty of         |
-| MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
-| See the GNU Affero General Public License for more details.        |
-|                                                                    |
-| You should have received a copy of the GNU Affero General Public   |
-| License and the CiviCRM Licensing Exception along                  |
-| with this program; if not, contact CiviCRM LLC                     |
-| at info[AT]civicrm[DOT]org. If you have questions about the        |
-| GNU Affero General Public License or the licensing of CiviCRM,     |
-| see the CiviCRM license FAQ at http://civicrm.org/licensing        |
-+--------------------------------------------------------------------+
-*/
-require_once 'CiviTest/CiviUnitTestCase.php';
+ | Copyright CiviCRM LLC. All rights reserved.                        |
+ |                                                                    |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
+ +--------------------------------------------------------------------+
+ */
 
+/**
+ * Class CRM_Extension_Container_CollectionTest
+ * @group headless
+ */
 class CRM_Extension_Container_CollectionTest extends CiviUnitTestCase {
-  //@todo make BAO enotice compliant  & remove the line below
-  // WARNING - NEVER COPY & PASTE $_eNoticeCompliant = FALSE
-  // new test classes should be compliant.
-  public $_eNoticeCompliant = FALSE;
-  function setUp() {
-    parent::setUp();
+
+  public function testGetKeysEmpty(): void {
+    $c = new CRM_Extension_Container_Collection([]);
+    $this->assertEquals($c->getKeys(), []);
   }
 
-  function tearDown() {
-    parent::tearDown();
-  }
-
-  function testGetKeysEmpty() {
-    $c = new CRM_Extension_Container_Collection(array());
-    $this->assertEquals($c->getKeys(), array());
-  }
-
-  function testGetKeys() {
+  public function testGetKeys(): void {
     $c = $this->_createContainer();
-    $this->assertEquals(array('test.conflict', 'test.whiz', 'test.whizbang', 'test.foo', 'test.foo.bar'), $c->getKeys());
+    $this->assertEquals([
+      'test.conflict',
+      'test.whiz',
+      'test.whizbang',
+      'test.foo',
+      'test.foo.bar',
+    ], $c->getKeys());
   }
 
-  function testGetPath() {
+  public function testGetPath(): void {
     $c = $this->_createContainer();
     try {
       $c->getPath('un.kno.wn');
-    } catch (CRM_Extension_Exception $e) {
+    }
+    catch (CRM_Extension_Exception $e) {
       $exc = $e;
     }
     $this->assertTrue(is_object($exc), 'Expected exception');
@@ -65,11 +48,12 @@ class CRM_Extension_Container_CollectionTest extends CiviUnitTestCase {
     $this->assertEquals("/path/to/conflict-b", $c->getPath('test.conflict'));
   }
 
-  function testGetResUrl() {
+  public function testGetResUrl(): void {
     $c = $this->_createContainer();
     try {
       $c->getResUrl('un.kno.wn');
-    } catch (CRM_Extension_Exception $e) {
+    }
+    catch (CRM_Extension_Exception $e) {
       $exc = $e;
     }
     $this->assertTrue(is_object($exc), 'Expected exception');
@@ -81,51 +65,60 @@ class CRM_Extension_Container_CollectionTest extends CiviUnitTestCase {
     $this->assertEquals('http://conflict-b', $c->getResUrl('test.conflict'));
   }
 
-  function testCaching() {
-    $cache = new CRM_Utils_Cache_Arraycache(array());
+  public function testCaching(): void {
+    $cache = new CRM_Utils_Cache_ArrayCache([]);
     $this->assertTrue(!is_array($cache->get('ext-collection')));
     $c = $this->_createContainer($cache, 'ext-collection');
     $this->assertEquals('http://foo', $c->getResUrl('test.foo'));
     $this->assertTrue(is_array($cache->get('ext-collection')));
 
     $cacheData = $cache->get('ext-collection');
-    $this->assertEquals('a', $cacheData['test.foo']); // 'test.foo' was defined in the 'a' container
-    $this->assertEquals('b', $cacheData['test.whiz']); // 'test.whiz' was defined in the 'b' container
+    // 'test.foo' was defined in the 'a' container
+    $this->assertEquals('a', $cacheData['test.foo']);
+    // 'test.whiz' was defined in the 'b' container
+    $this->assertEquals('b', $cacheData['test.whiz']);
   }
 
-  function _createContainer(CRM_Utils_Cache_Interface $cache = NULL, $cacheKey = NULL) {
-    $containers = array();
-    $containers['a'] = new CRM_Extension_Container_Static(array(
-      'test.foo' => array(
+  /**
+   * @param CRM_Utils_Cache_Interface $cache
+   * @param null $cacheKey
+   *
+   * @return CRM_Extension_Container_Collection
+   */
+  public function _createContainer(CRM_Utils_Cache_Interface $cache = NULL, $cacheKey = NULL) {
+    $containers = [];
+    $containers['a'] = new CRM_Extension_Container_Static([
+      'test.foo' => [
         'path' => '/path/to/foo',
         'resUrl' => 'http://foo',
-      ),
-      'test.foo.bar' => array(
+      ],
+      'test.foo.bar' => [
         'path' => '/path/to/bar',
         'resUrl' => 'http://foobar',
-      ),
-    ));
-    $containers['b'] = new CRM_Extension_Container_Static(array(
-      'test.whiz' => array(
+      ],
+    ]);
+    $containers['b'] = new CRM_Extension_Container_Static([
+      'test.whiz' => [
         'path' => '/path/to/whiz',
         'resUrl' => 'http://whiz',
-      ),
-      'test.whizbang' => array(
+      ],
+      'test.whizbang' => [
         'path' => '/path/to/whizbang',
         'resUrl' => 'http://whizbang',
-      ),
-      'test.conflict' => array(
+      ],
+      'test.conflict' => [
         'path' => '/path/to/conflict-b',
         'resUrl' => 'http://conflict-b',
-      ),
-    ));
-    $containers['c'] = new CRM_Extension_Container_Static(array(
-      'test.conflict' => array(
+      ],
+    ]);
+    $containers['c'] = new CRM_Extension_Container_Static([
+      'test.conflict' => [
         'path' => '/path/to/conflict-c',
         'resUrl' => 'http://conflict-c',
-      ),
-    ));
-    $c  = new CRM_Extension_Container_Collection($containers, $cache, $cacheKey);
+      ],
+    ]);
+    $c = new CRM_Extension_Container_Collection($containers, $cache, $cacheKey);
     return $c;
   }
+
 }

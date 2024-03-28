@@ -1,60 +1,57 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
+
+use Civi\Api4\Membership;
 
 /**
  * This class generates form components for Payment-Instrument
- *
  */
 class CRM_Member_Form_MembershipView extends CRM_Core_Form {
 
   /**
-   * The action links that we need to display for the browse screen
+   * The action links that we need to display for the browse screen.
    *
    * @var array
-   * @static
    */
-  static $_links = NULL;
+  public static $_links = NULL;
 
   /**
-   * Add context information at the end of a link
+   * The id of the membership being viewed.
    *
-   * @return text extra query parameters
+   * @var int
    */
-  function addContext() {
+  private $membershipID;
+
+  /**
+   * Contact's ID.
+   *
+   * @var int
+   */
+  private $contactID;
+
+  /**
+   * Add context information at the end of a link.
+   *
+   * @return string
+   *   extra query parameters
+   */
+  public function addContext() {
     $extra = '';
-    foreach (array('context', 'selectedChild') as $arg) {
+    foreach (['context', 'selectedChild'] as $arg) {
       if ($value = CRM_Utils_Request::retrieve($arg, 'String', $this)) {
         $extra .= "&{$arg}={$value}";
       }
@@ -63,50 +60,54 @@ class CRM_Member_Form_MembershipView extends CRM_Core_Form {
   }
 
   /**
-   * Get action Links
+   * Get action Links.
    *
-   * @return array (reference) of action links
+   * @return array
+   *   (reference) of action links
    */
-  function &links() {
+  public function &links() {
     if (!(self::$_links)) {
-      self::$_links = array(
-        CRM_Core_Action::DELETE => array(
+      self::$_links = [
+        CRM_Core_Action::DELETE => [
           'name' => ts('Delete'),
           'url' => 'civicrm/contact/view/membership',
           'qs' => 'action=view&id=%%id%%&cid=%%cid%%&relAction=delete&mid=%%mid%%&reset=1' . $this->addContext(),
           'title' => ts('Cancel Related Membership'),
-        ),
-        CRM_Core_Action::ADD => array(
+        ],
+        CRM_Core_Action::ADD => [
           'name' => ts('Create'),
           'url' => 'civicrm/contact/view/membership',
           'qs' => 'action=view&id=%%id%%&cid=%%cid%%&relAction=create&rid=%%rid%%&reset=1' . $this->addContext(),
           'title' => ts('Create Related Membership'),
-        ),
-      );
+        ],
+      ];
     }
     return self::$_links;
   }
 
   /**
-   * Perform create or delete action on related memberships
+   * Perform create or delete action on related memberships.
    *
-   * @param string $action create or delete
-   * @param array $owner primary membership info (membership_id, contact_id, membership_type ...)
+   * @param string $action
+   *   Create or delete.
+   * @param array $owner
+   *   Primary membership info (membership_id, contact_id, membership_type ...).
    *
+   * @throws \CRM_Core_Exception
    */
-  function relAction($action, $owner) {
+  public function relAction($action, $owner) {
     switch ($action) {
       case 'delete':
         $id = CRM_Utils_Request::retrieve('mid', 'Positive', $this);
         $relatedContactId = CRM_Utils_Request::retrieve('cid', 'Positive', $this);
         $relatedDisplayName = CRM_Contact_BAO_Contact::displayName($relatedContactId);
         CRM_Member_BAO_Membership::del($id);
-        CRM_Core_Session::setStatus(ts('Related membership for %1 has been deleted.', array(1 => $relatedDisplayName)),
+        CRM_Core_Session::setStatus(ts('Related membership for %1 has been deleted.', [1 => $relatedDisplayName]),
           ts('Membership Deleted'), 'success');
         break;
+
       case 'create':
-        $ids = array();
-        $params = array(
+        $params = [
           'contact_id' => CRM_Utils_Request::retrieve('rid', 'Positive', $this),
           'membership_type_id' => $owner['membership_type_id'],
           'owner_membership_id' => $owner['id'],
@@ -115,18 +116,19 @@ class CRM_Member_Form_MembershipView extends CRM_Core_Form {
           'end_date' => CRM_Utils_Date::processDate($owner['end_date'], NULL, TRUE, 'Ymd'),
           'source' => ts('Manual Assignment of Related Membership'),
           'is_test' => $owner['is_test'],
-          'campaign_id' => CRM_Utils_Array::value('campaign_id', $owner),
+          'campaign_id' => $owner['campaign_id'] ?? NULL,
           'status_id' => $owner['status_id'],
           'skipStatusCal' => TRUE,
           'createActivity' => TRUE,
-        );
-        CRM_Member_BAO_Membership::create($params, $ids);
+        ];
+        CRM_Member_BAO_Membership::create($params);
         $relatedDisplayName = CRM_Contact_BAO_Contact::displayName($params['contact_id']);
-        CRM_Core_Session::setStatus(ts('Related membership for %1 has been created.', array(1 => $relatedDisplayName)),
+        CRM_Core_Session::setStatus(ts('Related membership for %1 has been created.', [1 => $relatedDisplayName]),
           ts('Membership Added'), 'success');
         break;
+
       default:
-        CRM_Core_Error::fatal(ts("Invalid action specified in URL"));
+        throw new CRM_Core_Exception(ts('Invalid action specified in URL'));
     }
 
     // Redirect back to membership view page for the owner, without the relAction parameters
@@ -139,24 +141,44 @@ class CRM_Member_Form_MembershipView extends CRM_Core_Form {
   }
 
   /**
-   * Function to set variables up before form is built
+   * Set variables up before form is built.
    *
    * @return void
-   * @access public
    */
   public function preProcess() {
-
-    $values = array();
-    $id = CRM_Utils_Request::retrieve('id', 'Positive', $this);
+    $values = [];
+    $this->membershipID = CRM_Utils_Request::retrieve('id', 'Positive', $this);
+    $this->contactID = CRM_Utils_Request::retrieve('cid', 'Positive', $this);
 
     // Make sure context is assigned to template for condition where we come here view civicrm/membership/view
-    $context = CRM_Utils_Request::retrieve('context', 'String', $this);
+    $context = CRM_Utils_Request::retrieve('context', 'Alphanumeric', $this);
     $this->assign('context', $context);
 
-    if ($id) {
-      $params = array('id' => $id);
+    if ($this->membershipID) {
+      $memberships = Membership::get()
+        ->addSelect('*', 'status_id:label', 'membership_type_id:label', 'membership_type_id.financial_type_id', 'status_id.is_current_member')
+        ->addWhere('id', '=', $this->membershipID)
+        ->execute();
+      if (!count($memberships)) {
+        CRM_Core_Error::statusBounce(ts('You do not have permission to access this page.'));
+      }
+      $values = $memberships->first();
 
-      CRM_Member_BAO_Membership::retrieve($params, $values);
+      // Ensure keys expected by MembershipView.tpl are set correctly
+      // Some of these defaults are overwritten dependant on context below
+      $values['financialTypeId'] = $values['membership_type_id.financial_type_id'];
+      $values['membership_type'] = $values['membership_type_id:label'];
+      $values['status'] = $values['status_id:label'];
+      $values['active'] = $values['status_id.is_current_member'];
+      $values['owner_contact_id'] = FALSE;
+      $values['owner_display_name'] = FALSE;
+      $values['campaign'] = FALSE;
+
+      // This tells the template not to check financial acls when determining
+      // whether to show edit & delete links. Link decisions
+      // should be moved to the php layer - with financialacls using hooks.
+      $this->assign('noACL', !CRM_Financial_BAO_FinancialType::isACLFinancialTypeStatus());
+
       $membershipType = CRM_Member_BAO_MembershipType::getMembershipTypeDetails($values['membership_type_id']);
 
       // Do the action on related Membership if needed
@@ -169,12 +191,12 @@ class CRM_Member_Form_MembershipView extends CRM_Core_Form {
       $this->assign('accessContribution', FALSE);
       if (CRM_Core_Permission::access('CiviContribute')) {
         $this->assign('accessContribution', TRUE);
-        CRM_Member_Page_Tab::associatedContribution($values['contact_id'], $id);
+        CRM_Member_Page_Tab::associatedContribution($values['contact_id'], $this->membershipID);
       }
 
       //Provide information about membership source when it is the result of a relationship (CRM-1901)
       $values['owner_membership_id'] = CRM_Core_DAO::getFieldValue('CRM_Member_DAO_Membership',
-        $id,
+        $this->membershipID,
         'owner_membership_id'
       );
 
@@ -225,13 +247,12 @@ END AS 'relType'
       if (!empty($membershipType['relationship_type_id']) && empty($values['owner_membership_id'])) {
         // display related contacts/membership block
         $this->assign('has_related', TRUE);
-        $this->assign('max_related', CRM_Utils_Array::value('max_related', $values, ts('Unlimited')));
+        $this->assign('max_related', $values['max_related'] ?? ts('Unlimited'));
         // split the relations in 2 arrays based on direction
         $relTypeId = explode(CRM_Core_DAO::VALUE_SEPARATOR, $membershipType['relationship_type_id']);
         $relDirection = explode(CRM_Core_DAO::VALUE_SEPARATOR, $membershipType['relationship_direction']);
         foreach ($relTypeId as $rid) {
-          $dir = each($relDirection);
-          $relTypeDir[substr($dir['value'], 0, 1)][] = $rid;
+          $relTypeDir[substr($relDirection[0], 0, 1)][] = $rid;
         }
         // build query in 2 parts with a UNION if necessary
         // _x and _y are replaced with _a and _b first, then vice-versa
@@ -248,7 +269,7 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
   LEFT JOIN civicrm_membership_status ms ON ms.id = m.status_id
  WHERE r.contact_id_y = {$values['contact_id']} AND r.is_active = 1  AND c.is_deleted = 0";
         $query = '';
-        foreach (array('a', 'b') as $dir) {
+        foreach (['a', 'b'] as $dir) {
           if (isset($relTypeDir[$dir])) {
             $query .= ($query ? ' UNION ' : '')
               . str_replace('_y', '_' . $dir, str_replace('_x', '_' . ($dir == 'a' ? 'b' : 'a'), $select))
@@ -257,9 +278,9 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
         }
         $query .= " ORDER BY is_current_member DESC";
         $dao = CRM_Core_DAO::executeQuery($query);
-        $related = array();
+        $related = [];
         $relatedRemaining = CRM_Utils_Array::value('max_related', $values, PHP_INT_MAX);
-        $rowElememts = array(
+        $rowElememts = [
           'id',
           'cid',
           'name',
@@ -269,22 +290,22 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
           'start_date',
           'end_date',
           'is_current_member',
-          'status'
-        );
+          'status',
+        ];
 
         while ($dao->fetch()) {
-          $row = array();
+          $row = [];
           foreach ($rowElememts as $field) {
             $row[$field] = $dao->$field;
           }
           if ($row['mid'] && ($row['is_current_member'] == 1)) {
             $relatedRemaining--;
             $row['action'] = CRM_Core_Action::formLink(self::links(), CRM_Core_Action::DELETE,
-              array(
+              [
                 'id' => CRM_Utils_Request::retrieve('id', 'Positive', $this),
                 'cid' => $row['cid'],
                 'mid' => $row['mid'],
-              ),
+              ],
               ts('more'),
               FALSE,
               'membership.relationship.action',
@@ -295,11 +316,11 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
           else {
             if ($relatedRemaining > 0) {
               $row['action'] = CRM_Core_Action::formLink(self::links(), CRM_Core_Action::ADD,
-                array(
+                [
                   'id' => CRM_Utils_Request::retrieve('id', 'Positive', $this),
                   'cid' => $row['cid'],
                   'rid' => $row['cid'],
-                ),
+                ],
                 ts('more'),
                 FALSE,
                 'membership.relationship.action',
@@ -316,10 +337,10 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
         }
         else {
           if ($relatedRemaining < 100000) {
-            $this->assign('related_text', ts('%1 available', array(1 => $relatedRemaining)));
+            $this->assign('related_text', ts('%1 available', [1 => $relatedRemaining]));
           }
           else {
-            $this->assign('related_text', ts('Unlimited', array(1 => $relatedRemaining)));
+            $this->assign('related_text', ts('Unlimited', [1 => $relatedRemaining]));
           }
         }
       }
@@ -333,7 +354,7 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
       }
 
       // omitting contactImage from title for now since the summary overlay css doesn't work outside crm-container
-      CRM_Utils_System::setTitle(ts('View Membership for') . ' ' . $displayName);
+      $this->setTitle(ts('View Membership for') . ' ' . $displayName);
 
       // add viewed membership to recent items list
       $recentTitle = $displayName . ' - ' . ts('Membership Type:') . ' ' . $values['membership_type'];
@@ -341,7 +362,7 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
         "action=view&reset=1&id={$values['id']}&cid={$values['contact_id']}&context=home"
       );
 
-      $recentOther = array();
+      $recentOther = [];
       if (CRM_Core_Permission::checkActionPermission('CiviMember', CRM_Core_Action::UPDATE)) {
         $recentOther['editUrl'] = CRM_Utils_System::url('civicrm/contact/view/membership',
           "action=update&reset=1&id={$values['id']}&cid={$values['contact_id']}&context=home"
@@ -363,25 +384,27 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
 
       CRM_Member_Page_Tab::setContext($this, $values['contact_id']);
 
-      $memType = CRM_Core_DAO::getFieldValue("CRM_Member_DAO_Membership", $id, "membership_type_id");
+      $memType = CRM_Core_DAO::getFieldValue("CRM_Member_DAO_Membership", $this->membershipID, "membership_type_id");
 
-      $groupTree = CRM_Core_BAO_CustomGroup::getTree('Membership', $this, $id, 0, $memType);
-      CRM_Core_BAO_CustomGroup::buildCustomDataView($this, $groupTree);
+      $groupTree = CRM_Core_BAO_CustomGroup::getTree('Membership', NULL, $this->membershipID, 0, $memType, NULL,
+        TRUE, NULL, FALSE, CRM_Core_Permission::VIEW);
+      CRM_Core_BAO_CustomGroup::buildCustomDataView($this, $groupTree, FALSE, NULL, NULL, NULL, $this->membershipID);
 
-      $isRecur = CRM_Core_DAO::getFieldValue('CRM_Member_DAO_Membership', $id, 'contribution_recur_id');
+      $isRecur = CRM_Core_DAO::getFieldValue('CRM_Member_DAO_Membership', $this->membershipID, 'contribution_recur_id');
 
-      $autoRenew = $isRecur ? TRUE : FALSE;
+      $autoRenew = (bool) $isRecur;
     }
 
     if (!empty($values['is_test'])) {
-      $values['membership_type'] .= ' (test) ';
+      $values['membership_type'] = CRM_Core_TestEntity::appendTestText($values['membership_type']);
     }
 
-    $subscriptionCancelled = CRM_Member_BAO_Membership::isSubscriptionCancelled($id);
+    $subscriptionCancelled = CRM_Member_BAO_Membership::isSubscriptionCancelled((int) $this->membershipID);
     $values['auto_renew'] = ($autoRenew && !$subscriptionCancelled) ? 'Yes' : 'No';
 
     //do check for campaigns
-    if ($campaignId = CRM_Utils_Array::value('campaign_id', $values)) {
+    $campaignId = $values['campaign_id'] ?? NULL;
+    if ($campaignId) {
       $campaigns = CRM_Campaign_BAO_Campaign::getCampaigns($campaignId);
       $values['campaign'] = $campaigns[$campaignId];
     }
@@ -390,21 +413,19 @@ SELECT r.id, c.id as cid, c.display_name as name, c.job_title as comment,
   }
 
   /**
-   * Function to build the form
+   * Build the form object.
    *
    * @return void
-   * @access public
    */
   public function buildQuickForm() {
-    $this->addButtons(array(
-        array(
-          'type' => 'cancel',
-          'name' => ts('Done'),
-          'spacing' => '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;',
-          'isDefault' => TRUE,
-        ),
-      )
-    );
+    $this->addButtons([
+      [
+        'type' => 'cancel',
+        'name' => ts('Done'),
+        'spacing' => '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;',
+        'isDefault' => TRUE,
+      ],
+    ]);
   }
-}
 
+}

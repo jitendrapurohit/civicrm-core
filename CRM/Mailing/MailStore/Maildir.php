@@ -1,72 +1,88 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
-require_once 'ezc/Base/src/ezc_bootstrap.php';
-require_once 'ezc/autoload/mail_autoload.php';
+/**
+ * Class CRM_Mailing_MailStore_Maildir
+ */
 class CRM_Mailing_MailStore_Maildir extends CRM_Mailing_MailStore {
 
   /**
-   * Connect to the supplied dir and make sure the two mail dirs exist
+   * Directory to operate upon.
    *
-   * @param string $dir dir to operate upon
+   * @var string
+   */
+  private $_dir;
+
+  /**
+   * Path to a local directory to store ignored emails
+   *
+   * @var string
+   */
+  private $_ignored;
+
+  /**
+   * Path to a local directory to store ignored emails
+   *
+   * @var string
+   */
+  private $_processed;
+
+  /**
+   * Connect to the supplied dir and make sure the two mail dirs exist.
+   *
+   * @param string $dir
+   *   Directory to operate upon.
    *
    * @return \CRM_Mailing_MailStore_Maildir
    */
-  function __construct($dir) {
+  public function __construct($dir) {
     $this->_dir = $dir;
 
-    $this->_ignored = $this->maildir(implode(DIRECTORY_SEPARATOR, array('CiviMail.ignored', date('Y'), date('m'), date('d'))));
-    $this->_processed = $this->maildir(implode(DIRECTORY_SEPARATOR, array('CiviMail.processed', date('Y'), date('m'), date('d'))));
+    $this->_ignored = $this->maildir(implode(DIRECTORY_SEPARATOR, [
+      'CiviMail.ignored',
+      date('Y'),
+      date('m'),
+      date('d'),
+    ]));
+    $this->_processed = $this->maildir(implode(DIRECTORY_SEPARATOR, [
+      'CiviMail.processed',
+      date('Y'),
+      date('m'),
+      date('d'),
+    ]));
   }
 
   /**
-   * Return the next X messages from the mail store
+   * Return the next X messages from the mail store.
    * FIXME: in CiviCRM 2.2 this always returns all the emails
    *
-   * @param int $count  number of messages to fetch FIXME: ignored in CiviCRM 2.2 (assumed to be 0, i.e., fetch all)
+   * @param int $count
+   *   Number of messages to fetch FIXME: ignored in CiviCRM 2.2 (assumed to be 0, i.e., fetch all).
    *
-   * @return array      array of ezcMail objects
+   * @return array
+   *   array of ezcMail objects
    */
-  function fetchNext($count = 0) {
-    $mails = array();
-    $parser = new ezcMailParser;
-    //set property text attachment as file CRM-5408
+  public function fetchNext($count = 0) {
+    $mails = [];
+    $parser = new ezcMailParser();
+    // set property text attachment as file CRM-5408
     $parser->options->parseTextAttachmentsAsFiles = TRUE;
 
-    foreach (array(
-      'cur', 'new') as $subdir) {
+    foreach (['cur', 'new'] as $subdir) {
       $dir = $this->_dir . DIRECTORY_SEPARATOR . $subdir;
       foreach (scandir($dir) as $file) {
         if ($file == '.' or $file == '..') {
@@ -80,8 +96,8 @@ class CRM_Mailing_MailStore_Maildir extends CRM_Mailing_MailStore {
 
         }
 
-        $set          = new ezcMailFileSet(array($path));
-        $single       = $parser->parseMail($set);
+        $set = new ezcMailFileSet([$path]);
+        $single = $parser->parseMail($set);
         $mails[$path] = $single[0];
       }
     }
@@ -89,14 +105,14 @@ class CRM_Mailing_MailStore_Maildir extends CRM_Mailing_MailStore {
   }
 
   /**
-   * Fetch the specified message to the local ignore folder
+   * Fetch the specified message to the local ignore folder.
    *
-   * @param integer $file file location of the message to fetch
+   * @param int $file
+   *   File location of the message to fetch.
    *
    * @throws Exception
-   * @return void
    */
-  function markIgnored($file) {
+  public function markIgnored($file) {
     if ($this->_debug) {
       print "moving $file to ignored folder\n";
     }
@@ -107,14 +123,14 @@ class CRM_Mailing_MailStore_Maildir extends CRM_Mailing_MailStore {
   }
 
   /**
-   * Fetch the specified message to the local processed folder
+   * Fetch the specified message to the local processed folder.
    *
-   * @param integer $file file location of the message to fetch
+   * @param int $file
+   *   File location of the message to fetch.
    *
    * @throws Exception
-   * @return void
    */
-  function markProcessed($file) {
+  public function markProcessed($file) {
     if ($this->_debug) {
       print "moving $file to processed folder\n";
     }
@@ -123,5 +139,5 @@ class CRM_Mailing_MailStore_Maildir extends CRM_Mailing_MailStore {
       throw new Exception("Could not rename $file to $target");
     }
   }
-}
 
+}

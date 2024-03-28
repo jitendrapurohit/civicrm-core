@@ -11,7 +11,7 @@
   <tr class="columnheader">
     <th>{ts}Display Name{/ts}</th>
     <th>{ts}Pledge Amount{/ts}</th>
-    <th>{ts}Pledge made{/ts}</th>
+    <th>{ts}Pledge Made{/ts}</th>
   </tr>
 
   {foreach from=$rows item=row}
@@ -30,7 +30,7 @@
 
 {else}
    <div class="messages status no-popup">
-          <dt><div class="icon inform-icon"></div>
+          <dt>{icon icon="fa-info-circle"}{/icon}
             {ts}There are no records selected.{/ts}
       </dl>
    </div>

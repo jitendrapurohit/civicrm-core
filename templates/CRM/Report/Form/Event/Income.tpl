@@ -1,30 +1,14 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
 {* this div is being used to apply special css *}
-    {if !$section }
+    {if !$section}
     <div class="crm-block crm-form-block crm-report-field-form-block">
     {include file="CRM/Report/Form/Fields.tpl"}
        </div>
@@ -33,8 +17,8 @@
 <div class="crm-block crm-content-block crm-report-form-block">
 {include file="CRM/Report/Form/Actions.tpl"}
 {*Statistics at the Top of the page*}
-    {if !$section }
-        {include file="CRM/Report/Form/Statistics.tpl" top=true}
+    {if !$section}
+        {include file="CRM/Report/Form/Statistics.tpl" top=true bottom=false}
     {/if}
 
     {if $events}
@@ -47,7 +31,7 @@
                           {if $keys == 'Title'}
                               <tr>
                                         <th>{$keys}</th>
-                                        <th colspan="3">{$values}</th>
+                                        <th colspan="3">{$values|smarty:nodefaults|purify}</th>
                                     </tr>
                                 {else}
                                     <tr class="{cycle values="odd-row,even-row"} crm-report crm-report_event_summary" id="crm-report_{$eventID}_summary_{$keys}">
@@ -84,9 +68,9 @@
     <div class="report-pager">
             {include file="CRM/common/pager.tpl"}
         </div>
-        {if !$section }
+        {if !$section}
             {*Statistics at the bottom of the page*}
-            {include file="CRM/Report/Form/Statistics.tpl" bottom=true}
+            {include file="CRM/Report/Form/Statistics.tpl" top=false bottom=true}
         {/if}
     {/if}
     {include file="CRM/Report/Form/ErrorMessage.tpl"}

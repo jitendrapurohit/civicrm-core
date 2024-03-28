@@ -1,37 +1,24 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
+if (!(php_sapi_name() == 'cli' || (is_numeric($_SERVER['argc']) && $_SERVER['argc'] > 0))) {
+  header("HTTP/1.0 404 Not Found");
+
+  return;
+}
 
 require_once '../civicrm.config.php';
 
@@ -54,7 +41,7 @@ $tables = array(
 );
 foreach ($tables as $t) {
   $query = "DELETE FROM $t";
-  CRM_Core_DAO::executeQuery($query, CRM_Core_DAO::$_nullArray);
+  CRM_Core_DAO::executeQuery($query);
 }
 
 $prefix = 'Automated Mailing Gen: ';
@@ -89,6 +76,9 @@ for ($i = 1; $i <= $numGroups; $i++) {
   $group->save();
 }
 
+/**
+ * @return string
+ */
 function generateRandomDate() {
   $year  = 2006 + mt_rand(0, 2);
   $month = 1 + mt_rand(0, 11);
@@ -96,5 +86,5 @@ function generateRandomDate() {
 
   $date = sprintf("%4d%02d%02d", $year, $month, $day) . '000000';
   return $date;
-}
 
+}

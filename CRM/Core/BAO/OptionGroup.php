@@ -1,151 +1,218 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
-class CRM_Core_BAO_OptionGroup extends CRM_Core_DAO_OptionGroup {
+class CRM_Core_BAO_OptionGroup extends CRM_Core_DAO_OptionGroup implements \Civi\Core\HookInterface {
 
   /**
-   * class constructor
+   * @deprecated
+   * @param array $params
+   * @param array $defaults
+   * @return self|null
    */
-  function __construct() {
-    parent::__construct();
+  public static function retrieve($params, &$defaults) {
+    return self::commonRetrieve(self::class, $params, $defaults);
   }
 
   /**
-   * Takes a bunch of params that are needed to match certain criteria and
-   * retrieves the relevant objects. Typically the valid params are only
-   * contact_id. We'll tweak this function to be more full featured over a period
-   * of time. This is the inverse function of create. It also stores all the retrieved
-   * values in the default array
-   *
-   * @param array $params   (reference ) an assoc array of name/value pairs
-   * @param array $defaults (reference ) an assoc array to hold the flattened values
-   *
-   * @return object CRM_Core_BAO_OptionGroup object
-   * @access public
-   * @static
+   * @deprecated - this bypasses hooks.
+   * @param int $id
+   * @param bool $is_active
+   * @return bool
    */
-  static function retrieve(&$params, &$defaults) {
-    $optionGroup = new CRM_Core_DAO_OptionGroup();
-    $optionGroup->copyValues($params);
-    if ($optionGroup->find(TRUE)) {
-      CRM_Core_DAO::storeValues($optionGroup, $defaults);
-      return $optionGroup;
-    }
-    return NULL;
-  }
-
-  /**
-   * update the is_active flag in the db
-   *
-   * @param int      $id        id of the database record
-   * @param boolean  $is_active value we want to set the is_active field
-   *
-   * @return Object             DAO object on sucess, null otherwise
-   * @static
-   */
-  static function setIsActive($id, $is_active) {
+  public static function setIsActive($id, $is_active) {
+    CRM_Core_Error::deprecatedFunctionWarning('writeRecord');
     return CRM_Core_DAO::setFieldValue('CRM_Core_DAO_OptionGroup', $id, 'is_active', $is_active);
   }
 
   /**
-   * function to add the Option Group
+   * Add the Option Group.
    *
-   * @param array $params reference array contains the values submitted by the form
-   * @param array $ids    reference array contains the id
+   * @param array $params
    *
-   * @access public
-   * @static
-   *
-   * @return object
+   * @deprecated
+   * @return CRM_Core_DAO_OptionGroup
    */
-  static function add(&$params, $ids = array()) {
-    if(empty($params['id'])){
-      $params['id'] = CRM_Utils_Array::value('optionGroup', $ids);
+  public static function add($params) {
+    // This is very similar to CRM_Core_DAO::makeNameFromLabel which would be
+    // called automatically via `self::writeRecord()`
+    // TODO: Check if the differences matter, then deprecate this function and switch to writeRecord.
+    if (empty($params['name']) && empty($params['id'])) {
+      $params['name'] = CRM_Utils_String::titleToVar(strtolower($params['title']));
     }
-
-    $params['is_active'] = CRM_Utils_Array::value('is_active', $params, FALSE);
-    $params['is_default'] = CRM_Utils_Array::value('is_default', $params, FALSE);
-
-    // action is taken depending upon the mode
+    elseif (!empty($params['name']) && strpos($params['name'], ' ')) {
+      $params['name'] = CRM_Utils_String::titleToVar(strtolower($params['name']));
+    }
+    elseif (!empty($params['name'])) {
+      $params['name'] = strtolower($params['name']);
+    }
     $optionGroup = new CRM_Core_DAO_OptionGroup();
-    $optionGroup->copyValues($params);;
-
-    if ($params['is_default']) {
-      $query = "UPDATE civicrm_option_group SET is_default = 0";
-      CRM_Core_DAO::executeQuery($query);
-    }
-
+    $optionGroup->copyValues($params);
     $optionGroup->save();
     return $optionGroup;
   }
 
   /**
-   * Function to delete Option Group
+   * Delete Option Group.
    *
-   * @param  int  $optionGroupId     Id of the Option Group to be deleted.
-   *
-   * @return void
-   *
-   * @access public
-   * @static
+   * @deprecated
+   * @param int $optionGroupId
    */
-  static function del($optionGroupId) {
-    // need to delete all option value field before deleting group
-    $optionValue = new CRM_Core_DAO_OptionValue();
-    $optionValue->option_group_id = $optionGroupId;
-    $optionValue->delete();
-
-    $optionGroup = new CRM_Core_DAO_OptionGroup();
-    $optionGroup->id = $optionGroupId;
-    $optionGroup->delete();
+  public static function del($optionGroupId) {
+    CRM_Core_Error::deprecatedFunctionWarning('deleteRecord');
+    static::deleteRecord(['id' => $optionGroupId]);
   }
 
   /**
-   * Function to get title of the option group
-   *
-   * @param  int  $optionGroupId     Id of the Option Group.
-   *
-   * @return String title
-   *
-   * @access public
-   * @static
+   * Callback for hook_civicrm_pre().
+   * @param \Civi\Core\Event\PreEvent $event
+   * @throws CRM_Core_Exception
    */
-  static function getTitle($optionGroupId) {
+  public static function self_hook_civicrm_pre(\Civi\Core\Event\PreEvent $event) {
+    if ($event->action === 'delete') {
+      // need to delete all option value field before deleting group
+      \Civi\Api4\OptionValue::delete(FALSE)
+        ->addWhere('option_group_id', '=', $event->id)
+        ->execute();
+    }
+  }
+
+  /**
+   * Get title of the option group.
+   *
+   * @param int $optionGroupId
+   *   Id of the Option Group.
+   *
+   * @return string
+   *   title
+   */
+  public static function getTitle($optionGroupId) {
     $optionGroup = new CRM_Core_DAO_OptionGroup();
     $optionGroup->id = $optionGroupId;
     $optionGroup->find(TRUE);
     return $optionGroup->name;
   }
-}
 
+  /**
+   * Get DataType for a specified option Group
+   *
+   * @param int $optionGroupId
+   *   Id of the Option Group.
+   *
+   * @return string|null
+   *   Data Type
+   */
+  public static function getDataType($optionGroupId) {
+    $optionGroup = new CRM_Core_DAO_OptionGroup();
+    $optionGroup->id = $optionGroupId;
+    $optionGroup->find(TRUE);
+    return $optionGroup->data_type;
+  }
+
+  /**
+   * Ensure an option group exists.
+   *
+   * This function is intended to be called from the upgrade script to ensure
+   * that an option group exists, without hitting an error if it already exists.
+   *
+   * This is sympathetic to sites who might pre-add it.
+   *
+   * @param array $params
+   *
+   * @return int
+   *   ID of the option group.
+   */
+  public static function ensureOptionGroupExists($params) {
+    $existingValues = civicrm_api3('OptionGroup', 'get', [
+      'name' => $params['name'],
+      'return' => 'id',
+    ]);
+    if (!$existingValues['count']) {
+      $result = civicrm_api3('OptionGroup', 'create', $params);
+      return $result['id'];
+    }
+    else {
+      return $existingValues['id'];
+    }
+  }
+
+  /**
+   * Get the title of an option group by name.
+   *
+   * @param string $name
+   *   The name value for the option group table.
+   *
+   * @return string
+   *   The relevant title.
+   */
+  public static function getTitleByName($name) {
+    $groups = self::getTitlesByNames();
+    return $groups[$name];
+  }
+
+  /**
+   * Get a cached mapping of all group titles indexed by their unique name.
+   *
+   * We tend to only have a limited number of option groups so memory caching
+   * makes more sense than multiple look-ups.
+   *
+   * @return array
+   *   Array of all group titles by name.
+   *   e.g
+   *   array('activity_status' => 'Activity Status', 'msg_mode' => 'Message Mode'....)
+   */
+  public static function getTitlesByNames() {
+    if (!isset(\Civi::$statics[__CLASS__]) || !isset(\Civi::$statics[__CLASS__]['titles_by_name'])) {
+      $dao = CRM_Core_DAO::executeQuery("SELECT name, title FROM civicrm_option_group");
+      while ($dao->fetch()) {
+        \Civi::$statics[__CLASS__]['titles_by_name'][$dao->name] = $dao->title;
+      }
+    }
+    return \Civi::$statics[__CLASS__]['titles_by_name'];
+  }
+
+  /**
+   * Set the given values to active, and set all other values to inactive.
+   *
+   * @param string $optionGroupName
+   *   e.g "languages"
+   * @param string[] $activeValues
+   *   e.g. array("en_CA","fr_CA")
+   */
+  public static function setActiveValues($optionGroupName, $activeValues) {
+    $params = [
+      1 => [$optionGroupName, 'String'],
+    ];
+
+    // convert activeValues into placeholders / params in the query
+    $placeholders = [];
+    $i = count($params) + 1;
+    foreach ($activeValues as $value) {
+      $placeholders[] = "%{$i}";
+      $params[$i] = [$value, 'String'];
+      $i++;
+    }
+    $placeholders = implode(', ', $placeholders);
+
+    CRM_Core_DAO::executeQuery("
+UPDATE civicrm_option_value cov
+       LEFT JOIN civicrm_option_group cog ON cov.option_group_id = cog.id
+SET cov.is_active = CASE WHEN cov.name IN ({$placeholders}) THEN 1 ELSE 0 END
+WHERE cog.name = %1",
+      $params
+    );
+  }
+
+}

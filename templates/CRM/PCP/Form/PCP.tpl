@@ -1,33 +1,16 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
 *}
-<div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
 <table class="form-layout">
-  <tr  class="crm-contribution-contributionpage-pcp-form-block-pcp_active">
-      <td class="label">&nbsp;</td>
-      <td>{$form.pcp_active.html} {$form.pcp_active.label}</td>
+  <tr class="crm-contribution-contributionpage-pcp-form-block-pcp_active">
+    <td class="label">&nbsp;</td>
+    <td>{$form.pcp_active.html} {$form.pcp_active.label}</td>
   </tr>
 </table>
 
@@ -35,17 +18,17 @@
 
 <div id="pcpFields">
 {crmRegion name="pcp-form-pcp-fields"}
-  {if $form.target_entity_type}
+  {if !empty($form.target_entity_type)}
   <table class="form-layout">
     <tr  class="crm-contribution-contributionpage-pcp-form-block-target_entity_type">
-        <td class="label">{$form.target_entity_type.label} <span class="marker"> *</span></td>
+        <td class="label">{$form.target_entity_type.label} <span class="crm-marker"> *</span></td>
         <td>{$form.target_entity_type.html} {help id="id-target_entity_type"}</td>
     </tr>
   </table>
   <div id="pcpDetailFields" {if $form.target_entity_type.value[0] == 'event'} style="display:none;"{/if}>
     <table class="form-layout">
       <tr class="crm-contribution-contributionpage-pcp-form-block-target_entity_id" id="pcpDetailFields">
-          <td class="label">{$form.target_entity_id.label} <span class="marker"> *</span></td>
+          <td class="label">{$form.target_entity_id.label} <span class="crm-marker"> *</span></td>
           <td>{$form.target_entity_id.html} {help id="id-target_entity_id"}</td>
       </tr>
     </table>
@@ -62,8 +45,12 @@
         <td>{$form.notify_email.html} {help id="id-notify"}</td>
      </tr>
      <tr class="crm-contribution-contributionpage-pcp-form-block-supporter_profile_id">
-        <td class="label">{$form.supporter_profile_id.label}</td>
+        <td class="label">{$form.supporter_profile_id.label} <span class="crm-marker"> *</span></td>
         <td>{$form.supporter_profile_id.html} {help id="id-supporter_profile"}</td>
+     </tr>
+     <tr class="crm-contribution-contributionpage-pcp-form-block-owner_notify_id">
+        <td class="label">{$form.owner_notify_id.label}</td>
+        <td>{$form.owner_notify_id.html}</td>
      </tr>
      <tr class="crm-contribution-contributionpage-pcp-form-block-is_tellfriend_enabled">
         <td class="label">{$form.is_tellfriend_enabled.label}</td>

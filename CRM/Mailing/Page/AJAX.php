@@ -1,36 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.5                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2014                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
-*/
+ */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2014
- * $Id$
- *
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -39,7 +21,33 @@
 class CRM_Mailing_Page_AJAX {
 
   /**
-   * Function to fetch the template text/html messages
+   * Kick off the "Add Mail Account" process for some given type of account.
+   *
+   * Ex: 'civicrm/ajax/setupMailAccount?type=standard'
+   * Ex: 'civicrm/ajax/setupMailAccount?type=oauth_1'
+   *
+   * @see CRM_Core_BAO_MailSettings::getSetupActions()
+   * @throws \CRM_Core_Exception
+   */
+  public static function setup() {
+    $type = CRM_Utils_Request::retrieve('type', 'String');
+    $setupActions = CRM_Core_BAO_MailSettings::getSetupActions();
+    $setupAction = $setupActions[$type] ?? NULL;
+    if ($setupAction === NULL) {
+      throw new \CRM_Core_Exception("Cannot setup mail account. Invalid type requested.");
+    }
+
+    $result = call_user_func($setupAction['callback'], $setupAction);
+    if (isset($result['url'])) {
+      CRM_Utils_System::redirect($result['url']);
+    }
+    else {
+      throw new \CRM_Core_Exception("Cannot setup mail account. Setup does not have a URL.");
+    }
+  }
+
+  /**
+   * Fetch the template text/html messages
    */
   public static function template() {
     $templateId = CRM_Utils_Type::escape($_POST['tid'], 'Integer');
@@ -49,55 +57,32 @@ class CRM_Mailing_Page_AJAX {
     $messageTemplate->selectAdd();
     $messageTemplate->selectAdd('msg_text, msg_html, msg_subject, pdf_format_id');
     $messageTemplate->find(TRUE);
-    $messages = array(
+    $messages = [
       'subject' => $messageTemplate->msg_subject,
       'msg_text' => $messageTemplate->msg_text,
       'msg_html' => $messageTemplate->msg_html,
       'pdf_format_id' => $messageTemplate->pdf_format_id,
-    );
+    ];
 
-    echo json_encode($messages);
-    CRM_Utils_System::civiExit();
+    $documentInfo = CRM_Core_BAO_File::getEntityFile('civicrm_msg_template', $templateId);
+    foreach ((array) $documentInfo as $info) {
+      list($messages['document_body']) = CRM_Utils_PDF_Document::docReader($info['fullPath'], $info['mime_type']);
+    }
+
+    CRM_Utils_JSON::output($messages);
   }
 
   /**
-   * Function to retrieve contact mailings
+   * Retrieve contact mailings.
    */
   public static function getContactMailings() {
-    $contactID = CRM_Utils_Type::escape($_GET['contact_id'], 'Integer');
-
-    $sortMapper = array(
-      0 => 'subject', 1 => 'creator_name', 2 => '', 3 => 'start_date', 4 => '', 5 => 'links',
-    );
-
-    $sEcho     = CRM_Utils_Type::escape($_REQUEST['sEcho'], 'Integer');
-    $offset    = isset($_REQUEST['iDisplayStart']) ? CRM_Utils_Type::escape($_REQUEST['iDisplayStart'], 'Integer') : 0;
-    $rowCount  = isset($_REQUEST['iDisplayLength']) ? CRM_Utils_Type::escape($_REQUEST['iDisplayLength'], 'Integer') : 25;
-    $sort      = isset($_REQUEST['iSortCol_0']) ? CRM_Utils_Array::value(CRM_Utils_Type::escape($_REQUEST['iSortCol_0'], 'Integer'), $sortMapper) : NULL;
-    $sortOrder = isset($_REQUEST['sSortDir_0']) ? CRM_Utils_Type::escape($_REQUEST['sSortDir_0'], 'String') : 'asc';
-
-    $params = $_POST;
-    if ($sort && $sortOrder) {
-      $params['sortBy'] = $sort . ' ' . $sortOrder;
-    }
-
-    $params['page'] = ($offset / $rowCount) + 1;
-    $params['rp'] = $rowCount;
-
-    $params['contact_id'] = $contactID;
-    $params['context'] = $context;
+    $params = CRM_Core_Page_AJAX::defaultSortAndPagerParams();
+    $params += CRM_Core_Page_AJAX::validateParams(['contact_id' => 'Integer']);
 
     // get the contact mailings
     $mailings = CRM_Mailing_BAO_Mailing::getContactMailingSelector($params);
 
-    $iFilteredTotal = $iTotal = $params['total'];
-    $selectorElements = array(
-      'subject', 'mailing_creator', 'recipients',
-      'start_date', 'openstats', 'links',
-    );
-
-    echo CRM_Utils_JSON::encodeDataTableSelector($mailings, $sEcho, $iTotal, $iFilteredTotal, $selectorElements);
-    CRM_Utils_System::civiExit();
+    CRM_Utils_JSON::output($mailings);
   }
-}
 
+}
