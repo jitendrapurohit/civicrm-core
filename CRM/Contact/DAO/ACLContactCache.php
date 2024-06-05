@@ -8,7 +8,6 @@
 /**
  * Placeholder class retained for legacy compatibility.
  *
- * @property int|string|null $id
  * @property int|string|null $user_id
  * @property int|string $contact_id
  * @property string $operation

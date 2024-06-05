@@ -73,6 +73,11 @@ class CRM_Upgrade_Incremental_php_FiveSeventyFive extends CRM_Upgrade_Incrementa
     );
 
     CRM_Core_BAO_SchemaHandler::dropIndexIfExists('civicrm_line_item', 'UI_line_item_value');
+
+    $tables = ['civicrm_cache', 'civicrm_acl_contact_cache', 'civicrm_group_contact_cache'];
+    foreach ($tables as $table) {
+      $this->addTask("dev/core#2290 - Remove id column from '$table' table", 'dropColumn', $table, 'id');
+    }
   }
 
 }

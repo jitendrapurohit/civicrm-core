@@ -8,7 +8,6 @@
 /**
  * Placeholder class retained for legacy compatibility.
  *
- * @property int|string|null $id
  * @property string $group_name
  * @property string|null $path
  * @property string|null $data

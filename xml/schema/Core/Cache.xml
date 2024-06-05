@@ -16,6 +16,7 @@
       <type>Number</type>
     </html>
     <add>2.1</add>
+    <drop>5.75</drop>
   </field>
   <primaryKey>
     <name>id</name>
