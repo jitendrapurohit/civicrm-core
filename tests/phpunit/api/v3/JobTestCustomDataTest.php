@@ -134,9 +134,8 @@ class api_v3_JobTestCustomDataTest extends CiviUnitTestCase {
    *
    * @param array $dataSet
    *
-   * @throws \CRM_Core_Exception
    */
-  public function testBatchMergeCheckboxCustomFieldHandling($dataSet) {
+  public function testBatchMergeCheckboxCustomFieldHandling(array $dataSet): void {
     $customFieldLabel = 'custom_' . $this->customStringCheckboxID;
     $contact1Params = is_array($dataSet['contacts'][0]) ? [$customFieldLabel => $dataSet['contacts'][0]] : [];
     $contact2Params = is_array($dataSet['contacts'][1]) ? [$customFieldLabel => $dataSet['contacts'][1]] : [];
@@ -154,7 +153,7 @@ class api_v3_JobTestCustomDataTest extends CiviUnitTestCase {
    *
    * @return array
    */
-  public function getCheckboxData() {
+  public static function getCheckboxData() {
     $data = [
       [
         'null_merges_with_set' => [
@@ -322,7 +321,7 @@ class api_v3_JobTestCustomDataTest extends CiviUnitTestCase {
   public function testBatchMergeDateCustomFieldConflictAndNoCheckPerms(): void {
     CRM_Core_Config::singleton()->userPermissionClass->permissions = ['access CiviCRM', 'edit my contact'];
     CRM_Core_DAO::executeQuery("DELETE FROM civicrm_cache");
-    CRM_Utils_System::flushCache();
+    Civi::rebuild(['system' => TRUE])->execute();
     $customFieldLabel = 'custom_' . $this->customFieldID;
     $contactID = $this->individualCreate([$customFieldLabel => '2012-11-03']);
     $this->individualCreate([$customFieldLabel => '2013-11-03']);
@@ -341,7 +340,7 @@ class api_v3_JobTestCustomDataTest extends CiviUnitTestCase {
   public function testBatchMergeDateCustomFieldNoConflictAndNoCheckPerms(): void {
     CRM_Core_Config::singleton()->userPermissionClass->permissions = ['access CiviCRM', 'edit my contact'];
     CRM_Core_DAO::executeQuery("DELETE FROM civicrm_cache");
-    CRM_Utils_System::flushCache();
+    Civi::rebuild(['system' => TRUE])->execute();
     $customFieldLabel = 'custom_' . $this->customFieldID;
     $contactID = $this->individualCreate();
     $this->individualCreate([$customFieldLabel => '2013-11-03']);
@@ -360,7 +359,7 @@ class api_v3_JobTestCustomDataTest extends CiviUnitTestCase {
   public function testBatchMergeIntCustomFieldNoConflictAndNoCheckPerms(): void {
     CRM_Core_Config::singleton()->userPermissionClass->permissions = ['access CiviCRM', 'edit my contact'];
     CRM_Core_DAO::executeQuery("DELETE FROM civicrm_cache");
-    CRM_Utils_System::flushCache();
+    Civi::rebuild(['system' => TRUE])->execute();
     $customFieldLabel = 'custom_' . $this->customIntFieldID;
     $contactID = $this->individualCreate(['custom_' . $this->customBoolFieldID => 1]);
     $this->individualCreate([$customFieldLabel => 1, 'custom_' . $this->customBoolFieldID => 1]);

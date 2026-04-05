@@ -23,6 +23,7 @@ use api\v4\Api4TestBase;
 use Civi\API\Exception\UnauthorizedException;
 use Civi\Api4\Activity;
 use Civi\Api4\CaseActivity;
+use Civi\Api4\CaseType;
 use Civi\Api4\CiviCase;
 use Civi\Api4\Relationship;
 
@@ -34,6 +35,22 @@ class CaseTest extends Api4TestBase {
   public function setUp(): void {
     parent::setUp();
     \CRM_Core_BAO_ConfigSetting::enableComponent('CiviCase');
+  }
+
+  public function testGetFields(): void {
+    $fields = CiviCase::getFields(FALSE)
+      ->setAction('create')
+      ->setLoadOptions(['id', 'name', 'label'])
+      ->execute()->indexBy('name');
+
+    $encounterMediums = array_column($fields['medium_id']['options'], NULL, 'name');
+    $this->assertArrayHasKey('in_person', $encounterMediums);
+    $this->assertEquals(['name', 'label', 'description'], $fields['medium_id']['suffixes']);
+
+    $this->assertSame('Number', $fields['duration']['input_type']);
+    $this->assertSame('Text', $fields['location']['input_type']);
+    $this->assertSame('EntityRef', $fields['creator_id']['input_type']);
+    $this->assertSame('user_contact_id', $fields['creator_id']['default_value']);
   }
 
   public function testCreateUsingLoggedInUser(): void {
@@ -69,6 +86,43 @@ class CaseTest extends Api4TestBase {
       ->first();
 
     $this->assertContains('Test Case Type', $field['options']);
+  }
+
+  public function testGetStatusIdPerCaseType(): void {
+    $this->createTestRecord('OptionValue', [
+      'option_group_id:name' => 'case_status',
+      'label' => 'Testing',
+      'name' => 'Testing',
+      'grouping' => 'Opened',
+    ]);
+
+    $caseType = $this->createTestRecord('CaseType', [
+      'title' => 'Test Case Type',
+      'name' => 'test_case_type2',
+      'definition' => [
+        'statuses' => ['Testing', 'Closed'],
+      ],
+    ]);
+
+    $field = CiviCase::getFields(FALSE)
+      ->setLoadOptions(['id', 'label', 'name'])
+      ->addValue('case_type_id:name', 'test_case_type2')
+      ->addWhere('name', '=', 'status_id')
+      ->execute()
+      ->first();
+    $options = array_column($field['options'], 'name');
+
+    $this->assertEquals(['Closed', 'Testing'], $options);
+  }
+
+  public function testCaseTypeDefinition(): void {
+    $caseTypeToTest = CaseType::get(FALSE)
+      ->addSelect('definition')
+      ->addWhere('name', '=', 'housing_support')
+      ->execute()
+      ->first();
+    $this->assertArrayHasKey('definition', $caseTypeToTest);
+    $this->assertNotNull($caseTypeToTest['definition']);
   }
 
   public function testCaseActivity(): void {
@@ -281,6 +335,82 @@ class CaseTest extends Api4TestBase {
       ->execute()->column('id');
     $this->assertCount(1, $result);
     $this->assertEquals($act3, $result[0]);
+  }
+
+  public function testCaseActivityJoin(): void {
+    $case1 = $this->createTestRecord('Case')['id'];
+    $case2 = $this->createTestRecord('Case')['id'];
+    $acts = $this->saveTestRecords('Activity', [
+      'records' => [
+        ['subject' => 'A'],
+        ['subject' => 'B'],
+        ['subject' => 'C'],
+        ['subject' => 'D'],
+        ['subject' => 'F', 'case_id' => $case2],
+      ],
+      'defaults' => ['case_id' => $case1],
+    ])->column('id');
+
+    $result = Activity::get(FALSE)
+      ->addWhere('id', 'IN', $acts)
+      ->addJoin('Case AS Activity_CaseActivity_Case_01', 'LEFT', 'CaseActivity', ['Activity_CaseActivity_Case_01.activity_id', '=', 'id'])
+      ->addGroupBy('id')
+      ->addGroupBy('Activity_CaseActivity_Case_01.id')
+      ->addSelect('subject', 'Activity_CaseActivity_Case_01.id')
+      ->execute()->column('Activity_CaseActivity_Case_01.id', 'subject');
+
+    $this->assertEquals(['A' => $case1, 'B' => $case1, 'C' => $case1, 'D' => $case1, 'F' => $case2], $result);
+
+    $result = Activity::get(FALSE)
+      ->addWhere('id', 'IN', $acts)
+      ->addWhere('Activity_CaseActivity_Case_01.id', '=', $case1)
+      ->addJoin('Case AS Activity_CaseActivity_Case_01', 'LEFT', 'CaseActivity', ['Activity_CaseActivity_Case_01.activity_id', '=', 'id'])
+      ->addGroupBy('id')
+      ->addGroupBy('Activity_CaseActivity_Case_01.id')
+      ->addSelect('subject', 'Activity_CaseActivity_Case_01.id')
+      ->execute()->column('Activity_CaseActivity_Case_01.id', 'subject');
+
+    $this->assertEquals(['A' => $case1, 'B' => $case1, 'C' => $case1, 'D' => $case1], $result);
+  }
+
+  public function testCaseSoftDelete(): void {
+    // Create a case with a relationship and activity
+    $case = $this->createTestRecord('Case');
+
+    $activity = $this->createTestRecord('Activity', [
+      'case_id' => $case['id'],
+      'subject' => 'Test Activity',
+    ]);
+
+    // Get the relationship created with the case
+    $relationships = Relationship::get(FALSE)
+      ->addWhere('case_id', '=', $case['id'])
+      ->execute();
+    $relationshipId = $relationships[0]['id'];
+
+    // Delete the case with useTrash = TRUE
+    CiviCase::delete(FALSE)
+      ->addWhere('id', '=', $case['id'])
+      ->setUseTrash(TRUE)
+      ->execute();
+
+    // Assert the case still exists but is_deleted = TRUE
+    $deletedCase = CiviCase::get(FALSE)
+      ->addWhere('id', '=', $case['id'])
+      ->execute()->single();
+    $this->assertTrue($deletedCase['is_deleted']);
+
+    // Assert the activity still exists but is_deleted = TRUE
+    $deletedActivity = Activity::get(FALSE)
+      ->addWhere('id', '=', $activity['id'])
+      ->execute()->single();
+    $this->assertTrue($deletedActivity['is_deleted']);
+
+    // Assert the relationship still exists but is_active = FALSE
+    $deletedRelationship = Relationship::get(FALSE)
+      ->addWhere('id', '=', $relationshipId)
+      ->execute()->single();
+    $this->assertFalse($deletedRelationship['is_active']);
   }
 
 }

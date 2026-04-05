@@ -58,7 +58,7 @@ class CRM_Core_BAO_ActionSchedule extends CRM_Core_DAO_ActionSchedule implements
    * @return \Civi\ActionSchedule\MappingInterface|NULL
    */
   public static function getMapping($mappingId) {
-    return self::getMappings()[$mappingId] ?? NULL;
+    return $mappingId ? (self::getMappings()[$mappingId] ?? NULL) : NULL;
   }
 
   /**
@@ -157,8 +157,7 @@ class CRM_Core_BAO_ActionSchedule extends CRM_Core_DAO_ActionSchedule implements
    * @return array
    */
   public static function getFilterContactLanguageOptions(): array {
-    $languages = CRM_Core_I18n::languages(TRUE);
-    return $languages + [CRM_Core_I18n::NONE => ts('Contacts with no preferred language')];
+    return CRM_Core_I18n::languages(TRUE);
   }
 
   /**
@@ -345,71 +344,82 @@ FROM civicrm_action_schedule cas
     $actionSchedule->find(FALSE);
 
     while ($actionSchedule->fetch()) {
-      $query = CRM_Core_BAO_ActionSchedule::prepareMailingQuery($mapping, $actionSchedule);
-      $dao = CRM_Core_DAO::executeQuery($query,
-        [1 => [$actionSchedule->id, 'Integer']]
-      );
+      try {
+        $query = CRM_Core_BAO_ActionSchedule::prepareMailingQuery($mapping, $actionSchedule);
+        $dao = CRM_Core_DAO::executeQuery($query,
+          [1 => [$actionSchedule->id, 'Integer']]
+        );
 
-      if ($dao->N > 0) {
-        Civi::log()->info("Sending Scheduled Reminder {$actionSchedule->id} to {$dao->N} recipients");
-      }
-
-      $multilingual = CRM_Core_I18n::isMultilingual();
-      $tokenProcessor = self::createTokenProcessor($actionSchedule, $mapping);
-      while ($dao->fetch()) {
-        $row = $tokenProcessor->addRow()
-          ->context('contactId', $dao->contactID)
-          ->context('actionSearchResult', (object) $dao->toArray());
-
-        // switch language if necessary
-        if ($multilingual) {
-          $preferred_language = CRM_Core_DAO::getFieldValue('CRM_Contact_DAO_Contact', $dao->contactID, 'preferred_language');
-          $row->context('locale', CRM_Core_BAO_ActionSchedule::pickLocale($actionSchedule->communication_language, $preferred_language));
+        if ($dao->N > 0) {
+          Civi::log()
+            ->info("Sending Scheduled Reminder {$actionSchedule->id} to {$dao->N} recipients");
         }
 
-        foreach ($dao->toArray() as $key => $value) {
-          if (preg_match('/^tokenContext_(.*)/', $key, $m)) {
-            if (!in_array($m[1], $tokenProcessor->context['schema'])) {
-              $tokenProcessor->context['schema'][] = $m[1];
+        $bccRecipients = $mapping->getBccRecipients($actionSchedule);
+        $alternateRecipients = $mapping->getAlternateRecipients($actionSchedule);
+
+        $multilingual = CRM_Core_I18n::isMultilingual();
+        $tokenProcessor = self::createTokenProcessor($actionSchedule, $mapping);
+        while ($dao->fetch()) {
+          $row = $tokenProcessor->addRow()
+            ->context('contactId', $dao->contactID)
+            ->context('actionSearchResult', (object) $dao->toArray());
+
+          // switch language if necessary
+          if ($multilingual) {
+            $preferred_language = CRM_Core_DAO::getFieldValue('CRM_Contact_DAO_Contact', $dao->contactID, 'preferred_language');
+            $row->context('locale', CRM_Core_BAO_ActionSchedule::pickLocale($actionSchedule->communication_language, $preferred_language));
+          }
+
+          foreach ($dao->toArray() as $key => $value) {
+            if (preg_match('/^tokenContext_(.*)/', $key, $m)) {
+              if (!in_array($m[1], $tokenProcessor->context['schema'])) {
+                $tokenProcessor->context['schema'][] = $m[1];
+              }
+              $row->context($m[1], $value);
             }
-            $row->context($m[1], $value);
           }
         }
+
+        $tokenProcessor->evaluate();
+        foreach ($tokenProcessor->getRows() as $tokenRow) {
+          $dao = $tokenRow->context['actionSearchResult'];
+          $errors = [];
+
+          // It's possible, eg, that sendReminderEmail fires Hook::alterMailParams() and that some listener use ts().
+          $swapLocale = empty($row->context['locale']) ? NULL : \CRM_Utils_AutoClean::swapLocale($row->context['locale']);
+
+          // FIXME: This can't be right: "If mode is User Preference, send sms unconditionally without checking user preference"!
+          if ($actionSchedule->mode === 'SMS' || $actionSchedule->mode === 'User_Preference') {
+            CRM_Utils_Array::extend($errors, self::sendReminderSms($tokenRow, $actionSchedule, $dao->contactID, $dao->entityID, $alternateRecipients, $bccRecipients));
+          }
+          // FIXME: This can't be right: "If mode is User Preference, send email unconditionally without checking user preference"!
+          if ($actionSchedule->mode === 'Email' || $actionSchedule->mode === 'User_Preference') {
+            CRM_Utils_Array::extend($errors, self::sendReminderEmail($tokenRow, $actionSchedule, $dao->contactID, $alternateRecipients, $bccRecipients));
+          }
+          // insert activity log record if needed
+          if ($actionSchedule->record_activity && empty($errors)) {
+            $caseID = empty($dao->case_id) ? NULL : $dao->case_id;
+            CRM_Core_BAO_ActionSchedule::createMailingActivity($tokenRow, $mapping, $dao->contactID, $dao->entityID, $caseID);
+          }
+
+          unset($swapLocale);
+
+          // update action log record
+          $logParams = [
+            'id' => $dao->reminderID,
+            'is_error' => !empty($errors),
+            'message' => empty($errors) ? "null" : implode(' ', $errors),
+            'action_date_time' => $now,
+          ];
+          CRM_Core_BAO_ActionLog::create($logParams);
+        }
       }
-
-      $tokenProcessor->evaluate();
-      foreach ($tokenProcessor->getRows() as $tokenRow) {
-        $dao = $tokenRow->context['actionSearchResult'];
-        $errors = [];
-
-        // It's possible, eg, that sendReminderEmail fires Hook::alterMailParams() and that some listener use ts().
-        $swapLocale = empty($row->context['locale']) ? NULL : \CRM_Utils_AutoClean::swapLocale($row->context['locale']);
-
-        if ($actionSchedule->mode === 'SMS' || $actionSchedule->mode === 'User_Preference') {
-          CRM_Utils_Array::extend($errors, self::sendReminderSms($tokenRow, $actionSchedule, $dao->contactID));
-        }
-
-        if ($actionSchedule->mode === 'Email' || $actionSchedule->mode === 'User_Preference') {
-          CRM_Utils_Array::extend($errors, self::sendReminderEmail($tokenRow, $actionSchedule, $dao->contactID));
-        }
-        // insert activity log record if needed
-        if ($actionSchedule->record_activity && empty($errors)) {
-          $caseID = empty($dao->case_id) ? NULL : $dao->case_id;
-          CRM_Core_BAO_ActionSchedule::createMailingActivity($tokenRow, $mapping, $dao->contactID, $dao->entityID, $caseID);
-        }
-
-        unset($swapLocale);
-
-        // update action log record
-        $logParams = [
-          'id' => $dao->reminderID,
-          'is_error' => !empty($errors),
-          'message' => empty($errors) ? "null" : implode(' ', $errors),
-          'action_date_time' => $now,
-        ];
-        CRM_Core_BAO_ActionLog::create($logParams);
+      catch (Throwable $e) {
+        // If one scheduled reminder fails to process that shouldn't stop the others from running.
+        // It would be nice to flag this to the user but for now putting it in the logs at least means the problem can be found!
+        \Civi::log()->error('Error processing scheduled reminder (ActionScheduleID: ' . $actionSchedule->id . '): ' . $e->getMessage());
       }
-
     }
   }
 
@@ -441,6 +451,49 @@ FROM civicrm_action_schedule cas
   }
 
   /**
+   * Cached function to efficiently get emails from fixed recipient lists
+   *
+   * @param array $cids
+   * @return array
+   * @throws CRM_Core_Exception
+   * @throws \Civi\API\Exception\UnauthorizedException
+   */
+  private static function getEmailAddresses(array $cids): array {
+    $cacheKey = implode(',', $cids);
+    if (!isset(Civi::$statics[__CLASS__]['email'][$cacheKey])) {
+      $emails = \Civi\Api4\Contact::get(FALSE)
+        ->addSelect('id', 'email_primary.email')
+        ->addWhere('id', 'IN', $cids)
+        ->addWhere('do_not_email', '=', FALSE)
+        ->addWhere('email_primary.on_hold', '=', FALSE)
+        ->execute();
+      Civi::$statics[__CLASS__]['email'][$cacheKey] = $emails->column('email_primary.email', 'id');
+    }
+    return Civi::$statics[__CLASS__]['email'][$cacheKey];
+  }
+
+  /**
+   * Cached function to efficiently get numbers from fixed recipient lists
+   *
+   * @param array $cids
+   * @return array
+   */
+  private static function getSmsNumbers(array $cids): array {
+    $cacheKey = implode(',', $cids);
+    if (!isset(Civi::$statics[__CLASS__]['sms'][$cacheKey])) {
+      $numbers = [];
+      foreach ($cids as $cid) {
+        $number = self::pickSmsPhoneNumber($cid);
+        if ($number) {
+          $numbers[$cid] = $number;
+        }
+      }
+      Civi::$statics[__CLASS__]['sms'][$cacheKey] = $numbers;
+    }
+    return Civi::$statics[__CLASS__]['sms'][$cacheKey];
+  }
+
+  /**
    * Main processing callback for sending out scheduled reminders.
    *
    * @param string $now
@@ -449,7 +502,7 @@ FROM civicrm_action_schedule cas
    * @throws \CRM_Core_Exception
    */
   public static function processQueue($now = NULL, $params = []): void {
-    $now = $now ? CRM_Utils_Time::setTime($now) : CRM_Utils_Time::getTime();
+    $now = $now ? CRM_Utils_Time::setTime($now) : CRM_Utils_Time::date('YmdHis');
 
     $mappings = CRM_Core_BAO_ActionSchedule::getMappings();
     foreach ($mappings as $mappingID => $mapping) {
@@ -543,7 +596,7 @@ FROM civicrm_action_schedule cas
     $activityParams = [
       'subject' => $tokenRow->render('subject'),
       'details' => $tokenRow->render('body_html'),
-      'source_contact_id' => $session->get('userID') ? $session->get('userID') : $contactID,
+      'source_contact_id' => $session->get('userID') ?: $contactID,
       'target_contact_id' => $contactID,
       // @todo - not required with api
       'activity_date_time' => CRM_Utils_Time::getTime('YmdHis'),
@@ -595,14 +648,26 @@ FROM civicrm_action_schedule cas
    * @param \Civi\Token\TokenRow $tokenRow
    * @param CRM_Core_DAO_ActionSchedule $schedule
    * @param int $toContactID
-   * @throws CRM_Core_Exception
+   * @param int|null $entityID
+   * @param array|null $alternateRecipients
+   * @param array|null $bccRecipients
+   *
    * @return array
    *   List of error messages.
    */
-  protected static function sendReminderSms($tokenRow, $schedule, $toContactID) {
-    $toPhoneNumber = self::pickSmsPhoneNumber($toContactID);
-    if (!$toPhoneNumber) {
+  protected static function sendReminderSms($tokenRow, $schedule, $toContactID, $entityID, ?array $alternateRecipients, ?array $bccRecipients) {
+    if (isset($alternateRecipients)) {
+      $toPhoneNumbers = self::getSmsNumbers($alternateRecipients);
+    }
+    else {
+      $toPhoneNumbers = self::pickSmsPhoneNumber($toContactID);
+      $toPhoneNumbers = $toPhoneNumbers ? [$toContactID => $toPhoneNumbers] : NULL;
+    }
+    if (!$toPhoneNumbers) {
       return ["sms_phone_missing" => "Couldn't find recipient's phone number."];
+    }
+    if ($bccRecipients) {
+      $toPhoneNumbers += self::getSmsNumbers($bccRecipients);
     }
 
     // dev/core#369 If an SMS provider is deleted then the relevant row in the action_schedule_table is set to NULL
@@ -615,12 +680,8 @@ FROM civicrm_action_schedule cas
     $sms_body_text = $tokenRow->render('sms_body_text');
 
     $session = CRM_Core_Session::singleton();
-    $userID = $session->get('userID') ? $session->get('userID') : $tokenRow->context['contactId'];
-    $smsParams = [
-      'To' => $toPhoneNumber,
-      'provider_id' => $schedule->sms_provider_id,
-      'activity_subject' => $messageSubject,
-    ];
+    $userID = $session->get('userID') ?: $tokenRow->context['contactId'];
+
     $activityTypeID = CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_type_id', 'SMS');
     $activityParams = [
       'source_contact_id' => $userID,
@@ -630,22 +691,30 @@ FROM civicrm_action_schedule cas
       'details' => $sms_body_text,
       'status_id' => CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'status_id', 'Completed'),
     ];
-
     $activity = CRM_Activity_BAO_Activity::create($activityParams);
 
-    try {
-      CRM_Activity_BAO_Activity::sendSMSMessage($tokenRow->context['contactId'],
-        $sms_body_text,
-        $smsParams,
-        $activity->id,
-        $userID
-      );
-    }
-    catch (CRM_Core_Exception $e) {
-      return ["sms_send_error" => $e->getMessage()];
+    $errors = [];
+    foreach ($toPhoneNumbers as $contactId => $toPhoneNumber) {
+      try {
+        $smsParams = [
+          'To' => $toPhoneNumber,
+          'provider_id' => $schedule->sms_provider_id,
+          'activity_subject' => $messageSubject,
+        ];
+        CRM_Activity_BAO_Activity::sendSMSMessage($contactId,
+          $sms_body_text,
+          $smsParams,
+          $activity->id,
+          $userID,
+          $entityID
+        );
+      }
+      catch (CRM_Core_Exception $e) {
+        $errors[] = $e->getMessage();
+      }
     }
 
-    return [];
+    return $errors;
   }
 
   /**
@@ -671,13 +740,20 @@ FROM civicrm_action_schedule cas
    * @param \Civi\Token\TokenRow $tokenRow
    * @param CRM_Core_DAO_ActionSchedule $schedule
    * @param int $toContactID
+   * @param array|null $alternateRecipients
+   * @param array|null $bccRecipients
    *
    * @return array
    *   List of error messages.
    * @throws \CRM_Core_Exception
    */
-  protected static function sendReminderEmail($tokenRow, $schedule, $toContactID): array {
-    $toEmail = CRM_Contact_BAO_Contact::getPrimaryEmail($toContactID, TRUE);
+  protected static function sendReminderEmail($tokenRow, $schedule, $toContactID, ?array $alternateRecipients, ?array $bccRecipients): array {
+    if (isset($alternateRecipients)) {
+      $toEmail = implode(', ', self::getEmailAddresses($alternateRecipients));
+    }
+    else {
+      $toEmail = CRM_Contact_BAO_Contact::getPrimaryEmail($toContactID, TRUE);
+    }
     if (!$toEmail) {
       return ['email_missing' => "Couldn't find recipient's email address."];
     }
@@ -693,6 +769,9 @@ FROM civicrm_action_schedule cas
       'entity_id' => $schedule->id,
       'contactId' => $toContactID,
     ];
+    if (isset($bccRecipients)) {
+      $mailParams['bcc'] = implode(', ', self::getEmailAddresses($bccRecipients));
+    }
     $body_text = $tokenRow->render('body_text');
     $mailParams['html'] = $tokenRow->render('body_html');
     // todo - remove these lines for body_text as there is similar handling in

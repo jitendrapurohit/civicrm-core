@@ -18,17 +18,17 @@
 
     <div class="crm-submit-buttons crm-case-dashboard-buttons">
       {if $newClient and $allowToAddNewCase}
-        <a href="{$newCaseURL}" class="button"><span><i class="crm-i fa-plus-circle" aria-hidden="true"></i> {ts}Add Case{/ts}</span></a>
+        <a href="{$newCaseURL}" class="button"><span><i class="crm-i fa-plus-circle" role="img" aria-hidden="true"></i> {ts}Add Case{/ts}</span></a>
       {/if}
-      <a class="button no-popup" name="find_my_cases" href="{crmURL p="civicrm/case/search" q="reset=1&case_owner=2&force=1"}"><span><i class="crm-i fa-search" aria-hidden="true"></i> {ts}Find My Cases{/ts}</span></a>
+      <a class="button no-popup" name="find_my_cases" href="{crmURL p="civicrm/case/search" q="reset=1&case_owner=2&force=1"}"><span><i class="crm-i fa-search" role="img" aria-hidden="true"></i> {ts}Find My Cases{/ts}</span></a>
 
       <div class="crm-case-dashboard-switch-view-buttons">
         {if $myCases}
           {* check for access all cases and activities *}
-          {if call_user_func(array('CRM_Core_Permission','check'), 'access all cases and activities')}
+          {crmPermission has='access all cases and activities'}
             <div><input name="allupcoming" id="allupcoming-all" type="radio" class="radio" onClick='window.location.replace("{crmURL p="civicrm/case" q="reset=1&all=1"}")' value="1"><label for="allupcoming-all">{ts}All Cases{/ts}</label></div>
             <div><input name="allupcoming" id="allupcoming-my" checked type="radio" class="radio" onClick='window.location.replace("{crmURL p="civicrm/case" q="reset=1&all=0"}")' value="0"><label for="allupcoming-my">{ts}My Cases{/ts}</label></div>
-          {/if}
+          {/crmPermission}
         {else}
           <div><input name="allupcoming" id="allupcoming-all" checked type="radio" class="radio" onClick='window.location.replace("{crmURL p="civicrm/case" q="reset=1&all=1"}")' value="1"><label for="allupcoming-all">{ts}All Cases with Upcoming Activities{/ts}</label></div>
           <div><input name="allupcoming" id="allupcoming-my" type="radio" class="radio" onClick='window.location.replace("{crmURL p="civicrm/case" q="reset=1&all=0"}")' value="0"><label for="allupcoming-my">{ts}My Cases with Upcoming Activities{/ts}</label></div>

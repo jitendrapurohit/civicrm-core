@@ -9,6 +9,13 @@ use Civi\Token\TokenProcessor;
 class CRM_Activity_Form_Task_PDFTest extends CiviUnitTestCase {
 
   /**
+   * API version in use.
+   *
+   * @var int
+   */
+  protected $_apiversion = 4;
+
+  /**
    * Set up for tests.
    */
   public function setUp(): void {
@@ -87,6 +94,11 @@ class CRM_Activity_Form_Task_PDFTest extends CiviUnitTestCase {
       '{activity.source_contact_id}' => 'Source Contact',
       '{activity.target_contact_id}' => 'Target Contacts',
       '{activity.assignee_contact_id}' => 'Assignee Contacts',
+      '{activity.all_contact_id}' => 'Activity Contacts',
+      '{activity.target_contact_count}' => 'Target Contact Count',
+      '{activity.assignee_contact_count}' => 'Assignee Contact Count',
+      '{activity._depth}' => 'Depth',
+      '{activity._descendents}' => 'Descendents',
     ];
   }
 

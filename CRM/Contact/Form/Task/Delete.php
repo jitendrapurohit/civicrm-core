@@ -65,8 +65,8 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
 
     // sort out whether it’s a delete-to-trash, delete-into-oblivion or restore (and let the template know)
     $values = $this->controller->exportValues();
-    $this->_skipUndelete = (CRM_Core_Permission::check('access deleted contacts') and (CRM_Utils_Request::retrieve('skip_undelete', 'Boolean', $this) or ($values['task'] ?? NULL) == CRM_Contact_Task::DELETE_PERMANENTLY));
-    $this->_restore = (CRM_Utils_Request::retrieve('restore', 'Boolean', $this) or ($values['task'] ?? NULL) == CRM_Contact_Task::RESTORE);
+    $this->_skipUndelete = (CRM_Core_Permission::check('access deleted contacts') and (CRM_Utils_Request::retrieve('skip_undelete', 'Boolean', $this) or ($values['task'] ?? NULL) == CRM_Contact_Task::DELETE_PERMANENTLY) || in_array('delete-permanently', $this->urlPath));
+    $this->_restore = (CRM_Utils_Request::retrieve('restore', 'Boolean', $this) or ($values['task'] ?? NULL) == CRM_Contact_Task::RESTORE or in_array('restore-contact', $this->urlPath));
 
     if ($this->_restore && !CRM_Core_Permission::check('access deleted contacts')) {
       CRM_Core_Error::statusBounce(ts('You do not have permission to access this contact.'));
@@ -77,10 +77,6 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
 
     $this->assign('trash', Civi::settings()->get('contact_undelete') and !$this->_skipUndelete);
     $this->assign('restore', $this->_restore);
-
-    if ($this->_restore) {
-      $this->setTitle(ts('Restore Contact'));
-    }
 
     if ($cid) {
       if (!CRM_Contact_BAO_Contact_Permission::allow($cid, CRM_Core_Permission::EDIT)) {
@@ -97,6 +93,10 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
     }
     else {
       parent::preProcess();
+    }
+
+    if ($this->_restore) {
+      $this->setTitle(ts('Restore Contact'));
     }
 
     $this->_sharedAddressMessage = $this->get('sharedAddressMessage');
@@ -148,7 +148,12 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
    * Build the form object.
    */
   public function buildQuickForm() {
-    $label = $this->_restore ? ts('Restore Contact(s)') : ts('Delete Contact(s)');
+    // Title and primary button label
+    $label = ts('Delete Contact', ['plural' => 'Delete Contacts', 'count' => count($this->_contactIds)]);
+    if ($this->_restore) {
+      $label = ts('Restore Contact', ['plural' => 'Restore Contacts', 'count' => count($this->_contactIds)]);
+    }
+    CRM_Utils_System::setTitle($label);
 
     if ($this->_single) {
       // also fix the user context stack in case the user hits cancel
@@ -212,11 +217,11 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
     foreach ($this->_contactIds as $cid) {
       $name = CRM_Core_DAO::getFieldValue('CRM_Contact_DAO_Contact', $cid, 'display_name');
       if (CRM_Contact_BAO_Contact::checkDomainContact($cid)) {
-        $session->setStatus(ts("'%1' cannot be deleted because the information is used for special system purposes.", [1 => $name]), 'Cannot Delete Domain Contact', 'error');
+        CRM_Core_Session::setStatus(ts("'%1' cannot be deleted because the information is used for special system purposes.", [1 => $name]), ts('Cannot Delete Domain Contact'), 'error');
         continue;
       }
       if ($currentUserId == $cid) {
-        $session->setStatus(ts("You are currently logged in as '%1'. You cannot delete yourself.", [1 => $name]), 'Unable To Delete', 'error');
+        CRM_Core_Session::setStatus(ts("You are currently logged in as '%1'. You cannot delete yourself.", [1 => $name]), ts('Unable To Delete'), 'error');
         continue;
       }
       if (CRM_Contact_BAO_Contact::deleteContact($cid, FALSE, $this->_skipUndelete)) {
@@ -243,15 +248,25 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
           'count' => $deleted,
         ]);
       }
-      $session->setStatus($status, $title, 'success');
+      CRM_Core_Session::setStatus($status, $title, 'success');
     }
     // Alert user of any failures
     if ($not_deleted) {
-      $status = ts('The contact might be the Membership Organization of a Membership Type. You will need to edit the Membership Type and change the Membership Organization before you can delete this contact.');
       $title = ts('Unable to Delete');
-      $session->setStatus('<ul><li>' . implode('</li><li>', $not_deleted) . '</li></ul>' . $status, $title, 'error');
+      // If the contact has a CMS account, you can't delete them. The deletion
+      // call just returns TRUE or FALSE, so we check if they have a CMS account
+      // Note: we're not using CRM_Core_BAO_UFMatch::getUFId() because that's cached.
+      $ufmatch = new CRM_Core_DAO_UFMatch();
+      $ufmatch->contact_id = $cid;
+      $ufmatch->domain_id = CRM_Core_Config::domainID();
+      if ($ufmatch->find(TRUE)) {
+        $status = ts('The contact has a user account. You will need to delete it before you can delete this contact.');
+      }
+      else {
+        $status = ts('The contact might be the Membership Organization of a Membership Type. You will need to edit the Membership Type and change the Membership Organization before you can delete this contact.');
+      }
+      CRM_Core_Session::setStatus('<ul><li>' . implode('</li><li>', $not_deleted) . '</li></ul>' . $status, $title, 'error');
     }
-
     if (isset($this->_sharedAddressMessage) && $this->_sharedAddressMessage['count'] > 0) {
       if (count($this->_sharedAddressMessage['contactList']) == 1) {
         $message = ts('The following contact had been sharing an address with a contact you just deleted. Their address will no longer be shared, but has not been removed or altered.');
@@ -261,7 +276,7 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
       }
       $message .= '<ul><li>' . implode('</li><li>', $this->_sharedAddressMessage['contactList']) . '</li></ul>';
 
-      $session->setStatus($message, ts('Shared Addresses Owner Deleted'), 'info', ['expires' => 30000]);
+      CRM_Core_Session::setStatus($message, ts('Shared Addresses Owner Deleted'), 'info', ['expires' => 30000]);
 
       $this->set('sharedAddressMessage', NULL);
     }
@@ -273,7 +288,6 @@ class CRM_Contact_Form_Task_Delete extends CRM_Contact_Form_Task {
    * Set the url for the contact to be redirected to.
    */
   protected function setRedirection() {
-
     $context = CRM_Utils_Request::retrieve('context', 'Alphanumeric', $this, FALSE, 'basic');
     $urlParams = 'force=1';
     $urlString = "civicrm/contact/search/$context";

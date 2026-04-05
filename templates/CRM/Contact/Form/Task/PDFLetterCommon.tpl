@@ -8,12 +8,13 @@
  +--------------------------------------------------------------------+
 *}
 {*common template for compose PDF letters*}
+{capture assign='tokenTitle'}{ts}Tokens{/ts}{/capture}
 {if !empty($form.template.html)}
 <table class="form-layout-compressed">
     <tr>
       <td class="label-left">
         {$form.template.label}
-        {help id="template" title=$form.template.label file="CRM/Contact/Form/Task/PDFLetterCommon.hlp"}
+        {help id="template" file="CRM/Contact/Form/Task/PDFLetterCommon.hlp"}
       </td>
       <td>
         {$form.template.html} {ts}OR{/ts} {$form.document_file.html}
@@ -40,7 +41,7 @@
       <div class="crm-block crm-form-block">
     <table class="form-layout-compressed">
       <tr>
-        <td class="label-left">{$form.format_id.label} {help id="id-pdf-format" file="CRM/Contact/Form/Task/PDFLetterCommon.hlp"}</td>
+        <td class="label-left">{$form.format_id.label} {help id="format_id" file="CRM/Contact/Form/Task/PDFLetterCommon.hlp"}</td>
         <td>{$form.format_id.html}</td>
       </tr>
       <tr>
@@ -92,7 +93,7 @@
  <div class="crm-accordion-body">
    <div class="helpIcon" id="helphtml">
      <input class="crm-token-selector big" data-field="html_message" />
-     {help id="id-token-html" file="CRM/Contact/Form/Task/Email.hlp"}
+     {help id="id-token-html" file="CRM/Contact/Form/Task/Email.hlp" title=$tokenTitle}
    </div>
     <div class="clear"></div>
     <div class='html'>
@@ -190,7 +191,7 @@ function showBindFormatChkBox()
         document.getElementById("bindFormat").style.display = "block";
     } else if ( formatExists && document.getElementById("saveTemplate") != null && document.getElementById("saveTemplate").checked ) {
         document.getElementById("bindFormat").style.display = "block";
-        var yes = confirm( '{/literal}{$useThisPageFormat}{literal}' );
+        var yes = confirm( "{/literal}{$useThisPageFormat}{literal}" );
         if ( yes ) {
             document.getElementById("bind_format").checked = true;
         }
@@ -305,6 +306,9 @@ function convertMetric( value, from, to ) {
 }
 
 function showSaveDetails(chkbox)  {
+    if (chkbox === undefined) {
+      return;
+    }
     var formatSelected = ( document.getElementById('format_id').value > 0 );
     var templateSelected = ( document.getElementById('template') != null && document.getElementById('template').value > 0 );
     if (chkbox.checked) {
@@ -312,7 +316,7 @@ function showSaveDetails(chkbox)  {
         document.getElementById("saveTemplateName").disabled = false;
         if ( formatSelected && ! templateSelected ) {
             document.getElementById("bindFormat").style.display = "block";
-            var yes = confirm( '{/literal}{$useSelectedPageFormat}{literal}' );
+            var yes = confirm( "{/literal}{$useSelectedPageFormat}{literal}" );
             if ( yes ) {
                 document.getElementById("bind_format").checked = true;
             }

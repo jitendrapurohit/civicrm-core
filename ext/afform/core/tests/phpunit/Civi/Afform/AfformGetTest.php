@@ -87,8 +87,8 @@ class AfformGetTest extends \PHPUnit\Framework\TestCase implements HeadlessInter
           '#children' => [
             [
               '#tag' => 'af-entity',
-              'data' => "{contact_type: 'Individual', source: 'This isn\\'t \"quotes\"'}",
-              'type' => 'Contact',
+              'data' => "{source: 'This isn\\'t \"quotes\"'}",
+              'type' => 'Individual',
               'name' => 'Individual1',
             ],
           ],
@@ -102,7 +102,7 @@ class AfformGetTest extends \PHPUnit\Framework\TestCase implements HeadlessInter
       ->execute()->single()['layout'];
 
     $expected = <<<HTML
-data="{contact_type: 'Individual', source: 'This isn\'t &quot;quotes&quot;'}"
+data="{source: 'This isn\'t &quot;quotes&quot;'}"
 HTML;
 
     $this->assertStringContainsString($expected, $html);
@@ -128,10 +128,20 @@ HTML;
   }
 
   public function testGetSearchDisplays() {
+    $exampleLayout = <<<AFFORM
+<div>
+  <crm-search-display-grid search-name="foo" display-name="foo-bar" />
+  <div>
+    <crm-search-display type="list"  search-name="genericTag" />
+  </div>
+</div>
+< crm-search-display-table search-name='foo' display-name = 'bar-food' >
+AFFORM;
+
     Afform::create()
       ->addValue('name', $this->formName)
       ->addValue('title', 'Test Form')
-      ->addValue('layout', '<div><crm-search-display-grid search-name="foo" display-name="foo-bar" /></div>< crm-search-display-table search-name=\'foo\' display-name = \'bar-food\' >')
+      ->addValue('layout', $exampleLayout)
       ->setLayoutFormat('html')
       ->execute();
 
@@ -141,7 +151,37 @@ HTML;
       ->addWhere('search_displays', 'CONTAINS', 'foo.foo-bar')
       ->execute()->single();
 
-    $this->assertEquals(['foo.foo-bar', 'foo.bar-food'], $result['search_displays']);
+    $this->assertEquals(['foo.foo-bar', 'genericTag', 'foo.bar-food'], $result['search_displays']);
+  }
+
+  public function testGetLayoutWithLegacyContactTypeConversion() {
+    Afform::create(FALSE)
+      ->addValue('name', $this->formName)
+      ->addValue('title', 'Test Form')
+      ->addValue('layout', <<<'AFFORM'
+        <af-form>
+          <af-entity type="Contact" data="{'contact_type': 'Organization' num: 1}"></af-entity>
+          <af-entity data="{thing: 2 contact_type: 'Household'}" type="Contact"></af-entity>
+          <af-entity data="{contact_type: 'Individual'}" type='Contact'></af-entity>
+          <fieldset>Hello</fieldset>
+        </af-form>
+        AFFORM
+      )->execute();
+
+    $entity = Afform::get(FALSE)
+      ->addWhere('name', '=', $this->formName)
+      ->setFormatWhitespace(TRUE)
+      ->execute()->single()['layout'][0]['#children'];
+
+    // Legacy contact_type should have been converted to entity type
+    $this->assertEquals('Organization', $entity[0]['type']);
+    $this->assertCount(1, $entity[0]['data']);
+    $this->assertEquals(1, $entity[0]['data']['num']);
+    $this->assertEquals('Household', $entity[1]['type']);
+    $this->assertCount(1, $entity[1]['data']);
+    $this->assertEquals(2, $entity[1]['data']['thing']);
+    $this->assertEquals('Individual', $entity[2]['type']);
+    $this->assertCount(0, $entity[2]['data']);
   }
 
 }

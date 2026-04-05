@@ -108,7 +108,7 @@ class CRM_Mailing_MailStore_Localdir extends CRM_Mailing_MailStore {
       $mail = $parser->parseMail($set);
 
       if (!$mail) {
-        return CRM_Core_Error::createAPIError(ts('%1 could not be parsed',
+        throw new CRM_Core_Exception(ts('%1 could not be parsed',
           [1 => $file]
         ));
       }
@@ -137,9 +137,7 @@ class CRM_Mailing_MailStore_Localdir extends CRM_Mailing_MailStore {
       print "moving $file to ignored folder\n";
     }
     $target = $this->_ignored . DIRECTORY_SEPARATOR . basename($file);
-    if (!rename($file, $target)) {
-      throw new Exception("Could not rename $file to $target");
-    }
+    Civi::fs()->rename($file, $target, TRUE);
   }
 
   /**
@@ -155,9 +153,7 @@ class CRM_Mailing_MailStore_Localdir extends CRM_Mailing_MailStore {
       print "moving $file to processed folder\n";
     }
     $target = $this->_processed . DIRECTORY_SEPARATOR . basename($file);
-    if (!rename($file, $target)) {
-      throw new Exception("Could not rename $file to $target");
-    }
+    Civi::fs()->rename($file, $target, TRUE);
   }
 
 }

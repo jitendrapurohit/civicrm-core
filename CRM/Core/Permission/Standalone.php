@@ -15,6 +15,7 @@
  * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
+use Civi\Api4\Utils\CoreUtil;
 use Civi\Api4\Role;
 
 /**
@@ -34,35 +35,38 @@ class CRM_Core_Permission_Standalone extends CRM_Core_Permission_Base {
   public $permissions = NULL;
 
   /**
+   * @inheritdoc
+   * on Standalone we don't want to add any "synthetic" cms permissions
+   * because we have concrete equivalents, provided by e.g. standaloneusers extension
+   * so we override the base class to suppress the synthetic ones
+   *
+   */
+  public function getAvailablePermissions() {
+    return [];
+  }
+
+  /**
    * Given a permission string, check for access requirements.
    *
    * Note this differs from CRM_Core_Permission::check() which handles
    * composite permissions (ORs etc), implied permission hierarchies,
    * and Contacts.
    *
-   * @param string $str
+   * @param string $permissionName
    *   The permission to check.
    * @param int $userId
    *
    * @return bool
    *   true if yes, else false
    */
-  public function check($str, $userId = NULL) {
-    // These core-defined synthetic permissions (which cannot be applied by our Role UI):
-    // cms:administer users
-    // cms:view user account
-    // need mapping to our concrete permissions (which can be applied to Roles) with the same names:
-    $str = $this->translatePermission($str, 'Standalone', [
-      'view user account' => 'view user account',
-      'administer users' => 'administer users',
-    ]);
-    return \Civi\Standalone\Security::singleton()->checkPermission($str, $userId);
+  public function check($permissionName, $userId = NULL) {
+    return \Civi\Standalone\Security::singleton()->checkPermission($permissionName, $userId);
   }
 
   /**
    * Determine whether the permission store allows us to store
    * a list of permissions generated dynamically (eg by
-   * hook_civicrm_permissions.)
+   * hook_civicrm_permission.)
    *
    * @return bool
    */
@@ -86,7 +90,8 @@ class CRM_Core_Permission_Standalone extends CRM_Core_Permission_Base {
     if (empty($permissions)) {
       throw new CRM_Core_Exception("Cannot upgrade permissions: permission list missing");
     }
-    if (class_exists(Role::class)) {
+    // sometimes during upgrade the extension entities aren't available
+    if (CoreUtil::entityExists('User')) {
       $roles = Role::get(FALSE)->addSelect('permissions')->execute();
       $records = [];
       $definedPermissions = array_keys($permissions);
@@ -100,6 +105,24 @@ class CRM_Core_Permission_Standalone extends CRM_Core_Permission_Base {
         Role::save(FALSE)->setRecords($records)->execute();
       }
     }
+  }
+
+  public function checkGroupRole($roles): bool {
+    if (!$roles) {
+      return FALSE;
+    }
+    if (in_array('everyone', $roles, TRUE)) {
+      return TRUE;
+    }
+    $userContactId = \CRM_Core_Session::getLoggedInContactID();
+    if ($userContactId) {
+      return (bool) \Civi\Api4\UserRole::get(FALSE)
+        ->addWhere('user_id.contact_id', '=', $userContactId)
+        ->addWhere('role_id.name', 'IN', $roles)
+        ->selectRowCount()
+        ->execute()->count();
+    }
+    return FALSE;
   }
 
 }

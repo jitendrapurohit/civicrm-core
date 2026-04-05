@@ -308,7 +308,26 @@ class CRM_Core_Permission_Base {
    * @see \CRM_Core_Permission_Base::translatePermission()
    */
   public function getAvailablePermissions() {
-    return [];
+    // These "synthetic" permissions are translated to the relevant CMS permissions in CRM/Core/Permission/*.php
+    // using the `translatePermission()` mechanism.
+    // EXCEPT in Standalone, where they are not needed
+    return [
+      'cms:view user account' => [
+        'title' => ts('CMS') . ': ' . ts('View user accounts'),
+        'description' => ts('View user accounts. (Synthetic permission - adapts to local CMS)'),
+        'is_synthetic' => TRUE,
+      ],
+      'cms:administer users' => [
+        'title' => ts('CMS') . ': ' . ts('Administer user accounts'),
+        'description' => ts('Administer user accounts. (Synthetic permission - adapts to local CMS)'),
+        'is_synthetic' => TRUE,
+      ],
+      'cms:bypass maintenance mode' => [
+        'title' => ts('CMS') . ': ' . ts('Bypass maintenance mode'),
+        'description' => ts('Allow to bypass maintenance mode checks - e.g. when using AJAX API'),
+        'is_synthetic' => TRUE,
+      ],
+    ];
   }
 
   /**
@@ -338,7 +357,7 @@ class CRM_Core_Permission_Base {
   /**
    * Determine whether the permission store allows us to store
    * a list of permissions generated dynamically (eg by
-   * hook_civicrm_permissions.)
+   * hook_civicrm_permission.)
    *
    * @return bool
    */
@@ -410,6 +429,8 @@ class CRM_Core_Permission_Base {
         'label' => $defn['label'] ?? $defn[0],
         'description' => $defn['description'] ?? $defn[1] ?? NULL,
         'disabled' => $defn['disabled'] ?? NULL,
+        'implies' => $defn['implies'] ?? NULL,
+        'implied_by' => $defn['implied_by'] ?? NULL,
       ];
       $permissions[$name] = array_filter($permission, fn($item) => isset($item));
     }

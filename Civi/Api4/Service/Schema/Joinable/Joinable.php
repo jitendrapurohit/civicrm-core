@@ -113,6 +113,11 @@ class Joinable {
       $baseTableAlias = $openJoin['bridgeAlias'];
       $baseColumn = $openJoin['bridgeKey'];
     }
+    // Custom field on bridge table itself; pass-through the $baseColumn as-is
+    elseif (!empty($openJoin['bridgeKey']) && $baseTableAlias === $openJoin['bridgeAlias']) {
+      $conditions = $openJoin['bridgeCondition'];
+      $baseTableAlias = $openJoin['bridgeAlias'];
+    }
     if ($this->baseColumn && $this->targetColumn) {
       $conditions[] = sprintf(
         '`%s`.`%s` =  `%s`.`%s`',
@@ -299,7 +304,7 @@ class Joinable {
    * @param string|null $deprecatedBy
    * @return $this
    */
-  public function setDeprecatedBy(string $deprecatedBy = NULL) {
+  public function setDeprecatedBy(?string $deprecatedBy = NULL) {
     $this->deprecatedBy = $deprecatedBy ?? $this->alias . '_id';
     return $this;
   }
@@ -313,17 +318,18 @@ class Joinable {
 
   public function getEntityFields(): array {
     $entityFields = [];
-    /** @var \Civi\Api4\Service\Spec\SpecGatherer $gatherer */
-    $gatherer = \Civi::container()->get('spec_gatherer');
-    $allFields = $gatherer->getAllFields($this->entity, 'get');
-    foreach ($allFields as $field) {
-      if ($field['table_name'] === $this->targetTable) {
-        // Serialized fields require a specialized join
-        if ($this->serialize) {
-          $field['serialize'] = \CRM_Core_DAO::SERIALIZE_SEPARATOR_TRIMMED;
-          $field['sql_renderer'] = ['Civi\Api4\Query\Api4SelectQuery', 'renderSerializedJoin'];
+    if (!empty($this->entity)) {
+      $gatherer = \Civi::container()->get('spec_gatherer');
+      $allFields = $gatherer->getAllFields($this->entity, 'get');
+      foreach ($allFields as $field) {
+        if ($field['table_name'] === $this->targetTable) {
+          // Serialized fields require a specialized join
+          if ($this->serialize) {
+            $field['serialize'] = \CRM_Core_DAO::SERIALIZE_SEPARATOR_TRIMMED;
+            $field['sql_renderer'] = ['Civi\Api4\Query\Api4SelectQuery', 'renderSerializedJoin'];
+          }
+          $entityFields[] = $field;
         }
-        $entityFields[] = $field;
       }
     }
     return $entityFields;

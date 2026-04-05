@@ -21,25 +21,24 @@ class CRM_Mailing_Event_BAO_MailingEventOpened extends CRM_Mailing_Event_DAO_Mai
    *
    * @param int $queue_id
    *   The Queue Event ID of the recipient.
+   * @param string|null $dateTime
+   *   When did the Open Event happen
    *
    * @return bool
    */
-  public static function open($queue_id) {
+  public static function open($queue_id, $dateTime = NULL): bool {
     // First make sure there's a matching queue event.
-
-    $success = FALSE;
-
     $q = new CRM_Mailing_Event_BAO_MailingEventQueue();
     $q->id = $queue_id;
     if ($q->find(TRUE)) {
-      $oe = new CRM_Mailing_Event_BAO_MailingEventOpened();
-      $oe->event_queue_id = $queue_id;
-      $oe->time_stamp = date('YmdHis');
-      $oe->save();
-      $success = TRUE;
+      self::writeRecord([
+        'event_queue_id' => $queue_id,
+        'time_stamp' => $dateTime ?? date('YmdHis'),
+      ]);
+      return TRUE;
     }
 
-    return $success;
+    return FALSE;
   }
 
   /**
@@ -100,7 +99,7 @@ class CRM_Mailing_Event_BAO_MailingEventOpened extends CRM_Mailing_Event_DAO_Mai
       return $dao->N;
     }
     else {
-      return $dao->opened ? $dao->opened : 0;
+      return $dao->opened ?: 0;
     }
   }
 
@@ -296,6 +295,10 @@ class CRM_Mailing_Event_BAO_MailingEventOpened extends CRM_Mailing_Event_DAO_Mai
       ];
     }
     return $results;
+  }
+
+  public static function queuedOpen(\CRM_Queue_TaskContext $ctx, $queue_id, $dateTime): bool {
+    return self::open($queue_id, $dateTime);
   }
 
 }

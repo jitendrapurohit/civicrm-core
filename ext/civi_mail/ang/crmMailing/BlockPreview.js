@@ -10,7 +10,7 @@
           scope.mailing = newValue;
         });
         scope.crmMailingConst = CRM.crmMailing;
-        scope.ts = CRM.ts(null);
+        scope.ts = CRM.ts('civi_mail');
         scope.hs = crmUiHelp({file: 'CRM/Mailing/MailingUI'});
         scope.testContact = {email: CRM.crmMailing.defaultTestEmail};
         scope.testGroup = {gid: null};
@@ -48,7 +48,7 @@
             markup += '</ol>';
             markup = '<h4>' + ts('A test message will be sent to %1 people:', {1: count}) + '</h4>' + markup;
             if (!count) {
-              markup = '<div class="messages status"><i class="crm-i fa-exclamation-triangle" aria-hidden="true"></i> ' +
+              markup = '<div class="messages status"><i class="crm-i fa-exclamation-triangle" role="img" aria-hidden="true"></i> ' +
               (data.contact.count ? ts('None of the contacts in this group have an email address.') : ts('Group is empty.')) +
               '</div>';
             }

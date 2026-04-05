@@ -65,6 +65,10 @@ class CRM_Extension_ClassLoader {
     $this->unregister();
   }
 
+  public function isRegistered(): bool {
+    return ($this->loader !== NULL);
+  }
+
   /**
    * Registers this instance as an autoloader.
    * @return CRM_Extension_ClassLoader
@@ -83,7 +87,7 @@ class CRM_Extension_ClassLoader {
     else {
       $this->loader = $this->buildClassLoader();
       $ser = serialize($this->loader);
-      file_put_contents($file,
+      Civi::fs()->dumpFile($file,
         sprintf("<?php\nreturn unserialize(%s);", var_export($ser, 1))
       );
     }

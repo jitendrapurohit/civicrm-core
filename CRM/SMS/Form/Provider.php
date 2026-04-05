@@ -33,13 +33,13 @@ class CRM_SMS_Form_Provider extends CRM_Core_Form {
     $this->setPageTitle(ts('SMS Provider'));
 
     if ($this->_id) {
-      $refreshURL = CRM_Utils_System::url('civicrm/admin/sms/provider',
+      $refreshURL = CRM_Utils_System::url('civicrm/admin/sms/provider/edit',
         "reset=1&action=update&id={$this->_id}",
         FALSE, NULL, FALSE
       );
     }
     else {
-      $refreshURL = CRM_Utils_System::url('civicrm/admin/sms/provider',
+      $refreshURL = CRM_Utils_System::url('civicrm/admin/sms/provider/edit',
         "reset=1&action=add",
         FALSE, NULL, FALSE
       );
@@ -148,7 +148,7 @@ class CRM_SMS_Form_Provider extends CRM_Core_Form {
    */
   public function postProcess() {
 
-    CRM_Utils_System::flushCache();
+    Civi::rebuild(['system' => TRUE])->execute();
 
     if ($this->_action & CRM_Core_Action::DELETE) {
       CRM_SMS_BAO_SmsProvider::del($this->_id);

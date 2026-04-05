@@ -15,8 +15,7 @@ return [
         'url' => 'civicrm/admin/search',
         'icon' => 'crm-i fa-search-plus',
         'permission' => [
-          'administer CiviCRM data',
-          'administer search_kit',
+          'manage own search_kit',
         ],
         'permission_operator' => 'OR',
         'parent_id.name' => 'Search',

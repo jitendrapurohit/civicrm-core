@@ -12,6 +12,8 @@
 
 namespace Civi\Afform;
 
+use Civi\Api4\Utils\FormattingUtil;
+use Civi\Search\Display;
 use CRM_Afform_ExtensionUtil as E;
 
 /**
@@ -20,6 +22,8 @@ use CRM_Afform_ExtensionUtil as E;
  * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class Utils {
+
+  use \Civi\Api4\Utils\AfformSaveTrait;
 
   /**
    * Sorts entities according to references to each other
@@ -34,12 +38,13 @@ class Utils {
   public static function getEntityWeights($formEntities, $entityValues) {
     $sorter = new \MJS\TopSort\Implementations\FixedArraySort();
 
+    $formEntityNames = array_keys($formEntities);
     foreach ($formEntities as $entityName => $entity) {
       $references = [];
       foreach ($entityValues[$entityName] as $record) {
         foreach ($record['fields'] as $fieldName => $fieldValue) {
           foreach ((array) $fieldValue as $value) {
-            if (array_key_exists($value, $formEntities) && $value !== $entityName) {
+            if (in_array($value, $formEntityNames, TRUE) && $value !== $entityName) {
               $references[$value] = $value;
             }
           }
@@ -97,7 +102,60 @@ class Utils {
     };
 
     return $isChanged('server_route') ||
+      $isChanged('is_public') ||
       (!empty($updatedAfform['server_route']) && $isChanged('title'));
+  }
+
+  public static function formatViewValue(string $fieldName, array $fieldInfo, array $values, ?string $entityName = NULL, ?string $formName = NULL): string {
+    $value = $values[$fieldName] ?? NULL;
+    if (isset($value) && $value !== '') {
+      $dataType = $fieldInfo['data_type'] ?? NULL;
+      if (!empty($fieldInfo['options'])) {
+        $value = FormattingUtil::replacePseudoconstant(array_column($fieldInfo['options'], 'label', 'id'), $value);
+      }
+      elseif (!empty($fieldInfo['fk_entity']) && $formName) {
+        $autocomplete = civicrm_api4($fieldInfo['fk_entity'], 'autocomplete', [
+          'checkPermissions' => FALSE,
+          'formName' => "afform:$formName",
+          'fieldName' => "$entityName:$fieldName",
+          'ids' => (array) $value,
+        ]);
+        $value = $autocomplete->column('label');
+      }
+      elseif ($dataType === 'Boolean') {
+        $value = $value ? ts('Yes') : ts('No');
+      }
+      elseif ($dataType === 'Date' || $dataType === 'Timestamp') {
+        $value = \CRM_Utils_Date::customFormat($value);
+      }
+      if (is_array($value)) {
+        $value = implode(', ', $value);
+      }
+    }
+    return $value ?? '';
+  }
+
+  public static function initSourceTranslations() {
+    $allAfforms = \Civi::service('afform_scanner')->findFilePaths();
+    foreach ($allAfforms as $name => $path) {
+      $fullpath = array_values($path)[0] . '.aff.html';
+      $html = file_get_contents($fullpath);
+
+      // Get title.
+      $form = \Civi\Api4\Afform::get(FALSE)
+        ->addWhere('name', '=', $name)
+        ->addSelect('title')
+        ->execute()
+        ->first();
+
+      self::saveTranslations($form, $html);
+    }
+  }
+
+  public static function getSearchDisplayTags(): array {
+    $displayTags = array_column(Display::getDisplayTypes(['name'], TRUE), 'name');
+    $displayTags[] = 'crm-search-display';
+    return $displayTags;
   }
 
 }

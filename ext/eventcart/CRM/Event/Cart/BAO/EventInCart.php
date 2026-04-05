@@ -1,5 +1,7 @@
 <?php
 
+use Civi\Api4\Contact;
+
 /**
  * Class CRM_Event_Cart_BAO_EventInCart
  */
@@ -9,6 +11,8 @@ class CRM_Event_Cart_BAO_EventInCart extends CRM_Event_Cart_DAO_EventInCart impl
   public $event_cart;
   public $location = NULL;
   public $participants = [];
+
+  private $main_conference_event_id;
 
   /**
    * Add participant to cart.
@@ -44,12 +48,11 @@ class CRM_Event_Cart_BAO_EventInCart extends CRM_Event_Cart_DAO_EventInCart impl
     $this->load_associations();
     $contacts_to_delete = [];
     foreach ($this->participants as $participant) {
-      $defaults = [];
-      $params = ['id' => $participant->contact_id];
-      $temporary_contact = CRM_Contact_BAO_Contact::retrieve($params, $defaults);
-
-      if ($temporary_contact->is_deleted) {
-        $contacts_to_delete[$temporary_contact->id] = 1;
+      // Selecting the already deleted ones because? But, it's how it has been....
+      if (Contact::get(FALSE)
+        ->addWhere('id', '=', $participant->contact_id)
+        ->addWhere('is_deleted', '=', TRUE)->execute()->first()) {
+        $contacts_to_delete[$participant->contact_id] = 1;
       }
       $participant->delete();
     }
@@ -179,8 +182,7 @@ class CRM_Event_Cart_BAO_EventInCart extends CRM_Event_Cart_DAO_EventInCart impl
 
   public function load_location() {
     if ($this->location == NULL) {
-      $location_params = ['entity_id' => $this->event_id, 'entity_table' => 'civicrm_event'];
-      $this->location = CRM_Core_BAO_Location::getValues($location_params, TRUE);
+      $this->location['address'] = CRM_Core_BAO_Address::getValues(['entity_id' => $this->event_id, 'entity_table' => 'civicrm_event'], TRUE);
     }
   }
 

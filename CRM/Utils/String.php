@@ -108,7 +108,9 @@ class CRM_Utils_String {
    * @return string
    */
   public static function convertStringToSnakeCase(string $str): string {
-    return strtolower(ltrim(preg_replace('/(?=[A-Z])/', '_$0', $str), '_'));
+    // Use regular expression to replace uppercase with underscore + lowercase, avoiding duplicates
+    $str = preg_replace('/(?<!^|_)(?=[A-Z])/', '_', $str);
+    return strtolower($str);
   }
 
   /**
@@ -266,6 +268,32 @@ class CRM_Utils_String {
   public static function base64UrlDecode($v) {
     // PHP base64_decode() is already forgiving about padding ("=").
     return base64_decode(str_replace(['-', '_'], ['+', '/'], $v));
+  }
+
+  /**
+   * @var string[]
+   *   Array(string $base64 => string $base64mbz)
+   */
+  private static $mbzTable = ['Z' => 'Z0', '+' => 'Z1', '/' => 'Z2'];
+
+  /**
+   * Encode string using Base64 with multibyte "Z"-escaping (MBZ).
+   *
+   * Base64-MBZ strings are -strictly- alphanumeric, but they may be slightly longer
+   * than standard Base64. For inputs with random-like data (such as crypto keys, signatures,
+   * ciphertext, and compressed-files), it should be 4-5% longer.
+   *
+   * @param string $raw
+   *
+   * @return string
+   *   Base64, but with some characters ('Z', '+', '/') replaced by multibyte expressions ("Z0", "Z1", "Z2").
+   */
+  public static function base64mbzEncode($raw) {
+    return strtr(rtrim(base64_encode($raw), '='), self::$mbzTable);
+  }
+
+  public static function base64mbzDecode($str) {
+    return base64_decode(strtr($str, array_flip(self::$mbzTable)));
   }
 
   /**
@@ -465,7 +493,7 @@ class CRM_Utils_String {
     $name = str_replace('\'', '', $name);
 
     // check for comma in name
-    if (strpos($name, ',') !== FALSE) {
+    if (str_contains($name, ',')) {
 
       // name has a comma - assume lname, fname [mname]
       $names = explode(',', $name);
@@ -638,10 +666,27 @@ class CRM_Utils_String {
       $config = HTMLPurifier_Config::createDefault();
       $config->set('Core.Encoding', 'UTF-8');
       $config->set('Attr.AllowedFrameTargets', ['_blank', '_self', '_parent', '_top']);
-
       // Disable the cache entirely
       $config->set('Cache.DefinitionImpl', NULL);
+      $config->set('HTML.DefinitionID', 'enduser-customize.html tutorial');
+      $config->set('HTML.DefinitionRev', 1);
+      $config->set('HTML.MaxImgLength', NULL);
+      $config->set('CSS.MaxImgLength', NULL);
+      // Prevent id atrributes from being stripped (useful for e.g. anchors)
+      $config->set('Attr.EnableID', TRUE);
+      $def = $config->maybeGetRawHTMLDefinition();
+      $uri = $config->getDefinition('URI');
+      $uri->addFilter(new CRM_Utils_HTMLPurifier_URIFilter(), $config);
 
+      if (!empty($def)) {
+        $def->addElement('figcaption', 'Block', 'Flow', 'Common');
+        $def->addElement('figure', 'Block', 'Optional: (figcaption, Flow) | (Flow, figcaption) | Flow', 'Common');
+        // Allow `<summary>` and `<details>`
+        $def->addElement('details', 'Block', 'Flow', 'Common', [
+          'open' => new \HTMLPurifier_AttrDef_HTML_Bool('open'),
+        ]);
+        $def->addElement('summary', 'Inline', 'Inline', 'Common');
+      }
       $_filter = new HTMLPurifier($config);
     }
 
@@ -653,14 +698,16 @@ class CRM_Utils_String {
    *
    * @param string $string
    * @param int $maxLen
-   *
+   * @param string $ellipsis
+   *  The literal form of the ellipsis.
    * @return string
    */
-  public static function ellipsify($string, $maxLen) {
+  public static function ellipsify($string, $maxLen, $ellipsis = '...') {
     if (mb_strlen($string, 'UTF-8') <= $maxLen) {
       return $string;
     }
-    return mb_substr($string, 0, $maxLen - 3, 'UTF-8') . '...';
+    $ellipsisLen = mb_strlen($ellipsis, 'UTF-8');
+    return mb_substr($string, 0, $maxLen - $ellipsisLen, 'UTF-8') . $ellipsis;
   }
 
   /**
@@ -674,7 +721,7 @@ class CRM_Utils_String {
     $alphabetSize = strlen($alphabet);
     $result = '';
     for ($i = 0; $i < $len; $i++) {
-      $result .= $alphabet[rand(1, $alphabetSize) - 1];
+      $result .= $alphabet[random_int(1, $alphabetSize) - 1];
     }
     return $result;
   }
@@ -988,7 +1035,7 @@ class CRM_Utils_String {
    * @return bool
    */
   public static function stringContainsTokens(string $string) {
-    return strpos($string, '{') !== FALSE;
+    return str_contains($string, '{');
   }
 
   /**
@@ -1018,6 +1065,7 @@ class CRM_Utils_String {
    * many times it is run. This compares to it otherwise creating one file for every parsed string.
    *
    * @param string $templateString
+   * @param array $templateVars
    *
    * @return string
    *
@@ -1025,7 +1073,7 @@ class CRM_Utils_String {
    *
    * @throws \CRM_Core_Exception
    */
-  public static function parseOneOffStringThroughSmarty($templateString) {
+  public static function parseOneOffStringThroughSmarty($templateString, $templateVars = []) {
     if (!CRM_Utils_String::stringContainsTokens($templateString)) {
       // Skip expensive smarty processing.
       return $templateString;
@@ -1034,31 +1082,53 @@ class CRM_Utils_String {
     $cachingValue = $smarty->caching;
     set_error_handler([$smarty, 'handleSmartyError'], E_USER_ERROR);
     $smarty->caching = 0;
+    $useSecurityPolicy = ($smarty->getVersion() > 2) ? !$smarty->security_policy : !$smarty->security;
+    // For Smarty v2, policy is applied at lower level.
+    if ($useSecurityPolicy) {
+      // $smarty->enableSecurity('CRM_Core_Smarty_Security');
+      Civi::service('civi.smarty.userContent')->enable();
+    }
     $smarty->assign('smartySingleUseString', $templateString);
-    // Do not escape the smartySingleUseString as that is our smarty template
-    // and is likely to contain html.
-    // The file name generated by
-    // 'string:{eval var=$smartySingleUseString|smarty:nodefaults}'
-    // is invalid in Windows, causing failure.
-    // Adding this is preparatory to smarty 3. The original PR failed some
-    // tests so we check for the function.
-    if (!function_exists('smarty_function_eval') && !file_exists(SMARTY_DIR . '/plugins/function.eval.php')) {
-      try {
-        $templateString = (string) $smarty->fetch('eval:' . $templateString);
+    try {
+      // Do not escape the smartySingleUseString as that is our smarty template
+      // and is likely to contain html.
+      // The file name generated by
+      // 'string:{eval var=$smartySingleUseString|smarty:nodefaults}'
+      // is invalid in Windows, causing failure.
+      // Adding this is preparatory to smarty 3. The original PR failed some
+      // tests so we check for the function.
+      if (!function_exists('smarty_function_eval') && (!defined('SMARTY_DIR') || !file_exists(SMARTY_DIR . '/plugins/function.eval.php'))) {
+        if (!empty($templateVars)) {
+          $templateString = (string) $smarty->fetchWith('eval:' . $templateString, $templateVars);
+        }
+        else {
+          $templateString = (string) $smarty->fetch('eval:' . $templateString);
+        }
       }
-      catch (SmartyCompilerException $e) {
-        \Civi::log('smarty')->info('parsing smarty template {template}', [
-          'template' => $templateString,
-        ]);
-        throw new \CRM_Core_Exception('Message was not parsed due to invalid smarty syntax : ' . $e->getMessage() . ((CIVICRM_UF === 'UnitTest' || CRM_Utils_Constant::value('SMARTY_DEBUG_STRINGS')) ? $templateString : ''));
+      else {
+        if (!empty($templateVars)) {
+          $templateString = (string) $smarty->fetchWith('string:{eval var=$smartySingleUseString|smarty:nodefaults}', $templateVars);
+        }
+        else {
+          $templateString = (string) $smarty->fetch('string:{eval var=$smartySingleUseString|smarty:nodefaults}');
+        }
       }
     }
-    else {
-      $templateString = (string) $smarty->fetch('string:{eval var=$smartySingleUseString|smarty:nodefaults}');
+    catch (Exception $e) {
+      \Civi::log('smarty')->info('parsing smarty template {template}', [
+        'template' => $templateString,
+      ]);
+      throw new \CRM_Core_Exception('Message was not parsed due to invalid smarty syntax : ' . $e->getMessage() . ((CIVICRM_UF === 'UnitTest' || CRM_Utils_Constant::value('SMARTY_DEBUG_STRINGS')) ? $templateString : ''));
     }
-    $smarty->caching = $cachingValue;
-    $smarty->assign('smartySingleUseString');
-    restore_error_handler();
+    finally {
+      $smarty->caching = $cachingValue;
+      $smarty->assign('smartySingleUseString');
+      restore_error_handler();
+      if ($useSecurityPolicy) {
+        // $smarty->disableSecurity();
+        Civi::service('civi.smarty.userContent')->disable();
+      }
+    }
     return $templateString;
   }
 
@@ -1069,19 +1139,48 @@ class CRM_Utils_String {
    * @return array
    */
   public static function getSquareTokens(string $raw): array {
+    // '?' indicates the token is optional; we might support other qualifiers in the future.
+    $allowedQualifiers = [
+      '?',
+    ];
     $matches = $tokens = [];
     if (str_contains($raw, '[')) {
       preg_match_all('/\\[([^]]+)\\]/', $raw, $matches);
-      foreach (array_unique($matches[1]) as $match) {
-        [$field, $suffix] = array_pad(explode(':', $match), 2, NULL);
-        $tokens[$match] = [
-          'token' => "[$match]",
+      foreach (array_unique($matches[1]) as $tokenStr) {
+        $tokenContent = $tokenStr;
+        $qualifier = '';
+        if (in_array($tokenStr[0], $allowedQualifiers)) {
+          $qualifier = $tokenStr[0];
+          $tokenContent = substr($tokenStr, 1);
+        }
+        [$field, $suffix] = array_pad(explode(':', $tokenContent), 2, NULL);
+        $tokens[$tokenStr] = [
+          'token' => "[$tokenStr]",
+          'content' => $tokenContent,
           'field' => $field,
           'suffix' => $suffix,
+          'qualifier' => $qualifier,
         ];
       }
     }
     return $tokens;
+  }
+
+  public static function isQuotedString($value): bool {
+    return is_string($value) && strlen($value) > 1 && $value[0] === $value[-1] && in_array($value[0], ['"', "'"]);
+  }
+
+  public static function unquoteString(string $string): string {
+    // Strip the outer quotes if the string starts and ends with the same quote type
+    if (self::isQuotedString($string)) {
+      $string = substr($string, 1, -1);
+
+      // Replace escaped quotes with unescaped quotes, avoiding escaped backslashes
+      $string = preg_replace('/(?<!\\\\)\\\\\\"/', '"', $string);
+      $string = preg_replace('/(?<!\\\\)\\\\\\\'/', "'", $string);
+    }
+
+    return $string;
   }
 
 }

@@ -1,6 +1,11 @@
 <?php
 use CRM_CivicrmAdminUi_ExtensionUtil as E;
 
+// Temporary check can be removed when moving this file to the civi_contribute extension.
+if (!CRM_Core_Component::isEnabled('CiviContribute')) {
+  return [];
+}
+
 return [
   [
     'name' => 'SavedSearch_Administer_Assigned_Financial_Accounts',
@@ -69,6 +74,7 @@ return [
           'classes' => [
             'table',
             'table-striped',
+            'crm-sticky-header',
           ],
           'pager' => [
             'show_count' => TRUE,
@@ -81,28 +87,24 @@ return [
             [
               'type' => 'field',
               'key' => 'account_relationship:label',
-              'dataType' => 'Integer',
               'label' => E::ts('Relationship'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'financial_account_id:label',
-              'dataType' => 'Integer',
               'label' => E::ts('Financial Account'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'EntityFinancialAccount_FinancialAccount_financial_account_id_01.accounting_code',
-              'dataType' => 'String',
               'label' => E::ts('Accounting Code'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'EntityFinancialAccount_FinancialAccount_financial_account_id_01.financial_account_type_id:label',
-              'dataType' => 'Integer',
               'label' => E::ts('Account Type (Code)'),
               'sortable' => TRUE,
               'rewrite' => '[EntityFinancialAccount_FinancialAccount_financial_account_id_01.financial_account_type_id:label] ([EntityFinancialAccount_FinancialAccount_financial_account_id_01.account_type_code])',
@@ -110,14 +112,12 @@ return [
             [
               'type' => 'field',
               'key' => 'EntityFinancialAccount_FinancialAccount_financial_account_id_01.contact_id.display_name',
-              'dataType' => 'String',
               'label' => E::ts('Owner'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'EntityFinancialAccount_FinancialAccount_financial_account_id_01.is_active',
-              'dataType' => 'Boolean',
               'label' => E::ts('Enabled'),
               'sortable' => TRUE,
               'editable' => TRUE,

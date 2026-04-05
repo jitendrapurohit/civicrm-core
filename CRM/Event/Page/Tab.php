@@ -39,13 +39,6 @@ class CRM_Event_Page_Tab extends CRM_Core_Page {
       $displayName = CRM_Contact_BAO_Contact::displayName($this->_contactId);
       $this->assign('displayName', $displayName);
       $this->ajaxResponse['tabCount'] = CRM_Contact_BAO_Contact::getCountComponent('participant', $this->_contactId);
-      // Refresh other tabs with related data
-      $this->ajaxResponse['updateTabs'] = [
-        '#tab_activity' => CRM_Contact_BAO_Contact::getCountComponent('activity', $this->_contactId),
-      ];
-      if (CRM_Core_Permission::access('CiviContribute')) {
-        $this->ajaxResponse['updateTabs']['#tab_contribute'] = CRM_Contact_BAO_Contact::getCountComponent('contribution', $this->_contactId);
-      }
     }
   }
 
@@ -108,9 +101,9 @@ class CRM_Event_Page_Tab extends CRM_Core_Page {
   public function preProcess() {
     $context = CRM_Utils_Request::retrieve('context', 'Alphanumeric', $this);
     $this->_action = CRM_Utils_Request::retrieve('action', 'String', $this, FALSE, 'browse');
-    $this->_id = CRM_Utils_Request::retrieve('id', 'Positive', $this);
+    $this->_id = CRM_Utils_Request::retrieve('id', 'Positive');
 
-    if (($context == 'standalone' || $context === 'search') && ($this->_action !== CRM_Core_Action::VIEW && $this->_action !== CRM_Core_Action::UPDATE)) {
+    if (($context == 'standalone' || $context === 'search') && ($this->_action !== CRM_Core_Action::BROWSE && $this->_action !== CRM_Core_Action::VIEW && $this->_action !== CRM_Core_Action::UPDATE)) {
       $this->_action = CRM_Core_Action::ADD;
     }
     else {

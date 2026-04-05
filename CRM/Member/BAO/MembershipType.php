@@ -9,6 +9,7 @@
  +--------------------------------------------------------------------+
  */
 
+use Civi\Api4\Membership;
 use Civi\Api4\MembershipType;
 
 /**
@@ -58,9 +59,6 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
    */
   public static function add($params) {
     $membershipTypeID = $params['id'] ?? NULL;
-    if (!$membershipTypeID && !isset($params['domain_id'])) {
-      $params['domain_id'] = CRM_Core_Config::domainID();
-    }
 
     // $previousID is the old organization id for membership type i.e 'member_of_contact_id'. This is used when an organization is changed.
     $previousID = NULL;
@@ -72,8 +70,12 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
     if ($membershipTypeID) {
       // on update we may need to retrieve some details for the price field function - otherwise we get e-notices on attempts to retrieve
       // name etc - the presence of previous id tells us this is an update
-      $params = array_merge(civicrm_api3('membership_type', 'getsingle', ['id' => $membershipType->id]), $params);
+      $membershipType->find(TRUE);
     }
+
+    // Fill params with calculated values from writeRecord like `name` & values loaded from database
+    $params += $membershipType->toArray();
+
     self::createMembershipPriceField($params, $previousID, $membershipType->id);
     // update all price field value for quick config when membership type is set CRM-11718
     if ($membershipTypeID) {
@@ -161,7 +163,7 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
         if (in_array('Membership', $status)) {
           $findMembersURL = CRM_Utils_System::url('civicrm/member/search', 'reset=1');
           $deleteURL = CRM_Utils_System::url('civicrm/contact/search/advanced', 'reset=1');
-          $message .= '<br/>' . ts('%3. There are some contacts who have this membership type assigned to them. Search for contacts with this membership type from <a href=\'%1\'>Find Members</a>. If you are still getting this message after deleting these memberships, there may be contacts in the Trash (deleted) with this membership type. Try using <a href="%2">Advanced Search</a> and checking "Search in Trash".', [
+          $message .= '<br/>' . ts('%3. There are some contacts who have this membership type assigned to them. Search for contacts with this membership type from <a href=\'%1\'>Find Members</a>. If you are still getting this message after deleting these memberships, there may be contacts in the Trash (deleted) with this membership type. Try using <a href="%2">Advanced Search</a> and checking "Search Deleted Contacts".', [
             1 => $findMembersURL,
             2 => $deleteURL,
             3 => $cnt,
@@ -248,7 +250,7 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
   }
 
   /**
-   * Get membership Type Details.
+   * Get membership Type Details (cached).
    *
    * @deprecated use getMembershipType.
    *
@@ -257,6 +259,7 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
    * @return array|null
    */
   public static function getMembershipTypeDetails($membershipTypeId) {
+    CRM_Core_Error::deprecatedFunctionWarning('getMembershipType');
     $membershipTypeDetails = [];
 
     $membershipType = new CRM_Member_DAO_MembershipType();
@@ -288,7 +291,7 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
    *   associated array with  start date, end date and join date for the membership
    */
   public static function getDatesForMembershipType($membershipTypeId, $joinDate = NULL, $startDate = NULL, $endDate = NULL, $numRenewTerms = 1) {
-    $membershipTypeDetails = self::getMembershipTypeDetails($membershipTypeId);
+    $membershipTypeDetails = self::getMembershipType($membershipTypeId);
 
     // Convert all dates to 'Y-m-d' format.
     foreach (['joinDate', 'startDate', 'endDate'] as $dateParam) {
@@ -487,16 +490,21 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
       $membershipDates['join_date'] = CRM_Utils_Date::customFormat($membershipDetails->join_date, '%Y%m%d');
     }
 
-    $oldPeriodType = CRM_Core_DAO::getFieldValue('CRM_Member_DAO_MembershipType',
-      CRM_Core_DAO::getFieldValue('CRM_Member_DAO_Membership', $membershipId, 'membership_type_id'), 'period_type');
+    $oldPeriodType = Membership::get(FALSE)
+      ->addSelect('membership_type_id.period_type')
+      ->addWhere('id', '=', $membershipId)
+      ->execute()
+      ->first()['membership_type_id.period_type'];
 
     // CRM-7297 Membership Upsell
     if (is_null($membershipTypeID)) {
-      $membershipTypeDetails = self::getMembershipTypeDetails($membershipDetails->membership_type_id);
+      $membershipTypeIDForDetails = $membershipDetails->membership_type_id;
     }
     else {
-      $membershipTypeDetails = self::getMembershipTypeDetails($membershipTypeID);
+      $membershipTypeIDForDetails = $membershipTypeID;
     }
+    $membershipTypeDetails = self::getMembershipType($membershipTypeIDForDetails);
+
     $statusDetails = CRM_Member_BAO_MembershipStatus::getMembershipStatus($statusID);
 
     if ($statusDetails['is_current_member'] == 1) {
@@ -518,9 +526,9 @@ class CRM_Member_BAO_MembershipType extends CRM_Member_DAO_MembershipType implem
       // then we add 1 day first in case it's the end of the month, then subtract afterwards
       // eg. 2018-02-28 should renew to 2018-03-31, if we just added 1 month we'd get 2018-03-28
       $logStartDate = date('Y-m-d', mktime(0, 0, 0,
-        (double) $date[1],
-        (double) ($date[2] + 1),
-        (double) $date[0]
+        (float) $date[1],
+        (float) ($date[2] + 1),
+        (float) $date[0]
       ));
 
       switch ($membershipTypeDetails['duration_unit']) {

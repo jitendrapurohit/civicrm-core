@@ -134,6 +134,12 @@ class CRM_Core_Form_Renderer extends HTML_QuickForm_Renderer_ArraySmarty {
       if ($element->getAttribute('allowClear')) {
         $this->appendUnselectButton($el, $element);
       }
+
+      if (str_contains($element->getAttribute('class') ?: '', 'crm-form-toggle')) {
+        $el['html'] = str_replace('</label>', '', $el['html']);
+        $el['html'] = preg_replace('/<label[^>]*>/', '', $el['html']);
+        $el['html'] = '<div class="crm-form-toggle-container">' . $el['html'] . '</div>';
+      }
     }
 
     return $el;
@@ -184,19 +190,22 @@ class CRM_Core_Form_Renderer extends HTML_QuickForm_Renderer_ArraySmarty {
       $type = 'multiselect';
     }
     // Add widget-specific class
-    if (!$class || strpos($class, 'crm-form-') === FALSE) {
+    if (!$class || !str_contains($class, 'crm-form-')) {
       $class = ($class ? "$class " : '') . 'crm-form-' . $type;
     }
-    elseif (strpos($class, 'crm-form-entityref') !== FALSE) {
+    elseif (str_contains($class, 'crm-form-entityref')) {
       self::preProcessEntityRef($element);
     }
-    elseif (strpos($class, 'crm-form-contact-reference') !== FALSE) {
+    elseif (str_contains($class, 'crm-form-autocomplete')) {
+      self::preProcessAutocomplete($element);
+    }
+    elseif (str_contains($class, 'crm-form-contact-reference')) {
       self::preprocessContactReference($element);
     }
     // Hack to support html5 fields (number, url, etc)
     else {
       foreach (CRM_Core_Form::$html5Types as $type) {
-        if (strpos($class, "crm-form-$type") !== FALSE) {
+        if (str_contains($class, "crm-form-$type")) {
           $element->setAttribute('type', $type);
           // Also add the "base" class for consistent styling
           $class .= ' crm-form-text';
@@ -233,7 +242,7 @@ class CRM_Core_Form_Renderer extends HTML_QuickForm_Renderer_ArraySmarty {
   public function _tplFetch($tplSource) {
     // Smarty3 does not have this function defined so the parent fails.
     // Adding this is preparatory to smarty 3....
-    if (!function_exists('smarty_function_eval') && !file_exists(SMARTY_DIR . '/plugins/function.eval.php')) {
+    if (!function_exists('smarty_function_eval') && (!defined('SMARTY_DIR') || !file_exists(SMARTY_DIR . '/plugins/function.eval.php'))) {
       $smarty = $this->_tpl;
       $smarty->assign('var', $tplSource);
       return $smarty->fetch("eval:$tplSource");
@@ -243,6 +252,16 @@ class CRM_Core_Form_Renderer extends HTML_QuickForm_Renderer_ArraySmarty {
       require SMARTY_DIR . '/plugins/function.eval.php';
     }
     return smarty_function_eval(['var' => $tplSource], $this->_tpl);
+  }
+
+  /**
+   * @param HTML_QuickForm_element $field
+   */
+  private static function preProcessAutocomplete($field) {
+    $val = $field->getValue();
+    if (is_array($val)) {
+      $field->setValue(implode(',', $val));
+    }
   }
 
   /**
@@ -428,7 +447,7 @@ HEREDOC;
     // Initially hide if not needed
     // Note: visibility:hidden prevents layout jumping around unlike display:none
     $display = $field->getValue() !== NULL ? '' : ' style="visibility:hidden;"';
-    $el['html'] .= ' <a href="#" class="crm-hover-button crm-clear-link"' . $display . ' title="' . ts('Clear', ['escape' => 'htmlattribute']) . '"><i class="crm-i fa-times" aria-hidden="true"></i></a>';
+    $el['html'] .= ' <a href="#" class="crm-hover-button crm-clear-link"' . $display . ' title="' . ts('Clear', ['escape' => 'htmlattribute']) . '"><i class="crm-i fa-times" role="img" aria-hidden="true"></i></a>';
   }
 
 }

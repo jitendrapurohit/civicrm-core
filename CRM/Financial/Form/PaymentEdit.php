@@ -15,6 +15,7 @@
  * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Financial_Form_PaymentEdit extends CRM_Core_Form {
+  use CRM_Custom_Form_CustomDataTrait;
 
   /**
    * Should financials be checked after the test but before tear down.
@@ -92,6 +93,8 @@ class CRM_Financial_Form_PaymentEdit extends CRM_Core_Form {
 
   /**
    * Build quickForm.
+   *
+   * @throws \CRM_Core_Exception
    */
   public function buildQuickForm() {
     $this->setTitle(ts('Update Payment details'));
@@ -118,6 +121,15 @@ class CRM_Financial_Form_PaymentEdit extends CRM_Core_Form {
 
     $this->assign('currency', CRM_Core_DAO::getFieldValue('CRM_Financial_DAO_Currency', $this->_values['currency'], 'symbol', 'name'));
     $this->addFormRule([__CLASS__, 'formRule'], $this);
+    if ($this->isSubmitted()) {
+      // The custom data fields are added to the form by an ajax form.
+      // However, if they are not present in the element index they will
+      // not be available from `$this->getSubmittedValue()` in post process.
+      // We do not have to set defaults or otherwise render - just add to the element index.
+      $this->addCustomDataFieldsToForm('FinancialTrxn', array_filter([
+        'id' => $this->_id,
+      ]));
+    }
 
     $this->addButtons([
       [
@@ -150,7 +162,7 @@ class CRM_Financial_Form_PaymentEdit extends CRM_Core_Form {
     // if Credit Card is chosen and pan_truncation is not NULL ensure that it's value is numeric else throw validation error
     if (CRM_Core_PseudoConstant::getName('CRM_Financial_DAO_FinancialTrxn', 'payment_instrument_id', $fields['payment_instrument_id']) === 'Credit Card' &&
       !empty($fields['pan_truncation']) &&
-      !CRM_Utils_Rule::numeric($fields['pan_truncation'])
+      !is_numeric($fields['pan_truncation'])
     ) {
       $errors['pan_truncation'] = ts('Please enter a valid Card Number');
     }
@@ -166,18 +178,18 @@ class CRM_Financial_Form_PaymentEdit extends CRM_Core_Form {
   public function postProcess(): void {
     $params = [
       'id' => $this->_id,
-      'payment_instrument_id' => $this->_submitValues['payment_instrument_id'],
-      'trxn_id' => $this->_submitValues['trxn_id'] ?? NULL,
-      'trxn_date' => $this->_submitValues['trxn_date'] ?? date('YmdHis'),
+      'payment_instrument_id' => $this->getSubmittedValue('payment_instrument_id'),
+      'trxn_id' => $this->getSubmittedValue('trxn_id'),
+      'trxn_date' => $this->getSubmittedValue('trxn_date') ?: date('YmdHis'),
     ];
 
     $paymentInstrumentName = CRM_Core_PseudoConstant::getName('CRM_Financial_DAO_FinancialTrxn', 'payment_instrument_id', $params['payment_instrument_id']);
     if ($paymentInstrumentName === 'Credit Card') {
-      $params['card_type_id'] = $this->_submitValues['card_type_id'] ?? NULL;
-      $params['pan_truncation'] = $this->_submitValues['pan_truncation'] ?? NULL;
+      $params['card_type_id'] = $this->getSubmittedValue('card_type_id');
+      $params['pan_truncation'] = $this->getSubmittedValue('pan_truncation');
     }
     elseif ($paymentInstrumentName === 'Check') {
-      $params['check_number'] = $this->_submitValues['check_number'] ?? NULL;
+      $params['check_number'] = $this->getSubmittedValue('check_number');
     }
 
     $this->submit($params);
@@ -202,41 +214,42 @@ class CRM_Financial_Form_PaymentEdit extends CRM_Core_Form {
     //  1. Record a new reverse financial transaction with old payment instrument
     //  2. Record a new financial transaction with new payment instrument
     //  3. Add EntityFinancialTrxn records to relate with corresponding financial item and contribution
+    $doCreate = FALSE;
     if ($submittedValues['payment_instrument_id'] != $this->_values['payment_instrument_id']) {
+      $oldAccount = CRM_Financial_BAO_EntityFinancialAccount::getInstrumentFinancialAccount($this->_values['payment_instrument_id']);
+      $newAccount = CRM_Financial_BAO_EntityFinancialAccount::getInstrumentFinancialAccount($submittedValues['payment_instrument_id']);
+      if ($oldAccount != $newAccount) {
+        $doCreate = TRUE;
+      }
+    }
+    if ($doCreate) {
       civicrm_api3('Payment', 'cancel', [
         'id' => $this->_values['id'],
         'trxn_date' => $submittedValues['trxn_date'],
       ]);
 
-      $newFinancialTrxn = $submittedValues;
-      unset($newFinancialTrxn['id']);
-      $newFinancialTrxn['to_financial_account_id'] = CRM_Financial_BAO_EntityFinancialAccount::getInstrumentFinancialAccount($submittedValues['payment_instrument_id']);
-      $newFinancialTrxn['total_amount'] = $this->_values['total_amount'];
-      $newFinancialTrxn['currency'] = $this->_values['currency'];
-      $newFinancialTrxn['contribution_id'] = $this->getContributionID();
-      civicrm_api3('Payment', 'create', $newFinancialTrxn);
+      $newFinancialTrxn['values'] = $submittedValues;
+      unset($newFinancialTrxn['values']['id']);
+      $newFinancialTrxn['values']['payment_instrument_id'] = $submittedValues['payment_instrument_id'];
+      $newFinancialTrxn['values']['total_amount'] = $this->_values['total_amount'];
+      $newFinancialTrxn['values']['contribution_id'] = $this->getContributionID();
+      $newFinancialTrxn['notificationForCompleteOrder'] = FALSE;
+      $newFinancialTrxn['disableActionsOnCompleteOrder'] = TRUE;
+      $newFinancialTrxn['values'] += $this->getSubmittedCustomFields(4);
+      civicrm_api4('Payment', 'create', $newFinancialTrxn);
     }
     else {
       // simply update the financial trxn
-      civicrm_api3('FinancialTrxn', 'create', $submittedValues);
+      civicrm_api3('FinancialTrxn', 'create', $submittedValues + $this->getSubmittedCustomFields());
+      // Don't use api since it does too much.
+      // But also what does payment method field on the contribution mean?
+      CRM_Core_DAO::executeQuery("UPDATE civicrm_contribution SET payment_instrument_id = %1 WHERE id = %2", [
+        1 => [$submittedValues['payment_instrument_id'], 'Integer'],
+        2 => [$this->getContributionID(), 'Integer'],
+      ]);
     }
 
     CRM_Financial_BAO_Payment::updateRelatedContribution($submittedValues, $this->getContributionID());
-  }
-
-  /**
-   * Wrapper for unit testing the post process submit function.
-   *
-   * @param array $params
-   *
-   * @throws \CRM_Core_Exception
-   */
-  public function testSubmit(array $params): void {
-    $this->_id = $params['id'];
-    $this->_contributionID = $params['contribution_id'];
-    $this->_values = civicrm_api3('FinancialTrxn', 'getsingle', ['id' => $params['id']]);
-
-    $this->submit($params);
   }
 
   /**

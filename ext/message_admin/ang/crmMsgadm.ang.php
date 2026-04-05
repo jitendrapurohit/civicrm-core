@@ -22,7 +22,6 @@ return [
     'crmUi',
     'crmUtil',
     'crmDialog',
-    'crmMailing',
     'crmMonaco',
     'jsonFormatter',
     'ngRoute',
@@ -30,7 +29,6 @@ return [
     'api4',
     'ui.bootstrap',
   ],
-  'settings' => [],
   'basePages' => [],
   'permissions' => [
     'edit message templates',

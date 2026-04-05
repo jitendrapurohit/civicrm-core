@@ -185,6 +185,7 @@ class CRM_Utils_System_Backdrop extends CRM_Utils_System_DrupalBase {
 
   /**
    * @inheritDoc
+   * @internal
    */
   public function addHTMLHead($header) {
     static $count = 0;
@@ -267,7 +268,7 @@ class CRM_Utils_System_Backdrop extends CRM_Utils_System_DrupalBase {
    */
   public function mapConfigToSSL() {
     global $base_url;
-    $base_url = str_replace('http://', 'https://', $base_url);
+    $base_url = str_replace('http://', 'https://', (string) $base_url);
   }
 
   /**
@@ -289,9 +290,9 @@ class CRM_Utils_System_Backdrop extends CRM_Utils_System_DrupalBase {
   public function authenticate($name, $password, $loadCMSBootstrap = FALSE, $realPath = NULL) {
     $config = CRM_Core_Config::singleton();
 
-    $ufDSN = CRM_Utils_SQL::autoSwitchDSN($config->userFrameworkDSN);
+    $ufDSN = $config->userFrameworkDSN;
     try {
-      $dbBackdrop = DB::connect($ufDSN);
+      $dbBackdrop = CRM_Utils_SQL::connect($ufDSN);
     }
     catch (Exception $e) {
       throw new CRM_Core_Exception("Cannot connect to Backdrop database via $ufDSN, " . $e->getMessage());
@@ -497,8 +498,8 @@ AND    u.status = 1
 
       // Config must be re-initialized to reset the base URL
       // otherwise links will have the wrong language prefix/domain.
-      $config = CRM_Core_Config::singleton();
-      $config->free();
+      $domain = \CRM_Core_BAO_Domain::getDomain();
+      \CRM_Core_BAO_ConfigSetting::applyLocale(\Civi::settings($domain->id), $domain->locales);
 
       return TRUE;
     }
@@ -518,14 +519,6 @@ AND    u.status = 1
       return NULL;
     }
     return $user->uid;
-  }
-
-  /**
-   * @inheritDoc
-   */
-  public function logout() {
-    module_load_include('inc', 'user', 'user.pages');
-    user_logout();
   }
 
   /**
@@ -567,7 +560,7 @@ AND    u.status = 1
     }
 
     // For Backdrop multi-site CRM-11313
-    if ($realPath && strpos($realPath, 'sites/all/modules/') === FALSE) {
+    if ($realPath && !str_contains($realPath, 'sites/all/modules/')) {
       preg_match('@sites/([^/]*)/modules@s', $realPath, $matches);
       if (!empty($matches[1])) {
         $_SERVER['HTTP_HOST'] = $matches[1];
@@ -655,6 +648,10 @@ AND    u.status = 1
     global $civicrm_paths;
     if (!empty($civicrm_paths['cms.root']['path'])) {
       return $civicrm_paths['cms.root']['path'];
+    }
+
+    if (defined('BACKDROP_ROOT')) {
+      return BACKDROP_ROOT;
     }
 
     $cmsRoot = NULL;
@@ -805,6 +802,34 @@ AND    u.status = 1
   }
 
   /**
+   * @inheritdoc
+   */
+  public function getCiviSourceStorage():array {
+    global $civicrm_root;
+    $config = CRM_Core_Config::singleton();
+
+    // Don't use $config->userFrameworkBaseURL; it has garbage on it.
+    // More generally, we shouldn't be using $config here.
+    if (!defined('CIVICRM_UF_BASEURL')) {
+      throw new RuntimeException('Undefined constant: CIVICRM_UF_BASEURL');
+    }
+    $baseURL = CRM_Utils_File::addTrailingSlash(CIVICRM_UF_BASEURL, '/');
+    if (CRM_Utils_System::isSSL()) {
+      $baseURL = str_replace('http://', 'https://', $baseURL);
+    }
+
+    $cmsPath = $config->userSystem->cmsRootPath();
+    $userFrameworkResourceURL = $baseURL . str_replace("$cmsPath/", '',
+      str_replace('\\', '/', $civicrm_root)
+    );
+
+    return [
+      'url' => CRM_Utils_File::addTrailingSlash($userFrameworkResourceURL, '/'),
+      'path' => CRM_Utils_File::addTrailingSlash($civicrm_root),
+    ];
+  }
+
+  /**
    * Wrapper for og_membership creation.
    *
    * @param int $ogID
@@ -913,10 +938,28 @@ AND    u.status = 1
   }
 
   /**
+   * Commit the session before exiting.
+   * Similar to drupal_exit().
+   */
+  public function onCiviExit() {
+    if (function_exists('module_invoke_all')) {
+      if (!defined('MAINTENANCE_MODE') || MAINTENANCE_MODE != 'update') {
+        module_invoke_all('exit');
+      }
+      if (!defined('_CIVICRM_FAKE_SESSION')) {
+        backdrop_session_commit();
+      }
+    }
+  }
+
+  /**
    * @inheritDoc
    */
   public function clearResourceCache() {
-    _backdrop_flush_css_js();
+    // Sometimes metadata gets cleared while the cms isn't bootstrapped.
+    if (function_exists('_backdrop_flush_css_js')) {
+      _backdrop_flush_css_js();
+    }
   }
 
   /**
@@ -971,7 +1014,7 @@ AND    u.status = 1
     // Handle absolute urls
     // compares $url (which is some unknown/untrusted value from a third-party dev) to the CMS's base url (which is independent of civi's url)
     // to see if the url is within our Backdrop dir, if it is we are able to treated it as an internal url
-    if (strpos($url, $base_url) === 0) {
+    if (str_starts_with($url, $base_url)) {
       $file = trim(str_replace($base_url, '', $url), '/');
       // CRM-18130: Custom CSS URL not working if aliased or rewritten
       if (file_exists(BACKDROP_ROOT . $file)) {
@@ -980,7 +1023,7 @@ AND    u.status = 1
       }
     }
     // Handle relative urls that are within the CiviCRM module directory
-    elseif (strpos($url, $base) === 0) {
+    elseif (str_starts_with($url, $base)) {
       $internal = TRUE;
       $url = $this->appendCoreDirectoryToResourceBase(dirname(backdrop_get_path('module', 'civicrm')) . '/') . trim(substr($url, strlen($base)), '/');
     }
@@ -1103,7 +1146,11 @@ AND    u.status = 1
    * CMS's drupal views expectations, if any.
    */
   public function getCRMDatabasePrefix(): string {
-    return str_replace(parent::getCRMDatabasePrefix(), '`', '');
+    $crmDatabaseName = parent::getCRMDatabaseName();
+    if (!empty($crmDatabaseName)) {
+      return "$crmDatabaseName.";
+    }
+    return $crmDatabaseName;
   }
 
   /**
@@ -1161,30 +1208,14 @@ AND    u.status = 1
   /**
    * @inheritdoc
    */
-  public function theme(&$content, $print = FALSE, $maintenance = FALSE) {
-    $ret = FALSE;
-
-    if (!$print) {
-      if ($maintenance) {
-        backdrop_set_breadcrumb('');
-        backdrop_maintenance_theme();
-        if ($region = CRM_Core_Region::instance('html-header', FALSE)) {
-          CRM_Utils_System::addHTMLHead($region->render(''));
-        }
-        print theme('maintenance_page', ['content' => $content]);
-        exit();
-      }
-      $ret = TRUE;
+  public function renderMaintenanceMessage(string $content): void {
+    backdrop_set_breadcrumb([]);
+    backdrop_maintenance_theme();
+    if ($region = CRM_Core_Region::instance('html-header', FALSE)) {
+      $this->addHTMLHead($region->render(''));
     }
-    $out = $content;
-
-    if ($ret) {
-      return $out;
-    }
-    else {
-      print $out;
-      return NULL;
-    }
+    print theme('maintenance_page', ['content' => $content]);
+    exit();
   }
 
   /**
@@ -1195,6 +1226,10 @@ AND    u.status = 1
     // still have legacy ipn methods that reach this point without bootstrapping
     // hence the check that the fn exists.
     return function_exists('ip_address') ? ip_address() : ($_SERVER['REMOTE_ADDR'] ?? NULL);
+  }
+
+  public function isMaintenanceMode(): bool {
+    return state_get('maintenance_mode', FALSE);
   }
 
 }

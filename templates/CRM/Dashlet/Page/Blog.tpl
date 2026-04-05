@@ -8,7 +8,7 @@
  +--------------------------------------------------------------------+
 *}
 {strip}{literal}
-<style type="text/css">
+<style>
   #civicrm-news-feed {
     border: 0 none;
     font-family: inherit; // Stops JQueryUI's attempt to make this section Verdana
@@ -49,11 +49,11 @@
       <details class="crm-accordion-bold">
         <summary>
           <span class="crm-news-feed-item-title">{$article.title|smarty:nodefaults|purify}</span>
-          <span class="crm-news-feed-item-preview"> - {if function_exists('mb_substr')}{$article.description|smarty:nodefaults|strip_tags|mb_substr:0:150}{else}{$article.description|smarty:nodefaults|strip_tags}{/if}</span>
+          <span class="crm-news-feed-item-preview"> - {$article.description|smarty:nodefaults|strip_tags|mb_substr:0:150}</span>
         </summary>
         <div class="crm-accordion-body">
           <div>{$article.description|smarty:nodefaults|purify}</div>
-          <p class="crm-news-feed-item-link"><a target="_blank" href="{$article.link|smarty:nodefaults|purify}" title="{$article.title|smarty:nodefaults|escape}"><i class="crm-i fa-external-link" aria-hidden="true"></i> {ts}read more{/ts}…</a></p>
+          <p class="crm-news-feed-item-link"><a target="_blank" href="{$article.link|smarty:nodefaults|purify}" title="{$article.title|smarty:nodefaults|escape}"><i class="crm-i fa-external-link" role="img" aria-hidden="true"></i> {ts}read more{/ts}…</a></p>
         </div>
       </details>
     {/foreach}

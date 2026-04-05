@@ -41,7 +41,7 @@
 
   {if $isShowMergeOptions}
   <div class="crm-section crm-export-mergeOptions-section">
-    <div class="label crm-label-mergeOptions">{ts}Merge Options{/ts} {help id="id-export_merge_options"}</div>
+    <div class="label crm-label-mergeOptions">{ts}Merge Options{/ts} {help id="mergeOption"}</div>
     <div class="content crm-content-mergeOptions">
       {$form.mergeOption.html}
     </div>
@@ -71,11 +71,6 @@
     <div class="content crm-content-postalMailingExport">
         &nbsp;{$form.postal_mailing_export.html}
         {ts}Exclude contacts with "do not mail" privacy, no street address, or who are deceased.{/ts}
-    </div>
-    <br/>
-    <div class="label crm-label-additionalGroup">{$form.additional_group.label}</div>
-    <div class="content crm-content-additionalGroup">
-        &nbsp;{$form.additional_group.html}
     </div>
   <div class="clear"></div>
   </div>

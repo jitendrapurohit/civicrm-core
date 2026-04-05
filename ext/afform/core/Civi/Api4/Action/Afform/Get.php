@@ -21,8 +21,8 @@ class Get extends \Civi\Api4\Generic\BasicGetAction {
 
     // Optimization: only fetch extra data if requested
     $getComputed = $this->_isFieldSelected('has_local', 'has_base', 'base_module');
-    $getLayout = $this->_isFieldSelected('layout');
     $getSearchDisplays = $this->_isFieldSelected('search_displays');
+    $getLayout = $getSearchDisplays || $this->_isFieldSelected('layout');
     // To optimize lookups by file/module/directive name
     $getNames = array_filter([
       'name' => $this->_itemsToGet('name'),
@@ -61,7 +61,7 @@ class Get extends \Civi\Api4\Generic\BasicGetAction {
           continue 2;
         }
       }
-      $record = $scanner->getMeta($name, $getLayout || $getSearchDisplays);
+      $record = $scanner->getMeta($name, $getLayout);
       // Skip if afform does not exist or is not of requested type(s)
       if (
         (!$record && !isset($afforms[$name])) ||
@@ -91,25 +91,50 @@ class Get extends \Civi\Api4\Generic\BasicGetAction {
       if (!isset($afforms[$name]['placement']) && $this->_isFieldSelected('placement')) {
         self::convertLegacyPlacement($afforms[$name]);
       }
+      if (!isset($afforms[$name]['placement_filters'])) {
+        self::convertLegacyPlacementOptions($afforms[$name]);
+      }
     }
 
-    if ($getLayout && $this->layoutFormat !== 'html') {
+    // Format layouts
+    if ($getLayout) {
       foreach ($afforms as $name => $record) {
-        $afforms[$name]['layout'] = isset($record['layout']) ? $this->convertHtmlToOutput($record['layout']) : NULL;
+        if (isset($record['layout'])) {
+          $this->convertLegacyContactTypes($afforms[$name]['layout']);
+          if ($this->layoutFormat !== 'html') {
+            $afforms[$name]['layout'] = $this->convertHtmlToOutput($afforms[$name]['layout']);
+          }
+        }
       }
     }
 
     // Fetch submission aggregates in bulk
-    if ($afforms && $this->_isFieldSelected('submission_count', 'submission_date', 'submit_currently_open')) {
+    if ($afforms && $this->_isFieldSelected('submission_count', 'submission_date', 'user_submission_count', 'submit_currently_open')) {
+      $userContactId = \CRM_Core_Session::getLoggedInContactID();
       $afformSubmissions = \Civi\Api4\AfformSubmission::get(FALSE)
         ->addSelect('afform_name', 'COUNT(id) AS count', 'MAX(submission_date) AS date')
         ->addWhere('afform_name', 'IN', array_keys($afforms))
+        ->addWhere('status_id:name', '!=', 'Draft')
         ->addGroupBy('afform_name')
         ->execute()->indexBy('afform_name');
       foreach ($afforms as $name => $record) {
         $afforms[$name]['submission_count'] = $afformSubmissions[$name]['count'] ?? 0;
         $afforms[$name]['submission_date'] = $afformSubmissions[$name]['date'] ?? NULL;
         $afforms[$name]['submit_currently_open'] = ($record['submit_enabled'] ?? TRUE) && (empty($record['submit_limit']) || $record['submit_limit'] > $afforms[$name]['submission_count']);
+
+        // Check per-user submission limit
+        if ($userContactId && ($this->_isFieldSelected('user_submission_count') || (!empty($afforms[$name]['submit_limit_per_user']) && $afforms[$name]['submit_currently_open']))) {
+          $userSubmissions = \Civi\Api4\AfformSubmission::get(FALSE)
+            ->addWhere('afform_name', '=', $name)
+            ->addWhere('contact_id', '=', $userContactId)
+            ->addWhere('status_id:name', '!=', 'Draft')
+            ->selectRowCount()
+            ->execute();
+          $afforms[$name]['user_submission_count'] = $userSubmissions->countMatched();
+          if (!empty($afforms[$name]['submit_limit_per_user']) && $afforms[$name]['submit_currently_open']) {
+            $afforms[$name]['submit_currently_open'] = $userSubmissions->countMatched() < $afforms[$name]['submit_limit_per_user'];
+          }
+        }
       }
     }
 
@@ -129,66 +154,6 @@ class Get extends \Civi\Api4\Generic\BasicGetAction {
       $afform['permission'] = [$afform['permission']];
     }
     return \CRM_Core_Permission::check($afform['permission']);
-  }
-
-  /**
-   * Generates afform blocks from custom field sets.
-   *
-   * @param \Civi\Core\Event\GenericHookEvent $event
-   * @throws \CRM_Core_Exception
-   */
-  public static function getCustomGroupBlocks($event) {
-    // Early return if blocks are not requested
-    if ($event->getTypes && !in_array('block', $event->getTypes, TRUE)) {
-      return;
-    }
-
-    $getNames = $event->getNames;
-    $getLayout = $event->getLayout;
-    $groupNames = [];
-    $afforms =& $event->afforms;
-    foreach ($getNames['name'] ?? [] as $name) {
-      if (str_starts_with($name, 'afblockCustom_') && strlen($name) > 13) {
-        $groupNames[] = substr($name, 14);
-      }
-    }
-    // Early return if this api call is fetching afforms by name and those names are not custom-related
-    if ((!empty($getNames['name']) && !$groupNames)
-      || (!empty($getNames['module_name']) && !str_contains(implode(' ', $getNames['module_name']), 'afblockCustom'))
-      || (!empty($getNames['directive_name']) && !str_contains(implode(' ', $getNames['directive_name']), 'afblock-custom'))
-    ) {
-      return;
-    }
-    $filters = [
-      'is_multiple' => TRUE,
-      'is_active' => TRUE,
-    ];
-    if ($groupNames) {
-      $filters['name'] = $groupNames;
-    }
-    $customGroups = \CRM_Core_BAO_CustomGroup::getAll($filters);
-    foreach ($customGroups as $custom) {
-      $name = 'afblockCustom_' . $custom['name'];
-      $item = [
-        'name' => $name,
-        'type' => 'block',
-        'requires' => [],
-        'title' => E::ts('%1 block', [1 => $custom['title']]),
-        'description' => '',
-        'is_public' => FALSE,
-        'permission' => ['access CiviCRM'],
-        'join_entity' => 'Custom_' . $custom['name'],
-        'entity_type' => $custom['extends'],
-      ];
-      if ($getLayout) {
-        $item['layout'] = ($custom['help_pre'] ? '<div class="af-markup">' . $custom['help_pre'] . "</div>\n" : '');
-        foreach ($custom['fields'] as $field) {
-          $item['layout'] .= "<af-field name=\"{$field['name']}\" />\n";
-        }
-        $item['layout'] .= ($custom['help_post'] ? '<div class="af-markup">' . $custom['help_post'] . "</div>\n" : '');
-      }
-      $afforms[$name] = $item;
-    }
   }
 
   /**
@@ -212,6 +177,33 @@ class Get extends \Civi\Api4\Generic\BasicGetAction {
     return $searchDisplays;
   }
 
+  /**
+   * Backward-compatability conversion of <af-entity> Contact tags
+   * to use contact-type-specific API entity names.
+   *
+   * Converts: <af-entity type="Contact" data="{contact_type: 'Individual'}">
+   * Into:     <af-entity type="Individual" data="{}">
+   *
+   * @param string $layout
+   * @return void
+   */
+  private static function convertLegacyContactTypes(&$layout): void {
+    if (!$layout || !is_string($layout)) {
+      return;
+    }
+    // It was easier to write two regexes:
+    // 1. If the `type` property precedes the `data` property
+    $regex1 = <<<'REGEX'
+      /<af-entity([^>]+)type\s*=\s*["']Contact["']([^>]*)data\s*=\s*"\{([^>]*)'?contact_type'?\s*:\s*'(Individual|Household|Organization)'\s*,?/
+      REGEX;
+    $layout = preg_replace($regex1, '<af-entity$1type="$4"$2data="{', $layout);
+    // 2. If the `data` property precedes the `type` property
+    $regex2 = <<<'REGEX'
+      /<af-entity([^>]+)data\s*=\s*"\{([^>]*)'?contact_type'?\s*:\s*'(Individual|Household|Organization)'\s*,?([^>]+)type\s*=\s*["']Contact["']/
+      REGEX;
+    $layout = preg_replace($regex2, '<af-entity$1data="{$2$4type="$3"', $layout);
+  }
+
   private static function convertLegacyPlacement(array &$afform): void {
     $afform['placement'] = [];
     if (!empty($afform['is_dashlet'])) {
@@ -224,6 +216,15 @@ class Get extends \Civi\Api4\Generic\BasicGetAction {
       $afform['placement'][] = 'contact_summary_' . $afform['contact_summary'];
     }
     unset($afform['is_dashlet'], $afform['is_token'], $afform['contact_summary']);
+  }
+
+  private static function convertLegacyPlacementOptions(array &$afform): void {
+    $afform['placement_weight'] ??= $afform['summary_weight'] ?? NULL;
+    $afform['placement_filters'] = [];
+    if (!empty($afform['summary_contact_type'])) {
+      $afform['placement_filters']['contact_type'] = $afform['summary_contact_type'];
+    }
+    unset($afform['summary_weight'], $afform['summary_contact_type']);
   }
 
 }

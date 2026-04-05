@@ -36,7 +36,7 @@ class CRM_Logging_SchemaTest extends CiviUnitTestCase {
    *
    * @return array
    */
-  public function queryExamples(): array {
+  public static function queryExamples(): array {
     $examples = [];
     $examples[] = ["`modified_date` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT 'When the mailing (or closely related entity) was created or modified or deleted.'", "`modified_date` timestamp NULL  COMMENT 'When the mailing (or closely related entity) was created or modified or deleted.'"];
     $examples[] = ["`modified_date` timestamp NULL DEFAULT current_timestamp ON UPDATE current_timestamp COMMENT 'When the mailing (or closely related entity) was created or modified or deleted.'", "`modified_date` timestamp NULL  COMMENT 'When the mailing (or closely related entity) was created or modified or deleted.'"];
@@ -439,6 +439,13 @@ class CRM_Logging_SchemaTest extends CiviUnitTestCase {
     $this->assertStringContainsString('`texty` varchar(255)', $dao->Create_Table);
     $this->assertStringContainsString('ENGINE=InnoDB', $dao->Create_Table);
     $this->assertStringNotContainsString('FOREIGN KEY', $dao->Create_Table);
+  }
+
+  public function testGetLogTableNames(): void {
+    Civi::settings()->set('logging', TRUE);
+    $log_tables = (new CRM_Logging_Schema())->getLogTableNames();
+    $this->assertIsArray($log_tables);
+    $this->assertNotEmpty($log_tables);
   }
 
   /**

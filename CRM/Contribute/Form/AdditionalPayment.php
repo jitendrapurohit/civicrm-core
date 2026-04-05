@@ -25,6 +25,7 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
   use CRM_Contact_Form_ContactFormTrait;
   use CRM_Contribute_Form_ContributeFormTrait;
   use CRM_Event_Form_EventFormTrait;
+  use CRM_Custom_Form_CustomDataTrait;
 
   /**
    * Id of the component entity
@@ -106,6 +107,10 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
     }
 
     $this->_paymentType = $this->getPaymentType();
+
+    if ($this->isARefund() && !CRM_Core_Permission::check('refund contributions')) {
+      throw new CRM_Core_Exception('You do not have permission to refund contributions.');
+    }
 
     if (!empty($this->_mode) && $this->isARefund()) {
       throw new CRM_Core_Exception(ts('Credit card payment is not for Refund payments use'));
@@ -219,7 +224,8 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
       $eventID = CRM_Core_DAO::getFieldValue('CRM_Event_DAO_Participant', $this->_id, 'event_id', 'id');
     }
 
-    $this->add('select', 'from_email_address', ts('Receipt From'), CRM_Financial_BAO_Payment::getValidFromEmailsForPayment($eventID ?? NULL), FALSE, ['class' => 'crm-select2 huge']);
+    $fromEmailSelect = $this->add('select', 'from_email_address', ts('Receipt From'), CRM_Financial_BAO_Payment::getValidFromEmailsForPayment($eventID ?? NULL), FALSE, ['class' => 'crm-select2 huge']);
+    $fromEmailSelect->setOptionTextEscaped();
 
     $this->add('textarea', 'receipt_text', ts('Confirmation Message'));
 
@@ -229,6 +235,13 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
     $this->assign('displayName', $this->getContactValue('display_name'));
     $this->assign('component', $this->_component);
     $this->assign('email', $this->_contributorEmail);
+    if ($this->isSubmitted()) {
+      // The custom data fields are added to the form by an ajax form.
+      // However, if they are not present in the element index they will
+      // not be available from `$this->getSubmittedValue()` in post process.
+      // We do not have to set defaults or otherwise render - just add to the element index.
+      $this->addCustomDataFieldsToForm('FinancialTrxn');
+    }
 
     $js = NULL;
     // render backoffice payment fields only on offline mode
@@ -295,8 +308,7 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
    * @throws \CRM_Core_Exception
    */
   public function postProcess() {
-    $submittedValues = $this->controller->exportValues($this->_name);
-    $this->submit($submittedValues);
+    $this->submit($this->getSubmittedValues());
     $session = CRM_Core_Session::singleton();
     $session->replaceUserContext(CRM_Utils_System::url('civicrm/contact/view',
       "reset=1&cid={$this->_contactId}&selectedChild=" . $this->getParticipantID() ? 'participant' : 'contribute'
@@ -328,18 +340,18 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
     $trxnsData = [
       'total_amount' => $this->isARefund() ? -$totalAmount : $totalAmount,
       'check_number' => $this->getSubmittedValue('check_number'),
-      'fee_amount' => $paymentResult['fee_amount'] ?? 0,
+      'fee_amount' => $paymentResult['fee_amount'] ?? ($this->getSubmittedValue('fee_amount') ?? 0),
       'contribution_id' => $this->getContributionID(),
       'payment_processor_id' => $this->getPaymentProcessorID(),
       'card_type_id' => CRM_Core_PseudoConstant::getKey('CRM_Core_BAO_FinancialTrxn', 'card_type_id', $this->getSubmittedValue('credit_card_type')),
-      'pan_truncation' => substr((string) $this->getSubmittedValue('credit_card_number'), -4),
+      'pan_truncation' => $this->getSubmittedValue('pan_truncation') ?: substr((string) $this->getSubmittedValue('credit_card_number'), -4),
       'trxn_result_code' => $paymentResult['trxn_result_code'] ?? NULL,
       'payment_instrument_id' => $this->getSubmittedValue('payment_instrument_id'),
-      'trxn_id' => $paymentResult['trxn_id'] ?? NULL,
+      'trxn_id' => $paymentResult['trxn_id'] ?? ($this->getSubmittedValue('trxn_id') ?? NULL),
       'trxn_date' => $this->getSubmittedValue('trxn_date'),
       // This form sends payment notification only, for historical reasons.
       'is_send_contribution_notification' => FALSE,
-    ];
+    ] + $this->getSubmittedCustomFields();
     $paymentID = civicrm_api3('Payment', 'create', $trxnsData)['id'];
     $contributionAddressID = CRM_Contribute_BAO_Contribution::createAddress($this->getSubmittedValues());
     if ($contributionAddressID) {
@@ -347,9 +359,10 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
         ->setValues(['address_id' => $contributionAddressID])->execute();
     }
     if ($this->getContributionID() && CRM_Core_Permission::access('CiviMember')) {
-      $membershipPaymentCount = civicrm_api3('MembershipPayment', 'getCount', ['contribution_id' => $this->_contributionId]);
-      if ($membershipPaymentCount) {
-        $this->ajaxResponse['updateTabs']['#tab_member'] = CRM_Contact_BAO_Contact::getCountComponent('membership', $this->_contactID);
+      $membershipCount = CRM_Contact_BAO_Contact::getCountComponent('membership', $this->_contactID);
+      // @fixme: Probably don't need a variable here but the old code counted MembershipPayment records and only returned a count if > 0
+      if ($membershipCount) {
+        $this->ajaxResponse['updateTabs']['#tab_member'] = $membershipCount;
       }
     }
     if ($this->getContributionID() && CRM_Core_Permission::access('CiviEvent')) {
@@ -392,6 +405,17 @@ class CRM_Contribute_Form_AdditionalPayment extends CRM_Contribute_Form_Abstract
     ]);
 
     if ($paymentParams['amount'] > 0.0) {
+      if (!empty($this->contributionID)) {
+        if (empty($paymentParams['description'])) {
+          $paymentParams['description'] = CRM_Core_DAO::getFieldValue('CRM_Contribute_DAO_Contribution', $this->_contributionId, 'source');
+        }
+
+        if (empty($paymentParams['financial_type_id'])) {
+          $financialTypeID = CRM_Core_DAO::getFieldValue('CRM_Contribute_DAO_Contribution', $this->_contributionId, 'financial_type_id');
+          $paymentParams['financial_type_id'] = CRM_Financial_BAO_FinancialAccount::getAccountingCode($financialTypeID);
+        }
+      }
+
       try {
         // Re-retrieve the payment processor in case the form changed it, CRM-7179
         $payment = \Civi\Payment\System::singleton()->getById($this->getPaymentProcessorID());

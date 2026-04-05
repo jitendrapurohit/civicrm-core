@@ -10,14 +10,14 @@
 {capture assign=labelStyle}style="padding: 4px; border-bottom: 1px solid #999; background-color: #f7f7f7;"{/capture}
 {capture assign=valueStyle}style="padding: 4px; border-bottom: 1px solid #999;"{/capture}
 
-  <table id="crm-event_receipt" style="font-family: Arial, Verdana, sans-serif; text-align: left; width:100%; max-width:700px; padding:0; margin:0; border:0px;">
-
   <!-- BEGIN HEADER -->
-  <!-- You can add table row(s) here with logo or other header elements -->
+    {* To modify content in this section, you can edit the Custom Token named "Message Header". See also: https://docs.civicrm.org/user/en/latest/email/message-templates/#modifying-system-workflow-message-templates *}
+    {site.message_header}
   <!-- END HEADER -->
 
   <!-- BEGIN CONTENT -->
 
+  <table id="crm-event_receipt" style="font-family: Arial, Verdana, sans-serif; text-align: left; width:100%; max-width:700px; padding:0; margin:0; border:0px;">
   <tr>
    <td>
      {assign var="greeting" value="{contact.email_greeting_display}"}{if $greeting}<p>{$greeting},</p>{/if}
@@ -284,7 +284,7 @@
     {if {contribution.address_id.display|boolean}}
       <tr>
         <th {$headerStyle}>
-          {ts}Billing Name and Address{/ts}
+          {ts}Billing Address{/ts}
         </th>
       </tr>
       <tr>
@@ -322,7 +322,7 @@
       </tr>
     {/if}
 
-    {if !empty($selectPremium)}
+    {if {contribution_product.id|boolean}}
       <tr>
         <th {$headerStyle}>
           {ts}Premium Information{/ts}
@@ -330,26 +330,26 @@
       </tr>
       <tr>
         <td colspan="2" {$labelStyle}>
-          {$product_name}
+          {contribution_product.product_id.name}
         </td>
       </tr>
-      {if $option}
+      {if {contribution_product.product_option|boolean}}
         <tr>
           <td {$labelStyle}>
             {ts}Option{/ts}
           </td>
           <td {$valueStyle}>
-            {$option}
+            {contribution_product.product_option:label}
           </td>
         </tr>
       {/if}
-      {if $sku}
+      {if {contribution_product.product_id.sku|boolean}}
         <tr>
           <td {$labelStyle}>
             {ts}SKU{/ts}
           </td>
           <td {$valueStyle}>
-            {$sku}
+            {contribution_product.product_id.sku}
           </td>
         </tr>
       {/if}
@@ -386,10 +386,10 @@
           </td>
         </tr>
       {/if}
-      {if $is_deductible AND !empty($price)}
+      {if {contribution.non_deductible_amount|boolean} AND {contribution_product.price|boolean}}
         <tr>
           <td colspan="2" {$valueStyle}>
-            <p>{ts 1=$price|crmMoney}The value of this premium is %1. This may affect the amount of the tax deduction you can claim. Consult your tax advisor for more information.{/ts}</p>
+            <p>{ts 1='{contribution_product.price|crmMoney}'}The value of this premium is %1. This may affect the amount of the tax deduction you can claim. Consult your tax advisor for more information.{/ts}</p>
          </td>
         </tr>
       {/if}

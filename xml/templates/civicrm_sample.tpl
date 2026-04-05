@@ -50,23 +50,17 @@ VALUES
   ('Membership page','Member Signup and Renewal', 'membership','Members are the life-blood of our organization. If you''re not already a member - please consider signing up today. You can select the membership level the fits your budget and needs below.', 2, 1, 0, NULL, NULL, NULL, NULL, 'Thanks for Your Support!', 'Thanks for supporting our organization with your membership. You can learn more about membership benefits from our members only page.', NULL, 'Membership Department', 'memberships@civicrm.org', NULL, NULL, 'Thanks for supporting our organization with your membership. You can learn more about membership benefits from our members only page.\r\n\r\nKeep this receipt for your records.', 1, NULL, 0, 'USD', 1),
   ('Pledge page', 'Pledge for CiviCRM!','pledge', 'Do you love CiviCRM? Do you use CiviCRM? Then please support CiviCRM and Pledge NOW by trying out our online contribution features!',1,1,1,NULL,'10.00','10000.00','100000.00','Thanks for Your Support!','<p>Thank you for your support. Your contribution will help us build even better tools like Pledge.</p><p>Please tell your friends and colleagues about CiviPledge!</p>','<p><a href=https://civicrm.org>Back to CiviCRM Home Page</a></p>','CiviCRM Fundraising Dept.','donationFake@civicrm.org','receipt@example.com','bcc@example.com','Your donation is tax deductible under IRS 501(c)(3) regulation. Our tax identification number is: 93-123-4567',1, NULL, 1, 'USD', 1);
 
-INSERT INTO `civicrm_tell_friend`
-    (`entity_table`, `entity_id`, `title`, `intro`, `suggested_message`, `general_link`, `thankyou_title`, `thankyou_text`, `is_active`)
-VALUES
-    ('civicrm_contribution_page', 1, 'Tell A Friend', '<p>Help us spread the word and leverage the power of your contribution by telling your friends. Use the space below to personalize your email message - let your friends know why you support us. Then fill in the name(s) and email address(es) and click ''Send Your Message''.</p>', 'Thought you might be interested in learning about and helping this organization. I think they do important work.', NULL, 'Thanks for Spreading the Word', '<p><strong>Thanks for telling your friends about us and supporting our efforts. Together we can make a difference.</strong></p>', 1),
-    ('civicrm_event', 1, 'Tell A Friend', '<p>Help us spread the word about this event. Use the space below to personalize your email message - let your friends know why you''re attending. Then fill in the name(s) and email address(es) and click ''Send Your Message''.</p>', 'Thought you might be interested in checking out this event. I''m planning on attending.', NULL, 'Thanks for Spreading the Word', '<p>Thanks for spreading the word about this event to your friends.</p>', 1);
-
 INSERT INTO `civicrm_pcp_block`
     (`id`, `entity_table`, `entity_id`, `supporter_profile_id`, `owner_notify_id`, `is_approval_needed`, `is_tellfriend_enabled`, `tellfriend_limit`, `link_text`, `is_active`, `target_entity_id` )
 VALUES
     (1, 'civicrm_contribution_page', 1, 2, 1, 1, 1, 5, 'Create your own Personal Campaign Page!', 1, 1);
 
 INSERT INTO civicrm_membership_type
-    (domain_id, name, description, member_of_contact_id, financial_type_id, minimum_fee, duration_unit, duration_interval, period_type, fixed_period_start_day, fixed_period_rollover_day, relationship_type_id, relationship_direction, visibility, weight, is_active)
+    (domain_id, name, title, frontend_title, description, member_of_contact_id, financial_type_id, minimum_fee, duration_unit, duration_interval, period_type, fixed_period_start_day, fixed_period_rollover_day, relationship_type_id, relationship_direction, visibility, weight, is_active)
 VALUES
-    (@domainID, 'General', 'Regular annual membership.', 1, 2, 100.00, 'year', 2, 'rolling', NULL, NULL, 7, 'b_a', 'Public', 1, 1),
-    (@domainID, 'Student', 'Discount membership for full-time students.', 1, 2, 50.00, 'year', 1, 'rolling', NULL, NULL, NULL, NULL, 'Public', 2, 1),
-    (@domainID, 'Lifetime', 'Lifetime membership.', 1, 2, 1200.00, 'lifetime', 1, 'rolling', NULL, NULL, 7, 'b_a', 'Admin', 3, 1);
+    (@domainID, 'General', 'General membership', 'Regular membership', 'Regular annual membership.', 1, 2, 100.00, 'year', 2, 'rolling', NULL, NULL, 7, 'b_a', 'Public', 1, 1),
+    (@domainID, 'Student', 'Student pricing', 'Student membership', 'Discount membership for full-time students.', 1, 2, 50.00, 'year', 1, 'rolling', NULL, NULL, NULL, NULL, 'Public', 2, 1),
+    (@domainID, 'Lifetime', 'Life membership', 'Lifetime membership', 'Lifetime membership.', 1, 2, 1200.00, 'lifetime', 1, 'rolling', NULL, NULL, 7, 'b_a', 'Admin', 3, 1);
 
 INSERT INTO civicrm_membership_block
     (entity_table, entity_id, membership_types, membership_type_default, display_min_fee, is_separate_payment, new_title, new_text, renewal_title, renewal_text, is_required, is_active)

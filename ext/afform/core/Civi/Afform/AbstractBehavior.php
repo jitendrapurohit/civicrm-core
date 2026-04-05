@@ -49,12 +49,27 @@ abstract class AbstractBehavior extends AutoService implements BehaviorInterface
   }
 
   /**
+   * Default mode. If set then mode will not be de-selectable.
+   *
+   * @return string|null
+   */
+  public static function getDefaultMode(): ?string {
+    return NULL;
+  }
+
+  /**
    * Dashed name, name of entity attribute for selected mode
    * @return string
    */
   public static function getKey():string {
     $behaviorName = substr(static::class, strrpos(static::class, '\\') + 1);
     return \CRM_Utils_String::convertStringToDash($behaviorName);
+  }
+
+  public static function getAttributes(): array {
+    return [
+      static::getKey() => 'text',
+    ];
   }
 
 }

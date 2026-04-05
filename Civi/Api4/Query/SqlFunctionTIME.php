@@ -16,7 +16,7 @@ namespace Civi\Api4\Query;
  */
 class SqlFunctionTIME extends SqlFunction {
 
-  protected static $category = self::CATEGORY_DATE;
+  protected static $category = self::CATEGORY_PARTIAL_DATE;
 
   protected static $dataType = 'Time';
 
@@ -40,7 +40,7 @@ class SqlFunctionTIME extends SqlFunction {
    * @return string
    */
   public static function getDescription(): string {
-    return ts('Only the time portaion of a date/time.');
+    return ts('Only the time portion of a date/time.');
   }
 
 }

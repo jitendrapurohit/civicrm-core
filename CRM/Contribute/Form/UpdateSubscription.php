@@ -18,10 +18,6 @@ use Civi\Payment\Exception\PaymentProcessorException;
 
 /**
  * This class generates form components generic to recurring contributions.
- *
- * It delegates the work to lower level subclasses and integrates the changes
- * back in. It also uses a lot of functionality with the CRM API's, so any change
- * made here could potentially affect the API etc. Be careful, be aware, use unit tests.
  */
 class CRM_Contribute_Form_UpdateSubscription extends CRM_Contribute_Form_ContributionRecur {
   use CRM_Custom_Form_CustomDataTrait;
@@ -65,7 +61,7 @@ class CRM_Contribute_Form_UpdateSubscription extends CRM_Contribute_Form_Contrib
 
     $this->assign('contactId', $this->getSubscriptionContactID());
     $this->assign('membershipID', $this->getMembershipID());
-    $this->assign('membershipName', $this->getMembershipValue('name'));
+    $this->assign('membershipName', $this->getMembershipValue('membership_type_id.name'));
 
     $this->assign('self_service', $this->isSelfService());
     $this->assign('recur_frequency_interval', $this->getContributionRecurValue('frequency_interval'));

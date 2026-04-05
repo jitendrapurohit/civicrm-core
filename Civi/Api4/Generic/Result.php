@@ -107,6 +107,8 @@ class Result extends \ArrayObject implements \JsonSerializable {
    *
    * Drops any item from the results that does not contain the specified key
    *
+   * Unlike $this->rekey, this rewrites the row keys not the column keys.
+   *
    * @param string $key
    * @return $this
    * @throws \CRM_Core_Exception
@@ -161,7 +163,10 @@ class Result extends \ArrayObject implements \JsonSerializable {
   }
 
   /**
-   * Returns the number of results
+   * Returns the number of results matched. This is different from the number of results returned:
+   *
+   * - For `get` actions, this is the total number of records regardless of LIMIT, so can be >= the number of results returned.
+   * - For `save` actions, this is the number of records UPDATED (not created), so can be <= the number of results returned.
    *
    * @return int
    */
@@ -174,24 +179,42 @@ class Result extends \ArrayObject implements \JsonSerializable {
 
   /**
    * Provides a way for API implementations to set the *matched* count.
-   *
-   * The matched count is the number of matching entities, regardless of any imposed limit clause.
    */
   public function setCountMatched(int $c) {
     $this->matchedCount = $c;
+  }
 
-    // Set rowCount for backward compatibility.
-    $this->rowCount = $c;
+  public function hasCountMatched(): bool {
+    return isset($this->matchedCount);
   }
 
   /**
    * Reduce each result to one field
    *
-   * @param $name
+   * @param string $columnName
+   * @param string|null $indexBy
    * @return array
    */
-  public function column($name): array {
-    return array_column($this->getArrayCopy(), $name, $this->indexedBy);
+  public function column($columnName, $indexBy = NULL): array {
+    return array_column($this->getArrayCopy(), $columnName, $indexBy ?? $this->indexedBy);
+  }
+
+  /**
+   * Rewrite keys in each result according to a map or a callback function.
+   *
+   * Unlike $this->indexBy, this rewrites the column keys not the row keys.
+   *
+   * @param array|callable $map
+   *   Map of keys to convert e.g. `[old_key => new_key]`
+   *   Or a callback function like `fn($key, $value) => $newKey`
+   * @return $this
+   */
+  public function rekey($map) {
+    $callback = is_callable($map) ? $map : fn($key) => $map[$key] ?? $key;
+    foreach ($this as &$items) {
+      $items = \CRM_Utils_Array::rekey($items, $callback);
+    }
+    return $this;
   }
 
   /**

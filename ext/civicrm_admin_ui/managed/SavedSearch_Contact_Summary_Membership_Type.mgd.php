@@ -1,6 +1,11 @@
 <?php
 use CRM_CivicrmAdminUi_ExtensionUtil as E;
 
+// Temporary check can be removed when moving this file to the civi_member extension.
+if (!CRM_Core_Component::isEnabled('CiviMember')) {
+  return [];
+}
+
 return [
   [
     'name' => 'SavedSearch_Contact_Summary_Membership_Type',
@@ -31,6 +36,7 @@ return [
               '=',
               TRUE,
             ],
+            ['domain_id:name', '=', 'current_domain'],
           ],
           'groupBy' => [],
           'join' => [],
@@ -66,35 +72,30 @@ return [
             [
               'type' => 'field',
               'key' => 'name',
-              'dataType' => 'String',
               'label' => E::ts('Name'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'period_type:label',
-              'dataType' => 'String',
               'label' => E::ts('Period'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'fixed_period_start_day',
-              'dataType' => 'Integer',
               'label' => E::ts('Fixed Start'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'minimum_fee',
-              'dataType' => 'Money',
               'label' => E::ts('Minimum Fee'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'duration_interval',
-              'dataType' => 'Integer',
               'label' => E::ts('Duration'),
               'sortable' => TRUE,
               'rewrite' => '[duration_interval] [duration_unit:label]',
@@ -102,7 +103,6 @@ return [
             [
               'type' => 'field',
               'key' => 'visibility:label',
-              'dataType' => 'String',
               'label' => E::ts('Visibility'),
               'sortable' => TRUE,
             ],

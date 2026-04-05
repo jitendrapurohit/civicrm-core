@@ -124,7 +124,7 @@ class CRM_Core_BAO_SchemaHandlerTest extends CiviUnitTestCase {
   /**
    * @return array
    */
-  public function columnTests(): array {
+  public static function columnTests(): array {
     $columns = [];
     $columns[] = ['civicrm_contribution', 'total_amount'];
     $columns[] = ['civicrm_contact', 'first_name'];
@@ -169,7 +169,7 @@ class CRM_Core_BAO_SchemaHandlerTest extends CiviUnitTestCase {
   /**
    * @return array
    */
-  public function foreignKeyTests(): array {
+  public static function foreignKeyTests(): array {
     $keys = [];
     $keys[] = ['civicrm_mailing_recipients', 'FK_civicrm_mailing_recipients_email_id'];
     $keys[] = ['civicrm_mailing_recipients', 'FK_civicrm_mailing_recipients_id'];
@@ -315,8 +315,7 @@ class CRM_Core_BAO_SchemaHandlerTest extends CiviUnitTestCase {
     //Test incorrect Ordering(correct order defined is entity_id and then entity_table, tag_id).
     CRM_Core_DAO::executeQuery('CREATE INDEX UI_entity_id_entity_table_tag_id ON civicrm_entity_tag (entity_table, entity_id, tag_id)');
     $missingIndices = CRM_Core_BAO_SchemaHandler::getMissingIndices(TRUE);
-    $this->assertNotEmpty($missingIndices);
-    $this->assertEquals(array_values($tables), array_keys($missingIndices));
+    $this->assertEmpty(array_diff($tables, array_keys($missingIndices)));
 
     //Check if both indices are deleted.
     $indices = CRM_Core_BAO_SchemaHandler::getIndexes($tables);
@@ -398,14 +397,14 @@ class CRM_Core_BAO_SchemaHandlerTest extends CiviUnitTestCase {
     ];
     $sql = CRM_Core_BAO_SchemaHandler::buildFieldChangeSql($params, FALSE);
     $this->assertEquals('ALTER TABLE civicrm_contact
-        ADD COLUMN `big_bob` text', trim($sql));
+        ADD COLUMN `big_bob` text NULL', trim($sql));
 
     $params['operation'] = 'modify';
     $params['comment'] = 'super big';
     $params['fkName'] = CRM_Core_BAO_SchemaHandler::getIndexName('civicrm_contact', 'big_bob');
     $sql = CRM_Core_BAO_SchemaHandler::buildFieldChangeSql($params, FALSE);
     $this->assertEquals("ALTER TABLE civicrm_contact
-        MODIFY `big_bob` text COMMENT 'super big'", trim($sql));
+        MODIFY `big_bob` text NULL COMMENT 'super big'", trim($sql));
 
     $params['operation'] = 'delete';
     $sql = CRM_Core_BAO_SchemaHandler::buildFieldChangeSql($params, FALSE);

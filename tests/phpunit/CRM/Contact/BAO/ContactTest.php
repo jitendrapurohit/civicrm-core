@@ -1,5 +1,7 @@
 <?php
 
+use Civi\Api4\Contact;
+
 /**
  * Class CRM_Contact_BAO_ContactTest
  * @group headless
@@ -7,7 +9,7 @@
 class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
 
   public function tearDown(): void {
-    $this->quickCleanup(['civicrm_contact', 'civicrm_note'], TRUE);
+    $this->quickCleanup(['civicrm_contact', 'civicrm_note', 'civicrm_im', 'civicrm_phone'], TRUE);
     parent::tearDown();
   }
 
@@ -477,28 +479,6 @@ class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
   }
 
   /**
-   * Test case for resolveDefaults( ).
-   *
-   * @todo the resolveDefaults function is on it's way out - so is this test...
-   *
-   * Test all pseudoConstant, stateProvince, country.
-   */
-  public function testResolveDefaults(): void {
-    $params = [];
-
-    $params['address'][1] = [
-      'location_type_id' => 1,
-      'is_primary' => 1,
-      'country_id' => 1228,
-      'state_province_id' => 1004,
-    ];
-    // @todo - we are testing this with $reverse = FALSE but it is never called that way!
-    CRM_Contact_BAO_Contact::resolveDefaults($params);
-
-    $this->assertEquals(1004, $params['address'][1]['state_province_id']);
-  }
-
-  /**
    * Test case for retrieve( ).
    *
    * Test with all values.
@@ -608,6 +588,7 @@ class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
         -1 => [
           'value' => 'Test custom value',
           'type' => 'String',
+          'html_type' => 'Text',
           'custom_field_id' => $customField['id'],
           'custom_group_id' => $customGroup['id'],
           'table_name' => $customGroupTableName,
@@ -1185,8 +1166,8 @@ class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
     //get display name.
     $dbDisplayName = CRM_Contact_BAO_Contact::displayName($contactId);
 
-    $prefix = CRM_Core_PseudoConstant::get('CRM_Contact_DAO_Contact', 'prefix_id');
-    $suffix = CRM_Core_PseudoConstant::get('CRM_Contact_DAO_Contact', 'suffix_id');
+    $prefix = CRM_Contact_DAO_Contact::buildOptions('prefix_id');
+    $suffix = CRM_Contact_DAO_Contact::buildOptions('suffix_id');
 
     //build display name
     $paramsDisplayName = $prefix[$params['prefix_id']] . ' ' . $params['first_name'] . ' ' . $params['last_name'] . ' ' . $suffix[$params['suffix_id']];
@@ -1214,8 +1195,8 @@ class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
 
     $checkImage = CRM_Contact_BAO_Contact_Utils::getImage($params['contact_type'], FALSE, $contactId);
 
-    $prefix = CRM_Core_PseudoConstant::get('CRM_Contact_DAO_Contact', 'prefix_id');
-    $suffix = CRM_Core_PseudoConstant::get('CRM_Contact_DAO_Contact', 'suffix_id');
+    $prefix = CRM_Contact_DAO_Contact::buildOptions('prefix_id');
+    $suffix = CRM_Contact_DAO_Contact::buildOptions('suffix_id');
 
     //build display name
     $paramsDisplayName = $prefix[$params['prefix_id']] . ' ' . $params['first_name'] . ' ' . $params['last_name'] . ' ' . $suffix[$params['suffix_id']];
@@ -1335,6 +1316,31 @@ class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
         $test->assertInstanceOf('CRM_Contact_DAO_Contact', $contact, 'Check for created object');
       },
     ]);
+  }
+
+  /**
+   * Ensure that created_date and modified_date are set.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testTimestampContactDelete(): void {
+    $this->individualCreate([], 'mod');
+    CRM_Core_DAO::executeQuery('UPDATE civicrm_contact SET modified_date = "2023-01-09" WHERE id = %1', [1 => [$this->ids['Contact']['mod'], 'Integer']]);
+    $contact = Contact::get(FALSE)
+      ->addWhere('id', '=', $this->ids['Contact']['mod'])
+      ->addSelect('modified_date')
+      ->execute()->first();
+    $this->assertEquals('2023-01-09 00:00:00', $contact['modified_date']);
+    Contact::delete(FALSE)
+      ->setUseTrash(TRUE)
+      ->addWhere('id', '=', $contact['id'])->execute();
+
+    $contact = Contact::get(FALSE)
+      ->addWhere('id', '=', $this->ids['Contact']['mod'])
+      ->addSelect('modified_date')
+      ->execute()->first();
+    $this->assertGreaterThan(time() - 60, strtotime($contact['modified_date']));
+
   }
 
   /**
@@ -1628,7 +1634,7 @@ class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
    * Data provider for testLongUnicodeIndividualName
    * @return array
    */
-  public function longUnicodeIndividualNames():array {
+  public static function longUnicodeIndividualNames():array {
     return [
       'much less than 128' => [
         [
@@ -1712,7 +1718,7 @@ class CRM_Contact_BAO_ContactTest extends CiviUnitTestCase {
    * Data provider for testLongUnicodeOrgName
    * @return array
    */
-  public function longUnicodeOrgNames():array {
+  public static function longUnicodeOrgNames():array {
     return [
       'much less than 128' => [
         'асдадасда шшшшшшшшшш',

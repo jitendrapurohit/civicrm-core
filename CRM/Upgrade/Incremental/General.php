@@ -28,33 +28,29 @@ class CRM_Upgrade_Incremental_General {
    * The point release will be dropped in recommendations unless it's .1 or
    * higher.
    */
-  const RECOMMENDED_PHP_VER = '8.1.0';
+  const RECOMMENDED_PHP_VER = '8.4.0';
 
   /**
    * The minimum recommended PHP version.
    *
    * A site running an earlier version will be told to upgrade.
    */
-  const MIN_RECOMMENDED_PHP_VER = '8.0.0';
+  const MIN_RECOMMENDED_PHP_VER = '8.2.0';
 
   /**
    * The minimum PHP version required to install Civi.
-   *
-   * @see install/index.php
    */
-  const MIN_INSTALL_PHP_VER = '7.4.0';
+  const MIN_INSTALL_PHP_VER = '8.1.2';
 
   /**
    * The minimum recommended MySQL version.
    *
    * A site running an earlier version will be encouraged to upgrade.
    */
-  const MIN_RECOMMENDED_MYSQL_VER = '5.7';
+  const MIN_RECOMMENDED_MYSQL_VER = '8.0';
 
   /**
    * The minimum MySQL version required to install Civi.
-   *
-   * @see install/index.php
    */
   const MIN_INSTALL_MYSQL_VER = '5.7';
 
@@ -135,14 +131,6 @@ class CRM_Upgrade_Incremental_General {
       $preUpgradeMessage .= '<br />' . ts('This database uses InnoDB Full Text Search for optimized searching. The upgrade procedure has not been tested with this feature. You should disable (and later re-enable) the feature by navigating to "Administer => Customize Data and Screens => Search Preferences".');
     }
 
-    $ftAclSetting = Civi::settings()->get('acl_financial_type');
-    if ($ftAclSetting && !self::isExtensionInstalled('biz.jmaconsulting.financialaclreport')) {
-      $preUpgradeMessage .= '<br />' . ts('CiviCRM will in the future require the extension %1 for CiviCRM Reports to work correctly with the Financial Type ACLs. The extension can be downloaded <a href="%2">here</a>', [
-        1 => 'biz.jmaconsulting.financialaclreport',
-        2 => 'https://github.com/JMAConsulting/biz.jmaconsulting.financialaclreport',
-      ]);
-    }
-
     $snapshotIssues = CRM_Upgrade_Snapshot::getActivationIssues();
     if ($snapshotIssues) {
       $preUpgradeMessage .= '<details>';
@@ -164,14 +152,15 @@ class CRM_Upgrade_Incremental_General {
   /**
    * Perform any message template updates. 5.0+.
    * @param $message
-   * @param $version
+   * @param $version version we are upgrading to
+   * @param $fromVer version we are upgrading from
    */
-  public static function updateMessageTemplate(&$message, $version) {
+  public static function updateMessageTemplate(&$message, $version, $fromVer) {
     if (version_compare($version, 5.0, '<')) {
       return;
     }
     $messageObj = new CRM_Upgrade_Incremental_MessageTemplates($version);
-    $messages = $messageObj->getUpgradeMessages();
+    $messages = $messageObj->getUpgradeMessages($fromVer);
     if (empty($messages)) {
       return;
     }

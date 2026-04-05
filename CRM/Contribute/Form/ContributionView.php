@@ -95,7 +95,7 @@ class CRM_Contribute_Form_ContributionView extends CRM_Core_Form {
     if (!empty($financialTrxnId['financialTrxnId'])) {
       $values['to_financial_account_id'] = CRM_Core_DAO::getFieldValue('CRM_Financial_DAO_FinancialTrxn', $financialTrxnId['financialTrxnId'], 'to_financial_account_id');
       if ($values['to_financial_account_id']) {
-        $values['to_financial_account'] = CRM_Contribute_PseudoConstant::financialAccount($values['to_financial_account_id']);
+        $values['to_financial_account'] = CRM_Contribute_PseudoConstant::financialAccount($values['to_financial_account_id'], NULL, 'label');
       }
       $values['payment_processor_id'] = CRM_Core_DAO::getFieldValue('CRM_Financial_DAO_FinancialTrxn', $financialTrxnId['financialTrxnId'], 'payment_processor_id');
       if ($values['payment_processor_id']) {
@@ -160,13 +160,21 @@ class CRM_Contribute_Form_ContributionView extends CRM_Core_Form {
       $productDAO->id = $productID;
       $productDAO->find(TRUE);
 
+      // If the option has a key/val that are not identical, display as "label (key)"
+      // where the "key" is somewhat assumed to be the SKU of the option
+      $options = CRM_Contribute_BAO_Premium::parseProductOptions($productDAO->options);
+      $option_key = $option_label = $dao->product_option;
+      if ($option_key && !empty($options[$option_key]) && $options[$option_key] != $option_key) {
+        $option_label = $options[$option_key] . ' (' . $option_key . ')';
+      }
+
       $this->assign('premium', $productDAO->name);
-      $this->assign('option', $dao->product_option);
+      $this->assign('option', $option_label);
       $this->assign('fulfilled', $dao->fulfilled_date);
     }
 
     // Get Note
-    $noteValue = CRM_Core_BAO_Note::getNote(CRM_Utils_Array::value('id', $values), 'civicrm_contribution');
+    $noteValue = CRM_Core_BAO_Note::getNote($values['id'], 'civicrm_contribution');
     $values['note'] = array_values($noteValue);
 
     // show billing address location details, if exists
@@ -267,12 +275,6 @@ class CRM_Contribute_Form_ContributionView extends CRM_Core_Form {
       $urlParams = "reset=1&id={$id}&cid={$values['contact_id']}&action=update&context={$context}";
       if (($context === 'fulltext' || $context === 'search') && $searchKey) {
         $urlParams = "reset=1&id={$id}&cid={$values['contact_id']}&action=update&context={$context}&key={$searchKey}";
-      }
-      if (!$contribution['is_template']) {
-        foreach (CRM_Contribute_BAO_Contribution::getContributionPaymentLinks($this->getContributionID(), $contributionStatus) as $paymentButton) {
-          $paymentButton['icon'] = 'fa-plus-circle';
-          $linkButtons[] = $paymentButton;
-        }
       }
       $linkButtons[] = [
         'title' => ts('Edit'),

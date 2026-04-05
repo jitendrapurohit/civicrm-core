@@ -2,6 +2,7 @@
 
 namespace Civi\Api4\Action\Afform;
 
+use Civi\Afform\Utils;
 use Civi\AfformAdmin\AfformAdminMeta;
 use Civi\Api4\Afform;
 use Civi\Api4\AfformBehavior;
@@ -41,6 +42,9 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
     if (!$newForm) {
       // Load existing afform if name provided
       $info['definition'] = $this->loadForm($this->definition['name']);
+      if ($locale = $info['definition']['locale'][0] ?? FALSE) {
+        \CRM_Core_I18n::singleton()->setLocale($locale);
+      }
     }
     else {
       // Create new blank afform
@@ -81,6 +85,23 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
           ];
           break;
       }
+
+    }
+
+    if (\CRM_Core_I18n::isMultiLingual()) {
+      $locale = $info['definition']['locale'][0] ?? FALSE;
+
+      // if no locale yet, set a sensible default locale
+      if (!$locale) {
+        $force = \Civi::settings()->get('force_translation_source_locale') ?? TRUE;
+        $locale = $force ? \Civi::settings()->get('lcMessages') : \CRM_Core_I18n::getLocale();
+        $info['definition']['locale'] = [$locale];
+      }
+
+      // force the locale to ensure that all the labels are in the afform defined locale
+      if ($locale != \CRM_Core_I18n::getLocale()) {
+        \CRM_Core_I18n::singleton()->setLocale($locale);
+      }
     }
 
     $getFieldsMode = 'create';
@@ -98,14 +119,7 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
     $scanBlocks = function($layout) use (&$scanBlocks, &$info, &$entities, $allAfforms) {
       // Find declared af-entity tags
       foreach (\CRM_Utils_Array::findAll($layout, ['#tag' => 'af-entity']) as $afEntity) {
-        // Convert "Contact" to "Individual", "Organization" or "Household"
-        if ($afEntity['type'] === 'Contact' && !empty($afEntity['data'])) {
-          $data = \CRM_Utils_JS::decode($afEntity['data']);
-          $entities[] = $data['contact_type'] ?? $afEntity['type'];
-        }
-        else {
-          $entities[] = $afEntity['type'];
-        }
+        $entities[] = $afEntity['type'];
       }
       $joins = array_column(\CRM_Utils_Array::findAll($layout, 'af-join'), 'af-join');
       $entities = array_unique(array_merge($entities, $joins));
@@ -144,17 +158,13 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
         $scanBlocks($info['definition']['layout']);
       }
 
-      if (array_intersect($entities, \CRM_Contact_BAO_ContactType::basicTypes(TRUE))) {
-        $entities[] = 'Contact';
-      }
-
       // The full contents of blocks used on the form have been loaded. Get basic info about others relevant to these entities.
       $this->loadAvailableBlocks($entities, $info);
     }
 
     if ($info['definition']['type'] === 'block') {
       $blockEntity = $info['definition']['join_entity'] ?? $info['definition']['entity_type'] ?? NULL;
-      if ($blockEntity) {
+      if ($blockEntity && $blockEntity !== '*') {
         $entities[] = $blockEntity;
       }
       $scanBlocks($info['definition']['layout']);
@@ -169,8 +179,8 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
         $displayTags[] = ['search-name' => $searchName, 'display-name' => $displayName];
       }
       else {
-        foreach (\Civi\Search\Display::getDisplayTypes(['name']) as $displayType) {
-          $displayTags = array_merge($displayTags, \CRM_Utils_Array::findAll($info['definition']['layout'], ['#tag' => $displayType['name']]));
+        foreach (Utils::getSearchDisplayTags() as $displayType) {
+          $displayTags = array_merge($displayTags, \CRM_Utils_Array::findAll($info['definition']['layout'], ['#tag' => $displayType]));
         }
       }
       foreach ($displayTags as $displayTag) {
@@ -184,20 +194,34 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
             ->setSavedSearch($displayTag['search-name']);
         }
         $display = $displayGet
-          ->addSelect('*', 'type:name', 'type:icon', 'saved_search_id.name', 'saved_search_id.label', 'saved_search_id.api_entity', 'saved_search_id.api_params')
+          ->addSelect('*', 'type:name', 'type:icon', 'saved_search_id.name', 'saved_search_id.label', 'saved_search_id.api_entity', 'saved_search_id.api_params', 'saved_search_id.form_values', 'saved_search_id.created_id')
           ->execute()->first();
         if (!$display) {
           continue;
         }
         $display['calc_fields'] = \Civi\Search\Meta::getCalcFields($display['saved_search_id.api_entity'], $display['saved_search_id.api_params']);
         $display['filters'] = empty($displayTag['filters']) ? NULL : (\CRM_Utils_JS::getRawProps($displayTag['filters']) ?: NULL);
-        $info['search_displays'][] = $display;
         if ($newForm) {
           $info['definition']['layout'][0]['#children'][] = $displayTag + ['#tag' => $display['type:name']];
         }
         $entities[] = $display['saved_search_id.api_entity'];
+        $joinCount = [$display['saved_search_id.api_entity'] => 1];
+        $display['saved_search_id.form_values'] ??= [];
         foreach ($display['saved_search_id.api_params']['join'] ?? [] as $join) {
-          $entities[] = explode(' AS ', $join[0])[0];
+          [$entityName, $joinAlias] = explode(' AS ', $join[0]);
+          $entities[] = $entityName;
+          // Set default join labels
+          $num = '';
+          if (!empty($joinCount[$entityName])) {
+            $num = ' ' . (++$joinCount[$entityName]);
+          }
+          else {
+            $joinCount[$entityName] = 1;
+          }
+          if (empty($display['saved_search_id.form_values']['join'][$joinAlias])) {
+            $label = CoreUtil::getInfoItem($entityName, 'title');
+            $display['saved_search_id.form_values']['join'][$joinAlias] = "$label$num";
+          }
           // Add bridge entities (but only if they are tagged searchable e.g. RelationshipCache)
           if (is_string($join[2] ?? NULL) &&
             in_array(CoreUtil::getInfoItem($join[2], 'searchable'), ['primary', 'secondary'])
@@ -205,6 +229,7 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
             $entities[] = $join[2];
           }
         }
+        $info['search_displays'][] = $display;
       }
       if (!$newForm) {
         $scanBlocks($info['definition']['layout']);
@@ -213,15 +238,12 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
       $this->loadAvailableBlocks($entities, $info, [['join_entity', 'IS NULL']]);
     }
 
-    // Optimization - since contact fields are a combination of these three,
-    // we'll combine them client-side rather than sending them via ajax.
-    elseif (array_intersect($entities, \CRM_Contact_BAO_ContactType::basicTypes(TRUE))) {
-      $entities = array_diff($entities, ['Contact']);
-    }
-
     foreach (array_diff($entities, $this->skipEntities) as $entity) {
       $info['entities'][$entity] = AfformAdminMeta::getApiEntity($entity);
       $info['fields'][$entity] = AfformAdminMeta::getFields($entity, ['action' => $getFieldsMode]);
+      foreach ($info['fields'][$entity] as $key => $field) {
+        $info['fields'][$entity][$key]['original_input_type'] = $field['input_type'];
+      }
       $behaviors = AfformBehavior::get(FALSE)
         ->addWhere('entities', 'CONTAINS', $entity)
         ->execute();
@@ -261,6 +283,10 @@ class LoadAdminData extends \Civi\Api4\Generic\AbstractAction {
     $entities = array_diff($entities, $this->skipEntities);
     if (!$this->skipEntities) {
       $entities[] = '*';
+    }
+    // A block of type "Contact" also applies to "Individual", "Organization" & "Household".
+    if (array_intersect($entities, \CRM_Contact_BAO_ContactType::basicTypes())) {
+      $entities[] = 'Contact';
     }
     if ($entities) {
       $blockInfo = Afform::get($this->checkPermissions)

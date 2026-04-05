@@ -6,6 +6,13 @@
 class CRM_Activity_Form_ActivityViewTest extends CiviUnitTestCase {
 
   /**
+   * API version in use.
+   *
+   * @var int
+   */
+  protected $_apiversion = 4;
+
+  /**
    * @var int
    */
   protected $source_contact_id;
@@ -69,7 +76,7 @@ class CRM_Activity_Form_ActivityViewTest extends CiviUnitTestCase {
     $activity = $this->activityCreate();
 
     // $activity doesn't contain everything we need, so do another get call
-    $activityMoreInfo = $this->callAPISuccess('activity', 'getsingle', ['id' => $activity['id']]);
+    $activityMoreInfo = $this->callAPISuccess('Activity', 'getsingle', ['id' => $activity['id'], 'version' => 3]);
 
     // do preProcess
     $activityViewForm = new CRM_Activity_Form_ActivityView();
@@ -139,7 +146,7 @@ class CRM_Activity_Form_ActivityViewTest extends CiviUnitTestCase {
       'details' => $input['details'],
       'activity_type_id' => $input['activity_type'],
       'source_record_id' => ($input['activity_type'] === 'Bulk Email' ? $this->mailing_id : NULL),
-      'case_id' => (strpos($input['url'], 'caseid') === FALSE ? NULL : $this->case_id),
+      'case_id' => (!str_contains($input['url'], 'caseid') ? NULL : $this->case_id),
     ]);
 
     // We have to replace these at runtime because dataproviders are
@@ -175,7 +182,7 @@ class CRM_Activity_Form_ActivityViewTest extends CiviUnitTestCase {
    *
    * @return array
    */
-  public function activityTypesProvider(): array {
+  public static function activityTypesProvider(): array {
     $data = [
       'meeting-text' => [
         [
@@ -482,9 +489,9 @@ ENDDETAILS
    * data provider for testNewlinesLookRight() for case activities
    * @return array
    */
-  public function caseActivityTypesProvider(): array {
+  public static function caseActivityTypesProvider(): array {
     // We want the same set as non-case, but the url is different, and expected results might change.
-    $data = $this->activityTypesProvider();
+    $data = self::activityTypesProvider();
     $newData = [];
     foreach ($data as $key => $value) {
       $newData['case-' . $key] = $data[$key];

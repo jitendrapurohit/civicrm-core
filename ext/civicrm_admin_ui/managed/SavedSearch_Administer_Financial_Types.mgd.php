@@ -1,6 +1,11 @@
 <?php
 use CRM_CivicrmAdminUi_ExtensionUtil as E;
 
+// Temporary check can be removed when moving this file to the civi_contribute extension.
+if (!CRM_Core_Component::isEnabled('CiviContribute')) {
+  return [];
+}
+
 return [
   [
     'name' => 'SavedSearch_Administer_Financial_Types',
@@ -77,6 +82,7 @@ return [
           'classes' => [
             'table',
             'table-striped',
+            'crm-sticky-header',
           ],
           'pager' => [
             'show_count' => TRUE,
@@ -94,14 +100,12 @@ return [
             [
               'type' => 'field',
               'key' => 'name',
-              'dataType' => 'String',
               'label' => E::ts('Name'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'description',
-              'dataType' => 'String',
               'label' => E::ts('Description'),
               'sortable' => TRUE,
               'editable' => TRUE,
@@ -109,31 +113,27 @@ return [
             [
               'type' => 'field',
               'key' => 'GROUP_CONCAT_FinancialType_EntityFinancialAccount_FinancialAccount_01_name',
-              'dataType' => 'String',
               'label' => E::ts('Financial Accounts'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'is_deductible',
-              'dataType' => 'Boolean',
               'label' => E::ts('Tax-Deductible'),
               'sortable' => TRUE,
               'editable' => TRUE,
             ],
             [
               'type' => 'field',
-              'key' => 'is_reserved',
-              'dataType' => 'Boolean',
-              'label' => E::ts('Reserved'),
+              'key' => 'is_active',
+              'label' => E::ts('Enabled'),
               'sortable' => TRUE,
               'editable' => TRUE,
             ],
             [
               'type' => 'field',
-              'key' => 'is_active',
-              'dataType' => 'Boolean',
-              'label' => E::ts('Enabled'),
+              'key' => 'is_reserved',
+              'label' => E::ts('Reserved'),
               'sortable' => TRUE,
               'editable' => TRUE,
             ],

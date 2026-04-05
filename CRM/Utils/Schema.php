@@ -73,7 +73,7 @@ class CRM_Utils_Schema {
         break;
 
       case 'decimal':
-        $length = $fieldXML->length ? $fieldXML->length : '20,2';
+        $length = $fieldXML->length ?: '20,2';
         $field['sqlType'] = 'decimal(' . $length . ')';
         $field['crmType'] = self::toString('crmType', $fieldXML) ?: 'CRM_Utils_Type::T_MONEY';
         $field['precision'] = $length;
@@ -86,7 +86,7 @@ class CRM_Utils_Schema {
 
       default:
         $field['sqlType'] = $type;
-        if ($type === 'int unsigned' || $type === 'tinyint') {
+        if ($type === 'int unsigned' || $type === 'tinyint' || $type === 'bigint unsigned') {
           $field['crmType'] = 'CRM_Utils_Type::T_INT';
         }
         else {
@@ -112,9 +112,13 @@ class CRM_Utils_Schema {
    */
   public static function getSize(SimpleXMLElement $fieldXML): string {
     // Extract from <size> tag if supplied
-    if (!empty($fieldXML->html) && !empty($fieldXML->html->size)) {
+    if (!empty($fieldXML->html->size)) {
       return (string) $fieldXML->html->size;
     }
+    return self::getDefaultSize(self::toString('length', $fieldXML));
+  }
+
+  public static function getDefaultSize($length) {
     // Infer from <length> tag if <size> was not explicitly set or was invalid
     // This map is slightly different from CRM_Core_Form_Renderer::$_sizeMapper
     // Because we usually want fields to render as smaller than their maxlength
@@ -127,12 +131,62 @@ class CRM_Utils_Schema {
       32 => 'MEDIUM',
       64 => 'BIG',
     ];
-    foreach ($sizes as $length => $name) {
-      if ($fieldXML->length <= $length) {
+    foreach ($sizes as $size => $name) {
+      if ($length <= $size) {
         return "CRM_Utils_Type::$name";
       }
     }
     return 'CRM_Utils_Type::HUGE';
+  }
+
+  public static function getCrmTypeFromSqlType(string $sqlType): int {
+    [$type] = explode('(', $sqlType);
+    switch ($type) {
+      case 'varchar':
+      case 'char':
+        return CRM_Utils_Type::T_STRING;
+
+      case 'datetime':
+        return CRM_Utils_Type::T_DATE + CRM_Utils_Type::T_TIME;
+
+      case 'decimal':
+        return CRM_Utils_Type::T_MONEY;
+
+      case 'double':
+        return CRM_Utils_Type::T_FLOAT;
+
+      case 'int unsigned':
+      case 'bigint unsigned':
+      case 'tinyint':
+        return CRM_Utils_Type::T_INT;
+
+      default:
+        return constant('CRM_Utils_Type::T_' . strtoupper($type));
+    }
+  }
+
+  /**
+   * Get the data type from a field array. Defaults to 'data_type' with fallback to
+   * mapping based on the 'sql_type'.
+   *
+   * @param array|null $field
+   *   Field array as returned from EntityMetadataInterface::getField()
+   *
+   * @return string|null
+   */
+  public static function getDataType(?array $field): ?string {
+    if (isset($field['data_type'])) {
+      return $field['data_type'];
+    }
+    if (empty($field['sql_type'])) {
+      return NULL;
+    }
+
+    // If no data_type provided, look it up from the sql_type
+    $dataTypeInt = self::getCrmTypeFromSqlType($field['sql_type']);
+    $dataTypeName = CRM_Utils_Type::typeToString($dataTypeInt) ?: NULL;
+
+    return $dataTypeName === 'Int' ? 'Integer' : $dataTypeName;
   }
 
   /**

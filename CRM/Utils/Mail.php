@@ -1,4 +1,5 @@
 <?php
+
 /*
  +--------------------------------------------------------------------+
  | Copyright CiviCRM LLC. All rights reserved.                        |
@@ -60,15 +61,7 @@ class CRM_Utils_Mail {
        * Use the host name of the web server, falling back to the base URL
        * (eg when using the PHP CLI), and then falling back to localhost.
        */
-      $params['localhost'] = CRM_Utils_Array::value(
-        'SERVER_NAME',
-        $_SERVER,
-        CRM_Utils_Array::value(
-          'host',
-          parse_url(CIVICRM_UF_BASEURL),
-          'localhost'
-        )
-      );
+      $params['localhost'] = $_SERVER['SERVER_NAME'] ?? parse_url(CIVICRM_UF_BASEURL)['host'] ?? 'localhost';
 
       // also set the timeout value, lets set it to 30 seconds
       // CRM-7510
@@ -99,12 +92,12 @@ class CRM_Utils_Mail {
     }
     elseif ($mailingInfo['outBound_option'] == CRM_Mailing_Config::OUTBOUND_OPTION_DISABLED) {
       Civi::log()->info(ts('Outbound mail has been disabled. Click <a href=\'%1\'>Administer >> System Setting >> Outbound Email</a> to set the OutBound Email.', [1 => CRM_Utils_System::url('civicrm/admin/setting/smtp', 'reset=1')]));
-      CRM_Core_Error::statusBounce(ts('Outbound mail has been disabled. Click <a href=\'%1\'>Administer >> System Setting >> Outbound Email</a> to set the OutBound Email.', [1 => CRM_Utils_System::url('civicrm/admin/setting/smtp', 'reset=1')]));
+      throw new CRM_Core_Exception(ts('Outbound mail has been disabled. Click <a href=\'%1\'>Administer >> System Setting >> Outbound Email</a> to set the OutBound Email.', [1 => CRM_Utils_System::url('civicrm/admin/setting/smtp', 'reset=1')]));
     }
     else {
       Civi::log()->error(ts('There is no valid SMTP server Setting Or SendMail path setting. Click <a href=\'%1\'>Administer >> System Setting >> Outbound Email</a> to set the OutBound Email.', [1 => CRM_Utils_System::url('civicrm/admin/setting/smtp', 'reset=1')]));
       CRM_Core_Error::debug_var('mailing_info', $mailingInfo);
-      CRM_Core_Error::statusBounce(ts('There is no valid SMTP server Setting Or sendMail path setting. Click <a href=\'%1\'>Administer >> System Setting >> Outbound Email</a> to set the OutBound Email.', [1 => CRM_Utils_System::url('civicrm/admin/setting/smtp', 'reset=1')]));
+      throw new CRM_Core_Exception(ts('There is no valid SMTP server Setting Or sendMail path setting. Click <a href=\'%1\'>Administer >> System Setting >> Outbound Email</a> to set the OutBound Email.', [1 => CRM_Utils_System::url('civicrm/admin/setting/smtp', 'reset=1')]));
     }
     return $mailer;
   }
@@ -141,6 +134,32 @@ class CRM_Utils_Mail {
   }
 
   /**
+   * When creating a `Mail_mime` payload for use with a `Mail_*` transport,
+   * they need to agree about the end-of-line character. (Otherwise, you
+   * see mix of EOLs on header-lines -- esp re: header-wrapping.)
+   *
+   * Use pickDefaultsEol() to make a consistent choice.
+   *
+   * Aside: IMHO, the concept of a "default EOL" is fundamentally flawed.
+   * If we swap-in external transports, or if we allow multiple outbound
+   * routes, then this makes it hard to mix-and-match the payloads+transports.
+   *
+   * But for the moment, we need them to match, and we have a legacy of
+   * system-configurations that depend on particular quirks in the drivers.
+   *
+   * @internal
+   * @return string
+   */
+  public static function pickDefaultEol(): string {
+    $mailer = \Civi::service('pear_mail');
+    if ($mailer instanceof CRM_Utils_Mail_FilteredPearMailer) {
+      $mailer = $mailer->getDelegate();
+    }
+    // In core, all mailers should have a "$sep". But in contrib, it hasn't been guaranteed.
+    return property_exists($mailer, 'sep') ? $mailer->sep : "\r\n";
+  }
+
+  /**
    * Wrapper function to send mail in CiviCRM. Hooks are called from this function. The input parameter
    * is an associateive array which holds the values of field needed to send an email. Note that these
    * parameters are case-sensitive. The Parameters are:
@@ -164,19 +183,13 @@ class CRM_Utils_Mail {
    *
    * @param array $params
    *   (by reference).
+   * @param string|null $errorMessage
+   *   Optional reference to capture error messages if sending fails.
    *
    * @return bool
    *   TRUE if a mail was sent, else FALSE.
    */
-  public static function send(array &$params): bool {
-    $defaultReturnPath = CRM_Core_BAO_MailSettings::defaultReturnPath();
-    $includeMessageId = CRM_Core_BAO_MailSettings::includeMessageId();
-    $emailDomain = CRM_Core_BAO_MailSettings::defaultDomain();
-    $from = $params['from'] ?? NULL;
-    if (!$defaultReturnPath) {
-      $defaultReturnPath = self::pluckEmailFromHeader($from);
-    }
-
+  public static function send(array &$params, &$errorMessage = NULL): bool {
     // first call the mail alter hook
     CRM_Utils_Hook::alterMailParams($params, 'singleEmail');
 
@@ -185,10 +198,142 @@ class CRM_Utils_Mail {
       return FALSE;
     }
 
-    $htmlMessage = $params['html'] ?? FALSE;
-    if (trim(CRM_Utils_String::htmlToText((string) $htmlMessage)) === '') {
-      $htmlMessage = FALSE;
+    list($headers, $message) = self::setEmailHeaders($params);
+
+    $to = [$params['toEmail']];
+    $mailer = \Civi::service('pear_mail');
+
+    // CRM-3795, CRM-7355, CRM-7557, CRM-9058, CRM-9887, CRM-12883, CRM-19173 and others ...
+    // The PEAR library requires different parameters based on the mailer used:
+    // * Mail_mail requires the Cc/Bcc recipients listed ONLY in the $headers variable
+    // * All other mailers require that all be recipients be listed in the $to array AND that
+    //   the Bcc must not be present in $header as otherwise it will be shown to all recipients
+    // ref: https://pear.php.net/bugs/bug.php?id=8047, full thread and answer [2011-04-19 20:48 UTC]
+    // TODO: Refactor this quirk-handler as another filter in FilteredPearMailer. But that would merit review of impact on universe.
+    $driver = ($mailer instanceof CRM_Utils_Mail_FilteredPearMailer) ? $mailer->getDriver() : NULL;
+    $isPhpMail = (get_class($mailer) === "Mail_mail" || $driver === 'mail');
+    $originalValues = [
+      'html' => $params['html'] ?? NULL,
+      'text' => $params['text'] ?? NULL,
+      'attachments' => $params['attachments'] ?? [],
+      // bcc comes in as a comma-separated string of email addresses in $params['bcc'] and is copied to $headers['Bcc']
+      // Eg. testbcc@test.com,testanotherbcc@test.com
+      'bcc' => $headers['Bcc'] ?? NULL,
+    ];
+    if (!$isPhpMail) {
+      // get emails from headers, since these are
+      // combination of name and email addresses.
+      if (!empty($headers['Cc'])) {
+        $to[] = $headers['Cc'] ?? NULL;
+      }
+      if (!empty($headers['Bcc'])) {
+        $to[] = $headers['Bcc'] ?? NULL;
+        unset($headers['Bcc']);
+      }
     }
+
+    if (is_object($mailer)) {
+      try {
+        // Note that we pass out `$originalValues` to make them available where the
+        // mailer has been replaced byt an alternate library - eg.
+        // https://github.com/eileenmcnaughton/symfony_mailer
+        // Also see https://github.com/civicrm/civicrm-core/pull/31842
+        $result = $mailer->send($to, $headers, $message ?? '', $originalValues);
+      }
+      catch (Exception $e) {
+        $errorMessage = $e->getMessage();
+        \Civi::log()->error('Mailing error: ' . $errorMessage);
+        CRM_Core_Session::setStatus(ts('Unable to send email. Please report this message to the site administrator'), ts('Mailing Error'), 'error');
+        return FALSE;
+      }
+      if (is_a($result, 'PEAR_Error')) {
+        $errorMessage = self::errorMessage($mailer, $result);
+        // append error message in case multiple calls are being made to
+        // this method in the course of sending a batch of messages.
+        \Civi::log()->error('Mailing error: ' . $errorMessage);
+        CRM_Core_Session::setStatus(ts('Unable to send email. Please report this message to the site administrator'), ts('Mailing Error'), 'error');
+        return FALSE;
+      }
+      // CRM-10699
+      CRM_Utils_Hook::postEmailSend($params);
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  /**
+   * Send a test email using the selected mailer.
+   *
+   * @param Mail $mailer
+   * @param array $params
+   *   Params by reference.
+   *
+   * @return bool
+   *   TRUE if a mail was sent, else FALSE.
+   */
+  public static function sendTest($mailer, array &$params): bool {
+    CRM_Utils_Hook::alterMailParams($params, 'testEmail');
+    $to = $params['toEmail'];
+
+    list($headers, $message) = self::setEmailHeaders($params);
+
+    $from = self::pluckEmailFromHeader($headers['From']);
+
+    $testMailStatusMsg = ts('Sending test email.') . ':<br />'
+      . ts('From: %1', [1 => $from]) . '<br />'
+      . ts('To: %1', [1 => $to]) . '<br />';
+
+    $mailerName = $mailer->getDriver() ?? '';
+
+    try {
+      $originalValues = [
+        'html' => $params['html'] ?? NULL,
+        'text' => $params['text'] ?? NULL,
+        'attachments' => $params['attachments'] ?? [],
+        // bcc comes in as a comma-separated string of email addresses in $params['bcc'] and is copied to $headers['Bcc']
+        // Eg. testbcc@test.com,testanotherbcc@test.com
+        'bcc' => $headers['Bcc'] ?? NULL,
+      ];
+      $mailer->send($to, $headers, $message, $originalValues);
+
+      if (defined('CIVICRM_MAIL_LOG') && defined('CIVICRM_MAIL_LOG_AND_SEND')) {
+        $testMailStatusMsg .= '<br />' . ts('You have defined CIVICRM_MAIL_LOG_AND_SEND - mail will be logged.') . '<br /><br />';
+      }
+      if (defined('CIVICRM_MAIL_LOG') && !defined('CIVICRM_MAIL_LOG_AND_SEND')) {
+        CRM_Core_Session::setStatus($testMailStatusMsg . ts('You have defined CIVICRM_MAIL_LOG - no mail will be sent.  Your %1 settings have not been tested.', [1 => strtoupper($mailerName)]), ts("Mail not sent"), "warning");
+      }
+      else {
+        CRM_Core_Session::setStatus($testMailStatusMsg . ts('Your %1 settings are correct. A test email has been sent to your email address.', [1 => strtoupper($mailerName)]), ts("Mail Sent"), "success");
+      }
+    }
+    catch (Exception $e) {
+      $result = $e;
+      Civi::log()->error($e->getMessage());
+      $errorMessage = CRM_Utils_Mail::errorMessage($mailer, $result);
+      CRM_Core_Session::setStatus($testMailStatusMsg . ts('Oops. Your %1 settings are incorrect. No test mail has been sent.', [1 => strtoupper($mailerName)]) . $errorMessage, ts("Mail Not Sent"), "error");
+      return FALSE;
+    }
+    return TRUE;
+  }
+
+  /**
+   * Set email headers
+   *
+   * @param array $params
+   *
+   * @return array
+   *   An array of the Headers and Message.
+   */
+  public static function setEmailHeaders($params): array {
+    $defaultReturnPath = CRM_Core_BAO_MailSettings::defaultReturnPath();
+    $includeMessageId = CRM_Core_BAO_MailSettings::includeMessageId();
+    $emailDomain = CRM_Core_BAO_MailSettings::defaultDomain();
+    $from = $params['from'] ?? NULL;
+    if (!$defaultReturnPath) {
+      $defaultReturnPath = self::pluckEmailFromHeader($from);
+    }
+
+    $htmlMessage = $params['html'] ?? FALSE;
     $attachments = $params['attachments'] ?? NULL;
     if (!empty($params['text']) && trim($params['text'])) {
       $textMessage = $params['text'];
@@ -204,7 +349,7 @@ class CRM_Utils_Mail {
       if ($logCount < 3) {
         // Only record the first 3 times since there might be different messages but after 3 chances are
         // it's just bulk run of the same..
-        CRM_Core_Error::deprecatedWarning('email output affected by undefined php properties:' . (CRM_Utils_Constant::value('CIVICRM_UF') === 'UnitTests' ? CRM_Utils_String::purifyHTML($htmlMessage) : ''));
+        CRM_Core_Error::deprecatedWarning('email output affected by undefined php properties:' . (CRM_Utils_Constant::value('CIVICRM_UF') === 'UnitTests' ? CRM_Utils_String::purifyHTML($htmlMessage) . CRM_Utils_String::purifyHTML($textMessage) : ''));
         $logCount++;
         \Civi::$statics[__CLASS__][__FUNCTION__]['count'] = $logCount;
       }
@@ -215,7 +360,8 @@ class CRM_Utils_Mail {
     if (!empty($params['headers'])) {
       $headers = array_merge($headers, $params['headers']);
     }
-    $headers['From'] = $params['from'];
+    // dev/core#5301: Allow From to be set directly.
+    $headers['From'] = $params['From'] ?? $params['from'];
     $headers['To'] = self::formatRFC822Email(
       $params['toName'] ?? NULL,
       $params['toEmail'] ?? NULL,
@@ -237,11 +383,12 @@ class CRM_Utils_Mail {
     $headers['Return-Path'] = $params['returnPath'] ?? $defaultReturnPath;
 
     // CRM-11295: Omit reply-to headers if empty; this avoids issues with overzealous mailservers
-    $replyTo = ($params['replyTo'] ?? ($params['from'] ?? NULL));
+    $replyTo = $params['Reply-To'] ?? ($params['replyTo'] ?? NULL);
 
     if (!empty($replyTo)) {
       $headers['Reply-To'] = $replyTo;
     }
+
     $headers['Date'] = date('r');
     if ($includeMessageId) {
       $headers['Message-ID'] = $params['messageId'] ?? '<' . uniqid('civicrm_', TRUE) . "@$emailDomain>";
@@ -258,7 +405,7 @@ class CRM_Utils_Mail {
     }
 
     // quote FROM, if comma is detected AND is not already quoted. CRM-7053
-    if (strpos($headers['From'], ',') !== FALSE) {
+    if (str_contains($headers['From'], ',')) {
       $from = explode(' <', $headers['From']);
       $headers['From'] = self::formatRFC822Email(
         $from[0],
@@ -267,8 +414,12 @@ class CRM_Utils_Mail {
       );
     }
 
-    require_once 'Mail/mime.php';
-    $msg = new Mail_mime("\n");
+    // dev/core#5301: Allow Reply-To to be set directly.
+    if (empty($replyTo)) {
+      $headers['Reply-To'] = $headers['From'];
+    }
+
+    $msg = new Mail_mime(static::pickDefaultEol());
     if ($textMessage) {
       $msg->setTxtBody($textMessage);
     }
@@ -286,7 +437,7 @@ class CRM_Utils_Mail {
           TRUE,
           'base64',
           'attachment',
-          (isset($attach['charset']) ? $attach['charset'] : ''),
+          ($attach['charset'] ?? ''),
           '',
           '',
           NULL,
@@ -300,52 +451,7 @@ class CRM_Utils_Mail {
     $message = self::setMimeParams($msg);
     $headers = $msg->headers($headers);
 
-    $to = [$params['toEmail']];
-    $mailer = \Civi::service('pear_mail');
-
-    // CRM-3795, CRM-7355, CRM-7557, CRM-9058, CRM-9887, CRM-12883, CRM-19173 and others ...
-    // The PEAR library requires different parameters based on the mailer used:
-    // * Mail_mail requires the Cc/Bcc recipients listed ONLY in the $headers variable
-    // * All other mailers require that all be recipients be listed in the $to array AND that
-    //   the Bcc must not be present in $header as otherwise it will be shown to all recipients
-    // ref: https://pear.php.net/bugs/bug.php?id=8047, full thread and answer [2011-04-19 20:48 UTC]
-    // TODO: Refactor this quirk-handler as another filter in FilteredPearMailer. But that would merit review of impact on universe.
-    $driver = ($mailer instanceof CRM_Utils_Mail_FilteredPearMailer) ? $mailer->getDriver() : NULL;
-    $isPhpMail = (get_class($mailer) === "Mail_mail" || $driver === 'mail');
-    if (!$isPhpMail) {
-      // get emails from headers, since these are
-      // combination of name and email addresses.
-      if (!empty($headers['Cc'])) {
-        $to[] = $headers['Cc'] ?? NULL;
-      }
-      if (!empty($headers['Bcc'])) {
-        $to[] = $headers['Bcc'] ?? NULL;
-        unset($headers['Bcc']);
-      }
-    }
-
-    if (is_object($mailer)) {
-      try {
-        $result = $mailer->send($to, $headers, $message);
-      }
-      catch (Exception $e) {
-        \Civi::log()->error('Mailing error: ' . $e->getMessage());
-        CRM_Core_Session::setStatus(ts('Unable to send email. Please report this message to the site administrator'), ts('Mailing Error'), 'error');
-        return FALSE;
-      }
-      if (is_a($result, 'PEAR_Error')) {
-        $message = self::errorMessage($mailer, $result);
-        // append error message in case multiple calls are being made to
-        // this method in the course of sending a batch of messages.
-        \Civi::log()->error('Mailing error: ' . $message);
-        CRM_Core_Session::setStatus(ts('Unable to send email. Please report this message to the site administrator'), ts('Mailing Error'), 'error');
-        return FALSE;
-      }
-      // CRM-10699
-      CRM_Utils_Hook::postEmailSend($params);
-      return TRUE;
-    }
-    return FALSE;
+    return [$headers, $message];
   }
 
   /**
@@ -366,7 +472,7 @@ class CRM_Utils_Mail {
       $message .= '<ul>' . '<li>' . ts('Your Sendmail path is incorrect.') . '</li>' . '<li>' . ts('Your Sendmail argument is incorrect.') . '</li>';
     }
 
-    $message .= '<li>' . ts('The FROM Email Address configured for this feature may not be a valid sender based on your email service provider rules.') . '</li>' . '</ul>' . '<p>' . ts('Check <a href="%1">this page</a> for more information.', [
+    $message .= '<li>' . ts('The Site From Email Address configured for this feature may not be a valid sender based on your email service provider rules.') . '</li>' . '</ul>' . '<p>' . ts('Check <a href="%1">this page</a> for more information.', [
       1 => CRM_Utils_System::docURL2('user/advanced-configuration/email-system-configuration', TRUE),
     ]) . '</p>';
 
@@ -469,11 +575,12 @@ class CRM_Utils_Mail {
 
     if (!empty($name)) {
       // escape the special characters
-      $name = str_replace(['<', '"', '>'],
+      $name = str_replace(
+        ['<', '"', '>'],
         ['\<', '\"', '\>'],
         $name
       );
-      if (strpos($name, ',') !== FALSE ||
+      if (str_contains($name, ',') ||
         $useQuote
       ) {
         // quote the string if it has a comma
@@ -530,10 +637,14 @@ class CRM_Utils_Mail {
     // and will be added to the <html> tag even if you do not include it.
     $html = preg_replace('/(<html)(.+?xmlns=["\'].[^\s]+["\'])(.+)?(>)/', '\1\3\4', $html);
 
-    file_put_contents($pdf_filename, CRM_Utils_PDF_Utils::html2pdf($html,
+    file_put_contents(
+      $pdf_filename,
+      CRM_Utils_PDF_Utils::html2pdf(
+        $html,
         $fileName,
         TRUE,
-        $format)
+        $format
+      )
     );
     return [
       'fullPath' => $pdf_filename,
@@ -583,20 +694,24 @@ class CRM_Utils_Mail {
   /**
    * When passed a value, returns the value if it's non-numeric.
    * If it's numeric, look up the display name and email of the corresponding
-   * contact ID in RFC822 format.
+   * email ID in RFC822 format.
    *
-   * @param string $from
+   * @param string|array $from
    *   civicrm_email.id or formatted "From address", eg. 12 or "Fred Bloggs" <fred@example.org>
+   *   or array containing 'display_name' and 'email' keys.
    * @return string
    *   The RFC822-formatted email header (display name + address)
    */
   public static function formatFromAddress($from) {
+    if (is_array($from)) {
+      return "\"{$from['display_name']}\" <{$from['email']}>";
+    }
     if (is_numeric($from)) {
-      $result = civicrm_api3('Email', 'get', [
-        'id' => $from,
-        'return' => ['contact_id.display_name', 'email'],
-        'sequential' => 1,
-      ])['values'][0];
+      $result = \Civi\Api4\Email::get(FALSE)
+        ->addSelect('contact_id.display_name', 'email')
+        ->addWhere('id', '=', $from)
+        ->execute()
+        ->first();
       $from = '"' . $result['contact_id.display_name'] . '" <' . $result['email'] . '>';
     }
     return $from;

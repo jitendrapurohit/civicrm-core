@@ -1,6 +1,11 @@
 <?php
 use CRM_CivicrmAdminUi_ExtensionUtil as E;
 
+// Temporary check can be removed when moving this file to the civi_event extension.
+if (!CRM_Core_Component::isEnabled('CiviEvent')) {
+  return [];
+}
+
 return [
   [
     'name' => 'SavedSearch_Contact_Summary_Events',
@@ -71,7 +76,12 @@ return [
         'type' => 'table',
         'settings' => [
           'description' => NULL,
-          'sort' => [],
+          'sort' => [
+            [
+              'register_date',
+              'DESC',
+            ],
+          ],
           'limit' => 50,
           'pager' => [
             'show_count' => TRUE,
@@ -81,58 +91,51 @@ return [
           'placeholder' => 5,
           'columns' => [
             [
+              'type' => 'field',
+              'key' => 'register_date',
+              'label' => E::ts('Registered'),
+              'sortable' => TRUE,
+            ],
+            [
               'type' => 'html',
               'key' => 'event_id.title',
-              'dataType' => 'String',
               'label' => E::ts('Event'),
               'sortable' => TRUE,
               'rewrite' => '[event_id.title]',
             ],
             [
+              'type' => 'html',
+              'key' => 'Participant_Event_event_id_01.start_date',
+              'label' => E::ts('Event Dates'),
+              'sortable' => TRUE,
+              'rewrite' => '[Participant_Event_event_id_01.start_date] -<br> [Participant_Event_event_id_01.end_date]',
+            ],
+            [
               'type' => 'field',
               'key' => 'fee_level',
-              'dataType' => 'Text',
               'label' => E::ts('Fee level'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'fee_amount',
-              'dataType' => 'Money',
               'label' => E::ts('Amount'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
-              'key' => 'register_date',
-              'dataType' => 'Timestamp',
-              'label' => E::ts('Registered'),
-              'sortable' => TRUE,
-            ],
-            [
-              'type' => 'html',
-              'key' => 'Participant_Event_event_id_01.start_date',
-              'dataType' => 'Timestamp',
-              'label' => E::ts('Event Date(s)'),
-              'sortable' => TRUE,
-              'rewrite' => '[Participant_Event_event_id_01.start_date] -<br> [Participant_Event_event_id_01.end_date]',
-            ],
-            [
-              'type' => 'field',
               'key' => 'status_id:label',
-              'dataType' => 'Integer',
               'label' => E::ts('Status'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'role_id:label',
-              'dataType' => 'String',
-              'label' => E::ts('Participant Role'),
+              'label' => E::ts('Role'),
               'sortable' => TRUE,
             ],
             [
-              'text' => '',
+              'label' => E::ts('Actions'),
               'style' => 'default',
               'size' => 'btn-xs',
               'icon' => 'fa-bars',
@@ -208,6 +211,30 @@ return [
                   'entity' => '',
                   'action' => '',
                   'join' => '',
+                ],
+                [
+                  "path" => "civicrm/event/badge?reset=1&context=participant&id=[id]&cid=[contact_id]",
+                  "icon" => "fa-id-badge",
+                  "text" => E::ts("Print Name Badge"),
+                  "style" => "default",
+                  "condition" => [],
+                  "task" => "",
+                  "entity" => "",
+                  "action" => "",
+                  "join" => "",
+                  "target" => "crm-popup",
+                ],
+                [
+                  "path" => "civicrm/event/participant/print?reset=1&context=participant&id=[id]&cid=[contact_id]",
+                  "icon" => "fa-print",
+                  "text" => E::ts("PDF letter - print for participants"),
+                  "style" => "default",
+                  "condition" => [],
+                  "task" => "",
+                  "entity" => "",
+                  "action" => "",
+                  "join" => "",
+                  "target" => "crm-popup",
                 ],
               ],
               'type' => 'menu',

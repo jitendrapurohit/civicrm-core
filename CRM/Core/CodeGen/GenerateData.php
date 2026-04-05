@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * If you edit this class, you need to run Regen in Github actions to regenerate the sample data in civicrm_generated.mysql
+ */
+
 use Civi\Api4\ACL;
 use Civi\Api4\ACLEntityRole;
 use Civi\Api4\Contact;
@@ -276,6 +280,10 @@ class CRM_Core_CodeGen_GenerateData {
   private $subscriptionHistoryMethod = ['Admin', 'Email'];
 
   private $deceasedContactIds = [];
+
+  private $time;
+
+  private $relTypes;
 
   /*********************************
    * private methods
@@ -575,7 +583,7 @@ class CRM_Core_CodeGen_GenerateData {
       $contact->contact_type = $this->getContactType($id);
       $contact->do_not_phone = $this->probability(.2);
       $contact->do_not_email = $this->probability(.2);
-      $contact->do_not_post = $this->probability(.2);
+      $contact->do_not_mail = $this->probability(.2);
       $contact->do_not_trade = $this->probability(.2);
       $contact->preferred_communication_method = NULL;
       if ($this->probability(.5)) {
@@ -763,6 +771,10 @@ class CRM_Core_CodeGen_GenerateData {
       $contact->addressee_id = 2;
       $contact->addressee_display = $contact->display_name;
       $contact->hash = crc32($contact->sort_name);
+      $contact->is_deceased = $this->probability(.1);
+      if ($contact->is_deceased && $this->probability(.7)) {
+        $contact->deceased_date = $this->randomDate();
+      }
       $this->_update($contact);
     }
   }
@@ -834,6 +846,10 @@ class CRM_Core_CodeGen_GenerateData {
       $org->display_name = $org->sort_name = $org->organization_name;
       $org->addressee_id = 3;
       $org->addressee_display = $org->display_name;
+      $org->is_deceased = $this->probability(.1);
+      if ($org->is_deceased && $this->probability(.7)) {
+        $org->deceased_date = $this->randomDate();
+      }
       $org->hash = crc32($org->sort_name);
       $this->_update($org);
     }
@@ -1236,7 +1252,7 @@ class CRM_Core_CodeGen_GenerateData {
     //But at the end of setup we are appending sample custom data, so for consistency
     //reset the cache.
     Civi::cache('fields')->flush();
-    CRM_Core_BAO_Cache::resetCaches();
+    Civi::rebuild(['system' => TRUE])->execute();
   }
 
   /**
@@ -1418,9 +1434,6 @@ class CRM_Core_CodeGen_GenerateData {
     // grab URL and pass it to the browser
     $outstr = curl_exec($ch);
 
-    // close CURL resource, and free up system resources
-    curl_close($ch);
-
     $preg = "/'(<\?xml.+?)',/s";
     preg_match($preg, $outstr, $matches);
     if ($matches[1]) {
@@ -1556,6 +1569,9 @@ VALUES
    * @return string
    */
   public static function repairDate($date) {
+    if ($date === NULL) {
+      return '';
+    }
     $dropArray = ['-' => '', ':' => '', ' ' => ''];
     return strtr($date, $dropArray);
   }
@@ -1665,7 +1681,7 @@ VALUES
 
     $this->_query($eventTemplates);
 
-    $ufJoinValues = $tellFriendValues = [];
+    $ufJoinValues = [];
     $profileID = CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_uf_group WHERE name ='event_registration'");
 
     // grab id's for all events and event templates
@@ -1678,7 +1694,6 @@ SELECT  id
       if ($profileID) {
         $ufJoinValues[] = "( 1, 'CiviEvent', 'civicrm_event', {$template->id}, 1, {$profileID} )";
       }
-      $tellFriendValues[] = "( 'civicrm_event', {$template->id}, 'Tell A Friend', '<p>Help us spread the word about this event. Use the space below to personalize your email message - let your friends know why you''re attending. Then fill in the name(s) and email address(es) and click ''Send Your Message''.</p>', 'Thought you might be interested in checking out this event. I''m planning on attending.', NULL, 'Thanks for Spreading the Word', '<p>Thanks for spreading the word about this event to your friends.</p>', 1)";
     }
 
     //insert values in civicrm_uf_join for the required event_registration profile - CRM-9587
@@ -1687,15 +1702,6 @@ SELECT  id
                                (is_active, module, entity_table, entity_id, weight, uf_group_id )
                                VALUES " . implode(',', $ufJoinValues);
       $this->_query($includeProfile);
-    }
-
-    //insert values in civicrm_tell_friend
-    if (!empty($tellFriendValues)) {
-      $tellFriend = "INSERT INTO civicrm_tell_friend
-                           (entity_table, entity_id, title, intro, suggested_message,
-                           general_link,  thankyou_title, thankyou_text, is_active)
-                           VALUES " . implode(',', $tellFriendValues);
-      $this->_query($tellFriend);
     }
   }
 

@@ -10,14 +10,14 @@
 {capture assign=labelStyle}style="padding: 4px; border-bottom: 1px solid #999; background-color: #f7f7f7;"{/capture}
 {capture assign=valueStyle}style="padding: 4px; border-bottom: 1px solid #999;"{/capture}
 
-  <table id="crm-event_receipt" style="font-family: Arial, Verdana, sans-serif; text-align: left; width:100%; max-width:700px; padding:0; margin:0; border:0px;">
-
   <!-- BEGIN HEADER -->
-  <!-- You can add table row(s) here with logo or other header elements -->
+    {* To modify content in this section, you can edit the Custom Token named "Message Header". See also: https://docs.civicrm.org/user/en/latest/email/message-templates/#modifying-system-workflow-message-templates *}
+    {site.message_header}
   <!-- END HEADER -->
 
   <!-- BEGIN CONTENT -->
 
+  <table id="crm-event_receipt" style="font-family: Arial, Verdana, sans-serif; text-align: left; width:100%; max-width:700px; padding:0; margin:0; border:0px;">
   <tr>
    <td>
     {assign var="greeting" value="{contact.email_greeting_display}"}{if $greeting}<p>{$greeting},</p>{/if}
@@ -43,17 +43,6 @@
        {contact.display_name}
       </td>
      </tr>
-     <tr>
-      {if '{contribution.financial_type_id}'}
-        <td {$labelStyle}>
-         {ts}Financial Type{/ts}
-        </td>
-        <td {$valueStyle}>
-         {contribution.financial_type_id:label}
-        </td>
-      {/if}
-     </tr>
-
      {if $isShowLineItems}
        <tr>
         <td colspan="2" {$valueStyle}>
@@ -198,16 +187,16 @@
       </tr>
      {/if}
 
-     {if !empty($ccContribution)}
+      {if {contribution.address_id.display|boolean}}
       <tr>
        <th {$headerStyle}>
-        {ts}Billing Name and Address{/ts}
+        {ts}Billing Address{/ts}
        </th>
       </tr>
       <tr>
        <td colspan="2" {$valueStyle}>
-        {$billingName}<br />
-        {$address|nl2br}
+         {contribution.address_id.name}<br/>
+         {contribution.address_id.display}
        </td>
       </tr>
       <tr>
@@ -264,7 +253,7 @@
       {/foreach}
      {/if}
 
-     {if !empty($formValues.product_name)}
+     {if {contribution_product.id|boolean}}
       <tr>
        <th {$headerStyle}>
         {ts}Premium Information{/ts}
@@ -272,36 +261,36 @@
       </tr>
       <tr>
        <td colspan="2" {$labelStyle}>
-        {$formValues.product_name}
+        {contribution_product.product_id.name}
        </td>
       </tr>
-      {if $formValues.product_option}
+      {if {contribution_product.product_option|boolean}}
        <tr>
         <td {$labelStyle}>
          {ts}Option{/ts}
         </td>
         <td {$valueStyle}>
-         {$formValues.product_option}
+          {contribution_product.product_option:label}
         </td>
        </tr>
       {/if}
-      {if $formValues.product_sku}
+      {if {contribution_product.product_id.sku|boolean}}
        <tr>
         <td {$labelStyle}>
          {ts}SKU{/ts}
         </td>
         <td {$valueStyle}>
-         {$formValues.product_sku}
+         {contribution_product.product_id.sku}
         </td>
        </tr>
       {/if}
-      {if !empty($fulfilled_date)}
+      {if {contribution_product.fulfilled_date|boolean}}
        <tr>
         <td {$labelStyle}>
          {ts}Sent{/ts}
         </td>
         <td {$valueStyle}>
-         {$fulfilled_date|truncate:10:''|crmDate}
+          {contribution_product.fulfilled_date}
         </td>
        </tr>
       {/if}

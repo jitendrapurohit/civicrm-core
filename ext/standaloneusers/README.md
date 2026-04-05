@@ -2,7 +2,7 @@
 
 **⚠️ Do not use this extension if you have CiviCRM installed the normal way (e.g. on Drupal, WordPress, Joomla, Backdrop...)!**
 
-This is only for people running [CiviCRM Standalone](https://github.com/civicrm/civicrm-standalone/) which is currently highly experimental, insecure and definitely NOT for production use!
+This is only for people running [CiviCRM Standalone](https://github.com/civicrm/civicrm-standalone/).
 
 Normally, CiviCRM sits atop a CMS which provides role-based authentication: users can login, users are granted different roles, roles are granted different permissions. But standalone doesn't have these structures and relies on this extension for them.
 
@@ -50,3 +50,13 @@ cv core:install ... \
 ## Conventions
 
 From the `Civi\Auth\Standalone` class, the User.id is stored in the global `$loggedInUserId` and when there's a session, under the key `ufId`.
+
+## Have I Been Pwned integration
+
+Standalone’s password change form integrates by default with the service at https://haveibeenpwned.com/Passwords
+to check if a given password is known to have been compromised. This is controlled by the constant
+`CIVICRM_HIBP_URL` - if you want to disable this, add this line to your `civicrm.settings.php` file:
+
+    // Disable haveibeenpwned checking.
+    define('CIVICRM_HIBP_URL', '');
+

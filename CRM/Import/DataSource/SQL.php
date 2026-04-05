@@ -39,7 +39,7 @@ class CRM_Import_DataSource_SQL extends CRM_Import_DataSource {
 
   /**
    * This is function is called by the form object to get the DataSource's
-   * form snippet. It should add all fields necesarry to get the data
+   * form snippet. It should add all fields necessary to get the data
    * uploaded to the temporary table in the DB.
    *
    * @param CRM_Import_Forms $form
@@ -79,7 +79,7 @@ class CRM_Import_DataSource_SQL extends CRM_Import_DataSource {
   public function initialize(): void {
     $table = CRM_Utils_SQL_TempTable::build()->setDurable();
     $tableName = $table->getName();
-    $table->createWithQuery($this->getSubmittedValue('sqlQuery'));
+    $table->createWithQuery($this->restoreOperators($this->getSubmittedValue('sqlQuery')));
 
     // Get the names of the fields to be imported.
     $columnsResult = CRM_Core_DAO::executeQuery(
@@ -87,7 +87,7 @@ class CRM_Import_DataSource_SQL extends CRM_Import_DataSource {
 
     $columnNames = [];
     while ($columnsResult->fetch()) {
-      if (strpos($columnsResult->Field, ' ') !== FALSE) {
+      if (str_contains($columnsResult->Field, ' ')) {
         // Remove spaces as the Database object does this
         // $keys = str_replace(array(".", " "), "_", array_keys($array));
         // https://lab.civicrm.org/dev/core/-/issues/1337
@@ -106,6 +106,17 @@ class CRM_Import_DataSource_SQL extends CRM_Import_DataSource {
       'column_headers' => $columnNames,
       'number_of_columns' => count($columnNames),
     ]);
+  }
+
+  /**
+   * Restore greater than & equal operators that the form html_encoded.
+   *
+   * @param string $string
+   *
+   * @return string
+   */
+  public function restoreOperators(string $string): string {
+    return str_replace(['&lt;', '&gt;'], ['<', '>'], $string);
   }
 
 }

@@ -19,6 +19,7 @@
 
 namespace api\v4\Entity;
 
+use Civi\Api4\Contact;
 use Civi\Api4\Event;
 use Civi\Api4\Participant;
 use api\v4\Api4TestBase;
@@ -47,10 +48,7 @@ class ParticipantTest extends Api4TestBase {
    * @throws \CRM_Core_Exception
    */
   public function testGet(): void {
-    $rows = $this->getRowCount('civicrm_participant');
-    if ($rows > 0) {
-      $this->fail('Participant table must be empty');
-    }
+    Participant::delete(FALSE)->addWhere('id', '>', 0)->execute();
 
     // With no records:
     $result = Participant::get(FALSE)->execute();
@@ -90,7 +88,7 @@ class ParticipantTest extends Api4TestBase {
         'source' => $dummy['sources'][$i % 3],
       ];
     }
-    $this->saveTestRecords('Participant', [
+    $pid = $this->saveTestRecords('Participant', [
       'records' => $records,
       'defaults' => [
         'status_id' => 2,
@@ -98,7 +96,7 @@ class ParticipantTest extends Api4TestBase {
         'register_date' => 20070219,
         'event_level' => 'Payment',
       ],
-    ]);
+    ])->column('id');
     $sqlCount = $this->getRowCount('civicrm_participant');
     $this->assertEquals($participantCount, $sqlCount, "Unexpected count");
 
@@ -215,9 +213,9 @@ class ParticipantTest extends Api4TestBase {
       ->addWhere('event_id', '=', $secondEventId)
       ->setCheckPermissions(FALSE)
       ->execute();
-    $expectedDeletes = [2, 7, 12, 17];
+    $expectedDeletes = [$pid[1], $pid[6], $pid[11], $pid[16]];
     $this->assertEquals($expectedDeletes, array_column((array) $deleteResult, 'id'),
-      "didn't delete every second record as expected");
+      "didn't delete every 5th record as expected");
 
     $sqlCount = $this->getRowCount('civicrm_participant');
     $this->assertEquals(
@@ -312,6 +310,81 @@ class ParticipantTest extends Api4TestBase {
     $this->assertEquals(-1, $events[0]['remaining_participants']);
     // `remaining_participants` is always NULL for unlimited events
     $this->assertNull($events[1]['remaining_participants']);
+  }
+
+  public function testFilterByRole(): void {
+    $this->createTestRecord('OptionValue', [
+      'option_group_id:name' => 'participant_role',
+      'label' => 'Role1',
+      'name' => 'role_1',
+    ]);
+    $this->createTestRecord('OptionValue', [
+      'option_group_id:name' => 'participant_role',
+      'label' => 'Role2',
+      'name' => 'role_2',
+    ]);
+    $cid = $this->saveTestRecords('Contact', ['records' => 3])->column('id');
+    $participants = $this->saveTestRecords('Participant', [
+      'records' => [
+        ['role_id:name' => 'role_1', 'contact_id' => $cid[0]],
+        ['role_id:name' => 'role_2', 'contact_id' => $cid[1]],
+        ['role_id:name' => ['role_1', 'role_2'], 'contact_id' => $cid[2]],
+      ],
+    ])->column('id');
+
+    $hasRole1 = Participant::get(FALSE)
+      ->addSelect('id')
+      ->addWhere('role_id:name', 'CONTAINS', ['role_1'])
+      ->execute()->column('id');
+    $this->assertEquals([$participants[0], $participants[2]], $hasRole1);
+
+    $hasRole2 = Participant::get(FALSE)
+      ->addSelect('id')
+      ->addWhere('role_id:name', 'CONTAINS', 'role_2')
+      ->execute()->column('id');
+    $this->assertEquals([$participants[1], $participants[2]], $hasRole2);
+
+    $notHasRole1 = Participant::get(FALSE)
+      ->addSelect('id')
+      ->addWhere('role_id:name', 'NOT CONTAINS', 'role_1')
+      ->execute()->column('id');
+    $this->assertEquals([$participants[1]], $notHasRole1);
+
+    $contactWithBothRoles = Contact::get(FALSE)
+      ->addJoin('Participant AS participant', 'INNER',
+        ['id', '=', 'participant.contact_id'],
+        ['participant.role_id:name', 'CONTAINS', ['role_1', 'role_2']],
+      )
+      ->execute()->single();
+    $this->assertEquals($cid[2], $contactWithBothRoles['id']);
+
+    $contactWithEitherRoles = Contact::get(FALSE)
+      ->addJoin('Participant AS participant', 'INNER',
+        ['id', '=', 'participant.contact_id'],
+        ['participant.role_id:name', 'CONTAINS ONE OF', ['role_1', 'role_2']],
+      )
+      ->execute();
+    $this->assertEquals($cid, $contactWithEitherRoles->column('id'));
+
+    $contactWithOneRole = Contact::get(FALSE)
+      ->addJoin('Participant AS participant', 'INNER',
+        ['id', '=', 'participant.contact_id'],
+        ['participant.role_id:name', 'CONTAINS ONE OF', ['role_1', 'role_2']],
+        ['participant.role_id:name', 'NOT CONTAINS', ['role_1', 'role_2']],
+      )
+      ->setDebug(TRUE)
+      ->execute();
+    $this->assertEquals([$cid[0], $cid[1]], $contactWithOneRole->column('id'));
+
+    $contactWithFirstRole = Contact::get(FALSE)
+      ->addJoin('Participant AS participant', 'INNER',
+        ['id', '=', 'participant.contact_id'],
+        ['participant.role_id:name', 'CONTAINS ONE OF', ['role_1', 'role_2']],
+        ['participant.role_id:name', 'NOT CONTAINS ONE OF', ['role_2']],
+      )
+      ->setDebug(TRUE)
+      ->execute();
+    $this->assertEquals([$cid[0]], $contactWithFirstRole->column('id'));
   }
 
   /**

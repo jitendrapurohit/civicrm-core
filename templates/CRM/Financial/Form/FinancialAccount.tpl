@@ -16,16 +16,16 @@
   </div>
 {else}
   <table class="form-layout-compressed">
-    <tr class="crm-contribution-form-block-name">
-      <td class="label">{$form.name.label}</td>
-      <td class="html-adjust">{$form.name.html}</td>
+    <tr class="crm-contribution-form-block-label">
+      <td class="label">{$form.label.label}</td>
+      <td class="html-adjust">{$form.label.html}</td>
     </tr>
     <tr class="crm-contribution-form-block-description">
       <td class="label">{$form.description.label}</td>
       <td class="html-adjust">{$form.description.html}</td>
     </tr>
     <tr class="crm-contribution-form-block-organisation_name">
-      <td class="label">{$form.contact_id.label}&nbsp;{help id="id-financial-owner" file="CRM/Financial/Form/FinancialAccount.hlp"}</td>
+      <td class="label">{$form.contact_id.label}&nbsp;{help id="contact_id" file="CRM/Financial/Form/FinancialAccount.hlp"}</td>
       <td class="html-adjust">{$form.contact_id.html}<br />
         <span class="description">{ts}Use this field to indicate the organization that owns this account.{/ts}</span>
       </td>
@@ -41,7 +41,7 @@
       </td>
     </tr>
     <tr class="crm-contribution-form-block-account_type_code">
-      <td class="label">{$form.account_type_code.label}&nbsp;{help id="id-account-type-code" file="CRM/Financial/Form/FinancialAccount.hlp"}</td>
+      <td class="label">{$form.account_type_code.label}&nbsp;{help id="account_type_code" file="CRM/Financial/Form/FinancialAccount.hlp"}</td>
       <td class="html-adjust">{$form.account_type_code.html}<br />
         <span class="description">{ts}Enter an account type code for this account. Account type codes are required for QuickBooks integration and will be included in all accounting batch exports.{/ts}</span>
       </td>
@@ -75,9 +75,7 @@
       </td>
     </tr>
   </table>
-  <details id="financial_account_custom_field_extension_section" class="crm-accordion-wrapper crm-financial-account-panel" open>
-    {include file="CRM/common/customDataBlock.tpl" groupID='' customDataType='FinancialAccount' customDataSubType=false cid=false}
-  </details>
+  {include file="CRM/common/customDataBlock.tpl" groupID='' customDataType='FinancialAccount' customDataSubType=false cid=false}
 {/if}
-  <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="botttom"}</div>
+<div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="botttom"}</div>
 </div>

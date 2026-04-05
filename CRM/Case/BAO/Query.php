@@ -442,7 +442,7 @@ class CRM_Case_BAO_Query extends CRM_Core_BAO_Query {
           }
         }
       case 'case_tags':
-        $tags = CRM_Core_PseudoConstant::get('CRM_Core_DAO_EntityTag', 'tag_id', ['onlyActive' => FALSE]);
+        $tags = CRM_Core_DAO_EntityTag::buildOptions('tag_id', 'get');
 
         if (!empty($value)) {
           if (is_array($value)) {
@@ -534,8 +534,7 @@ case_relation_type.id = case_relationship.relationship_type_id )";
 
       case 'case_activity':
         $from .= " INNER JOIN civicrm_case_activity ON civicrm_case_activity.case_id = civicrm_case.id ";
-        $from .= " INNER JOIN civicrm_activity case_activity ON ( civicrm_case_activity.activity_id = case_activity.id
-                                                                AND case_activity.is_current_revision = 1 )";
+        $from .= " INNER JOIN civicrm_activity case_activity ON ( civicrm_case_activity.activity_id = case_activity.id )";
         break;
 
       case 'civicrm_case_tag':

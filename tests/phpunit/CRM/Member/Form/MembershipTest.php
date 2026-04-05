@@ -720,15 +720,9 @@ class CRM_Member_Form_MembershipTest extends CiviUnitTestCase {
   public function testSubmitPartialPayment(string $thousandSeparator): void {
     $this->setCurrencySeparators($thousandSeparator);
     // Step 1: submit a partial payment for a membership via backoffice
-    $form = $this->getForm();
-    $form->preProcess();
-    $mailUtil = new CiviMailUtils($this, TRUE);
-    $this->createLoggedInUser();
-    $priceSet = $this->callAPISuccess('PriceSet', 'Get', ["extends" => "CiviMember"]);
-    $form->set('priceSetId', $priceSet['id']);
 
-    CRM_Price_BAO_PriceSet::buildPriceSet($form);
-    $params = [
+    $this->createLoggedInUser();
+    $this->getTestForm('CRM_Member_Form_Membership', [
       'contact_id' => $this->ids['Contact']['individual_0'],
       'join_date' => date('Y-m-d'),
       'start_date' => '',
@@ -743,9 +737,7 @@ class CRM_Member_Form_MembershipTest extends CiviUnitTestCase {
       //Member dues, see data.xml
       'financial_type_id' => '2',
       'payment_processor_id' => $this->ids['PaymentProcessor']['dummy'],
-    ];
-    $form->_contactID = $this->ids['Contact']['individual_0'];
-    $form->testSubmit($params);
+    ])->processForm();
     $membership = $this->callAPISuccessGetSingle('Membership', ['contact_id' => $this->ids['Contact']['individual_0']]);
     // check the membership status after partial payment, if its Pending
     $this->assertEquals(array_search('Pending', CRM_Member_PseudoConstant::membershipStatus(), TRUE), $membership['status_id']);
@@ -1021,6 +1013,79 @@ class CRM_Member_Form_MembershipTest extends CiviUnitTestCase {
 
     // Check if Membership is set to Pending.
     $this->assertEquals(CRM_Core_PseudoConstant::getKey('CRM_Member_BAO_Membership', 'status_id', 'Pending'), $membership['status_id']);
+
+    // Check if Contribution is_pay_later flag is set.
+    $this->assertEquals(1, $contribution['is_pay_later']);
+  }
+
+  /**
+   * Test the submit function of the membership form for pay later with membership status override.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testSubmitPayLaterWithBillingStatusOverride(): void {
+    $params = [
+      'contact_id' => $this->ids['Contact']['individual_0'],
+      'join_date' => date('Y-m-d'),
+      'start_date' => '',
+      'end_date' => '',
+      // This format reflects the first number being the organisation & the second being the type.
+      'membership_type_id' => [$this->ids['Contact']['organization'], $this->ids['MembershipType']['AnnualFixed']],
+      'auto_renew' => '0',
+      'max_related' => '',
+      'num_terms' => '2',
+      'source' => '',
+      'is_override' => TRUE,
+      'status_id' => CRM_Core_PseudoConstant::getKey('CRM_Member_BAO_Membership', 'status_id', 'Pending'),
+      'total_amount' => '50.00',
+      //Member dues, see data.xml
+      'financial_type_id' => '2',
+      'soft_credit_type_id' => '',
+      'soft_credit_contact_id' => '',
+      'payment_instrument_id' => 4,
+      'from_email_address' => '"Demonstrators Anonymous" <info@example.org>',
+      'receipt_text_signup' => 'Thank you text',
+      'payment_processor_id' => $this->ids['PaymentProcessor']['dummy'],
+      'record_contribution' => TRUE,
+      'trxn_id' => 777,
+      'contribution_status_id' => 2,
+      'billing_first_name' => 'Test',
+      'billing_middle_name' => 'Last',
+      'billing_street_address-5' => '10 Test St',
+      'billing_city-5' => 'Test',
+      'billing_state_province_id-5' => '1003',
+      'billing_postal_code-5' => '90210',
+      'billing_country_id-5' => '1228',
+    ];
+    $form = $this->getForm($params);
+    $this->createLoggedInUser();
+
+    $form->_contactID = $this->ids['Contact']['individual_0'];
+
+    $form->testSubmit($params);
+    $membership = $this->callAPISuccessGetSingle('Membership', ['contact_id' => $this->ids['Contact']['individual_0']]);
+    $contribution = $this->callAPISuccessGetSingle('Contribution', [
+      'contact_id' => $this->ids['Contact']['individual_0'],
+      'contribution_status_id' => 2,
+    ]);
+    $this->assertEquals($contribution['trxn_id'], 777);
+
+    $this->callAPISuccessGetCount('LineItem', [
+      'entity_id' => $membership['id'],
+      'entity_table' => 'civicrm_membership',
+      'contribution_id' => $contribution['id'],
+    ], 1);
+    $this->callAPISuccessGetSingle('address', [
+      'contact_id' => $this->ids['Contact']['individual_0'],
+      'street_address' => '10 Test St',
+      'postal_code' => 90210,
+    ]);
+
+    // Check if Membership is set to Pending.
+    $this->assertEquals(CRM_Core_PseudoConstant::getKey('CRM_Member_BAO_Membership', 'status_id', 'Pending'), $membership['status_id']);
+
+    // Check if Contribution is_pay_later flag is set.
+    $this->assertEquals(1, $contribution['is_pay_later']);
   }
 
   /**
@@ -1104,24 +1169,30 @@ class CRM_Member_Form_MembershipTest extends CiviUnitTestCase {
     $params = $this->getBaseSubmitParams();
     unset($params['auto_renew'], $params['is_recur']);
     $params['is_override'] = 1;
-    $params['status_id'] = $pendingStatusId;
-
-    $form = $this->getForm($params);
+    $params['status_id'] = CRM_Core_PseudoConstant::getKey('CRM_Member_BAO_Membership', 'status_id', 'Pending');
     $this->createLoggedInUser();
-    $form->_mode = FALSE;
-    $form->_contactID = $this->_individualId;
-    $form->testSubmit($params);
-    $membership = $this->callAPISuccessGetSingle('Membership', ['contact_id' => $this->_individualId]);
-    $this->assertEquals(CRM_Core_PseudoConstant::getKey('CRM_Member_BAO_Membership', 'status_id', 'Pending'), $membership['status_id']);
+    $this->getTestForm('CRM_Member_Form_Membership', $params, [
+      'cid' => $this->ids['Contact']['individual_0'],
+    ])->processForm();
+    $membership = $this->callAPISuccessGetSingle('Membership', [
+      'contact_id' => $this->ids['Contact']['individual_0'],
+      'version' => 4,
+      'select' => ['status_id:name'],
+    ]);
+    $this->assertEquals('Pending', $membership['status_id:name']);
 
+    unset($params['is_override'], $params['status_id']);
     // Disable "Override" and let the form save recalculate the status.
-    $form->_defaultValues['status_id'] = $pendingStatusId;
-    $params['is_override'] = 0;
-    unset($params['status_id']);
-    $form->testSubmit($params);
-    $membership = $this->callAPISuccessGetSingle('Membership', ['contact_id' => $this->_individualId]);
-    // Membership should be updated to New.
-    $this->assertEquals(CRM_Core_PseudoConstant::getKey('CRM_Member_BAO_Membership', 'status_id', 'New'), $membership['status_id']);
+    $this->getTestForm('CRM_Member_Form_Membership', $params, [
+      'cid' => $this->ids['Contact']['individual_0'],
+    ])->processForm();
+    $membership = $this->callAPISuccessGetSingle('Membership', [
+      'contact_id' => $this->ids['Contact']['individual_0'],
+      'id' => ['>' => $membership['id']],
+      'version' => 4,
+      'select' => ['status_id:name'],
+    ]);
+    $this->assertEquals('New', $membership['status_id:name']);
   }
 
   /**
@@ -1145,11 +1216,14 @@ class CRM_Member_Form_MembershipTest extends CiviUnitTestCase {
       'duration_interval' => 1,
       'auto_renew' => 1,
     ]);
-    $form = $this->getForm($this->getBaseSubmitParams());
     $this->createLoggedInUser();
-    $form->_mode = 'test';
-    $form->_contactID = $this->ids['Contact']['individual_0'];
-    $form->testSubmit();
+    $this->getTestForm('CRM_Member_Form_Membership',
+      $this->getBaseSubmitParams(),
+      [
+        'cid' => $this->ids['Contact']['individual_0'],
+        'mode' => 'test',
+      ])
+      ->processForm();
     $membership = $this->callAPISuccessGetSingle('Membership', ['contact_id' => $this->ids['Contact']['individual_0']]);
     $this->callAPISuccessGetCount('ContributionRecur', ['contact_id' => $this->ids['Contact']['individual_0']], 1);
 
@@ -1167,28 +1241,16 @@ class CRM_Member_Form_MembershipTest extends CiviUnitTestCase {
       'entity_table' => 'civicrm_membership',
       'contribution_id' => $contribution['id'],
     ], 1);
-    $mut->checkMailLog([
-      '===========================================================
-Billing Name and Address
-===========================================================
-Test Last
-10 Test St
-Test, AR 90210
-US',
-      '===========================================================
-Membership Information
-===========================================================
-Membership Type: AnnualFixed
-Membership Start Date: ',
-      '===========================================================
-Credit Card Information
-===========================================================
-Visa
-************1111
-Expires: ',
+    $this->assertMailSentContainingStrings([
+      'Billing Address',
+      'Test Last',
+      '10 Test St',
+      'Test, AR 90210',
+      'United States',
+      'Membership Information',
+      'AnnualFixed',
+      '************1111',
     ]);
-    $mut->stop();
-
   }
 
   /**
@@ -1337,6 +1399,7 @@ Expires: ',
    * @param array $formValues
    *
    * @return \CRM_Member_Form_Membership
+   * @throws \CRM_Core_Exception
    */
   protected function getForm(array $formValues = []): CRM_Member_Form_Membership {
     if (isset($_REQUEST['cid'])) {
@@ -1567,8 +1630,6 @@ Expires: ',
       '<table id="crm-membership_receipt"',
       'AnnualFixed',
       'Membership Fee',
-      'Financial Type',
-      'Member Dues </td>',
       '<tr> <td colspan="2" style="padding: 4px; border-bottom: 1px solid #999;"> <table> <tr> <th>Item</th> <th>Fee</th> <th>SubTotal</th> <th>Tax Rate</th> <th>Tax Amount</th> <th>Total</th> <th>Membership Start Date</th> <th>Membership Expiration Date</th> </tr> <tr> <td>Membership Amount - AnnualFixed</td>',
       '<td> $50.00 </td> <td> $50.00 </td> <td> 10.00% </td> <td> $5.00 </td> <td> $55.00 </td> <td>',
       'Amount Before Tax: </td>',
@@ -1583,12 +1644,10 @@ Expires: ',
   /**
    * Test that membership end_date is correct for multiple terms for pending contribution
    *
-   * @throws \CRM_Core_Exception
    * @throws \Exception
    */
   public function testCreatePendingWithMultipleTerms(): void {
     CRM_Core_Session::singleton()->getStatus(TRUE);
-    $mailUtil = new CiviMailUtils($this, TRUE);
     $this->createLoggedInUser();
     $membershipTypeAnnualRolling = $this->callAPISuccess('membership_type', 'create', [
       'domain_id' => 1,
@@ -1603,7 +1662,7 @@ Expires: ',
       'financial_type_id' => 2,
     ]);
     $params = [
-      'cid' => $this->ids['Contact']['individual_0'],
+      'contact_id' => $this->ids['Contact']['individual_0'],
       'join_date' => date('Y-m-d'),
       'start_date' => '',
       'end_date' => '',
@@ -1620,10 +1679,8 @@ Expires: ',
       'from_email_address' => '"Demonstrators Anonymous" <info@example.org>',
       'receipt_text' => '',
     ];
-    $form = $this->getForm();
-    $form->preProcess();
-    $form->_contactID = $this->ids['Contact']['individual_0'];
-    $form->testSubmit($params);
+    $form = $this->getTestForm('CRM_Member_Form_Membership', $params);
+    $form->processForm();
     $membership = $this->callAPISuccessGetSingle('Membership', ['contact_id' => $this->ids['Contact']['individual_0']]);
     // Check if Membership is set to Pending.
     $this->assertEquals(CRM_Core_PseudoConstant::getKey('CRM_Member_BAO_Membership', 'status_id', 'Pending'), $membership['status_id']);

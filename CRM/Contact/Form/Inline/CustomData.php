@@ -28,41 +28,14 @@ class CRM_Contact_Form_Inline_CustomData extends CRM_Contact_Form_Inline {
   public $_groupID;
 
   /**
-   * Entity type of the table id.
-   *
-   * @var string
-   */
-  protected $_entityType;
-
-  /**
-   * Call preprocess.
+   * Build the form object elements for custom data.
    *
    * @throws \CRM_Core_Exception
    */
-  public function preProcess(): void {
-    parent::preProcess();
-
+  public function buildQuickForm(): void {
+    parent::buildQuickForm();
     $this->_groupID = CRM_Utils_Request::retrieve('groupID', 'Positive', $this, TRUE, NULL);
     $this->assign('customGroupId', $this->_groupID);
-    $this->preProcessCustomData();
-  }
-
-  /**
-   *
-   * Previously shared function.
-   *
-   * @throws \CRM_Core_Exception
-   *
-   * @deprecated see https://github.com/civicrm/civicrm-core/pull/29241 for preferred approach - basically
-   * 1) at the tpl layer use CRM/common/customDataBlock.tpl
-   * 2) to make the fields available for postProcess
-   * if ($this->isSubmitted()) {
-   *   $this->addCustomDataFieldsToForm('FinancialAccount');
-   * }
-   * 3) pass getSubmittedValues() to CRM_Core_BAO_CustomField::postProcess($this->getSubmittedValues(), $this->_id, 'FinancialAccount');
-   *  to ensure any money or number fields are handled for localisation
-   */
-  private function preProcessCustomData(): void {
     $type = $this->_contactType;
     $groupCount = CRM_Utils_Request::retrieve('cgcount', 'Positive', $this, FALSE, 1);
     $this->assign('cgCount', $groupCount);
@@ -112,18 +85,14 @@ class CRM_Contact_Form_Inline_CustomData extends CRM_Contact_Form_Inline {
     else {
       $this->_groupTree = $groupTree;
     }
-  }
-
-  /**
-   * Build the form object elements for custom data.
-   *
-   * @throws \CRM_Core_Exception
-   */
-  public function buildQuickForm(): void {
-    parent::buildQuickForm();
     $this->addElement('hidden', 'hidden_custom', 1);
     $this->addElement('hidden', "hidden_custom_group_count[{$this->_groupID}]", CRM_Utils_Request::retrieve('cgcount', 'Positive', $this, FALSE, 1));
     CRM_Core_BAO_CustomGroup::buildQuickForm($this, $this->_groupTree);
+    // This form only applies to a single group so this loop always runs once
+    foreach ($this->_groupTree as $group_id => $cd_edit) {
+      $this->assign('group_id', $group_id);
+      $this->assign('cd_edit', $cd_edit);
+    }
   }
 
   /**
@@ -147,7 +116,7 @@ class CRM_Contact_Form_Inline_CustomData extends CRM_Contact_Form_Inline {
     CRM_Core_BAO_CustomValueTable::postProcess($params,
       'civicrm_contact',
       $this->getContactID(),
-      $this->_entityType
+      $this->_contactType
     );
 
     $this->log();

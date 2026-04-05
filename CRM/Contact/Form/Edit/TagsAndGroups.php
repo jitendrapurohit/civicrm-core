@@ -91,7 +91,7 @@ class CRM_Contact_Form_Edit_TagsAndGroups {
       }
 
       if ($groupID || !empty($group)) {
-        $groups = CRM_Contact_BAO_Group::getGroupsHierarchy($ids, NULL, '- ', FALSE, $public);
+        $groups = CRM_Contact_BAO_Group::getGroupsHierarchy($ids, NULL, '- ', FALSE, $public, textFormat: 'plain');
 
         $attributes['skiplabel'] = TRUE;
         $elements = [];
@@ -137,7 +137,7 @@ class CRM_Contact_Form_Edit_TagsAndGroups {
       $tags = CRM_Core_BAO_Tag::getColorTags('civicrm_contact');
 
       if (!empty($tags)) {
-        $form->add('select2', 'tag', ts('Tag(s)'), $tags, $isRequired, ['class' => 'huge', 'placeholder' => ts('- select -'), 'multiple' => TRUE]);
+        $form->add('select2', 'tag', $tagName, $tags, $isRequired, ['class' => 'huge', 'placeholder' => ts('- select -'), 'multiple' => TRUE]);
       }
 
       // build tag widget

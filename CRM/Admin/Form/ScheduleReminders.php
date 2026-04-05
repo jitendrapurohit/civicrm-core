@@ -56,6 +56,13 @@ class CRM_Admin_Form_ScheduleReminders extends CRM_Admin_Form {
   }
 
   /**
+   * @return array
+   */
+  protected function getFieldsToExcludeFromPurification(): array {
+    return ['body_html', 'html_message'];
+  }
+
+  /**
    * Because `CRM_Mailing_BAO_Mailing::commonCompose` uses different fieldNames than `CRM_Core_DAO_ActionSchedule`.
    * @var array
    */
@@ -150,23 +157,25 @@ class CRM_Admin_Form_ScheduleReminders extends CRM_Admin_Form {
     $this->addField('repetition_frequency_unit', ['placeholder' => FALSE])->setAttribute('class', 'crm-form-select');
     $this->addField('end_frequency_unit', ['placeholder' => FALSE])->setAttribute('class', 'crm-form-select');
     // Data for js pluralization
+    // Don't want to include 'minute' option as not supported by RecipientBuilder::parseRepetitionInterval()
+    $excludeFrequencyOptions = ['minute' => NULL];
     $this->assign('recurringFrequencyOptions', [
-      'plural' => CRM_Utils_Array::makeNonAssociative(CRM_Core_SelectValues::getRecurringFrequencyUnits(2)),
-      'single' => CRM_Utils_Array::makeNonAssociative(CRM_Core_SelectValues::getRecurringFrequencyUnits()),
+      'plural' => CRM_Utils_Array::makeNonAssociative(array_diff_key(CRM_Core_SelectValues::getRecurringFrequencyUnits(2), $excludeFrequencyOptions)),
+      'single' => CRM_Utils_Array::makeNonAssociative(array_diff_key(CRM_Core_SelectValues::getRecurringFrequencyUnits(), $excludeFrequencyOptions)),
     ]);
 
     $this->addField('title', [], TRUE);
     $this->addField('absolute_date', [], FALSE, FALSE);
     $this->addField('start_action_offset', ['class' => 'four']);
     $this->addField('start_action_condition', ['placeholder' => FALSE])->setAttribute('class', 'crm-form-select');
-    $this->addField('record_activity', ['type' => 'advcheckbox']);
-    $this->addField('is_repeat', ['type' => 'advcheckbox']);
+    $this->addField('record_activity');
+    $this->addField('is_repeat');
     $this->addField('repetition_frequency_interval', ['label' => ts('Every'), 'class' => 'four']);
     $this->addField('end_frequency_interval', ['label' => ts('Until'), 'class' => 'four']);
     $this->addField('end_action', ['placeholder' => FALSE])->setAttribute('class', 'crm-form-select');
     $this->addField('effective_start_date', ['label' => ts('Effective From')], FALSE, FALSE);
     $this->addField('effective_end_date', ['label' => ts('To')], FALSE, FALSE);
-    $this->addField('is_active', ['type' => 'advcheckbox']);
+    $this->addField('is_active', ['on' => ts('On'), 'off' => ts('Off')]);
     $this->addAutocomplete('recipient_manual', ts('Manual Recipients'), ['select' => ['multiple' => TRUE]]);
     $this->addAutocomplete('group_id', ts('Group'), ['entity' => 'Group', 'select' => ['minimumInputLength' => 0]]);
 
@@ -190,8 +199,10 @@ class CRM_Admin_Form_ScheduleReminders extends CRM_Admin_Form {
     $multilingual = CRM_Core_I18n::isMultilingual();
     $this->assign('multilingual', $multilingual);
     if ($multilingual) {
-      $this->addField('filter_contact_language', ['placeholder' => ts('Any language')]);
-      $this->addField('communication_language', ['placeholder' => 'System default language']);
+      $filterLanguages = \CRM_Core_BAO_ActionSchedule::getFilterContactLanguageOptions();
+      $this->addField('filter_contact_language', ['placeholder' => ts('Any language'), 'options' => $filterLanguages]);
+      $communicationLanguages = \CRM_Core_BAO_ActionSchedule::getCommunicationLanguageOptions();
+      $this->addField('communication_language', ['placeholder' => 'System default language', 'options' => $communicationLanguages]);
     }
 
     // Message fields
@@ -246,6 +257,9 @@ class CRM_Admin_Form_ScheduleReminders extends CRM_Admin_Form {
     }
     else {
       unset($errors['absolute_date']);
+      if (($values['start_action_date'] == 'next_sched_contribution_date') && (!in_array('2', $values['entity_status']) || count($values['entity_status']) != 1)) {
+        $errors['start_action_date'] = ts('Membership Auto-Renewal Date can only work with Auto-renewal Memberships');
+      }
     }
 
     return $errors ?: TRUE;
@@ -321,10 +335,10 @@ class CRM_Admin_Form_ScheduleReminders extends CRM_Admin_Form {
 
     // Absolute or relative date
     if ($values['absolute_or_relative_date'] === 'absolute') {
-      $values['start_action_offset'] = $values['start_action_unit'] = $values['start_action_condition'] = $values['start_action_date'] = NULL;
+      $values['start_action_offset'] = $values['start_action_unit'] = $values['start_action_condition'] = $values['start_action_date'] = '';
     }
     else {
-      $values['absolute_date'] = NULL;
+      $values['absolute_date'] = '';
     }
 
     // Convert values for the fields added by CRM_Mailing_BAO_Mailing::commonCompose
@@ -372,7 +386,7 @@ class CRM_Admin_Form_ScheduleReminders extends CRM_Admin_Form {
         }
         $templateParams['id'] = $params[$prefix . 'template'];
 
-        $msgTemplate = CRM_Core_BAO_MessageTemplate::add($templateParams);
+        $msgTemplate = CRM_Core_BAO_MessageTemplate::writeRecord($templateParams);
       }
 
       // Save new template
@@ -393,7 +407,7 @@ class CRM_Admin_Form_ScheduleReminders extends CRM_Admin_Form {
         }
         $templateParams['msg_title'] = $params[$prefix . 'saveTemplateName'];
 
-        $msgTemplate = CRM_Core_BAO_MessageTemplate::add($templateParams);
+        $msgTemplate = CRM_Core_BAO_MessageTemplate::writeRecord($templateParams);
       }
 
       if (isset($msgTemplate->id)) {

@@ -60,6 +60,7 @@ class CRM_Member_ActionMapping extends \Civi\ActionSchedule\MappingBase {
       'join_date' => ts('Member Since'),
       'start_date' => ts('Membership Start Date'),
       'end_date' => ts('Membership Expiration Date'),
+      'next_sched_contribution_date' => ts('Membership Auto-renew Date'),
     ];
   }
 
@@ -89,19 +90,39 @@ class CRM_Member_ActionMapping extends \Civi\ActionSchedule\MappingBase {
     // Leaving this in case of legacy databases
     $query['casDateField'] = str_replace('membership_', 'e.', ($schedule->start_action_date ?? ''));
 
-    // Options currently are just 'join_date', 'start_date', and 'end_date':
-    // they need an alias
-    if (strpos($query['casDateField'], 'e.') !== 0) {
-      $query['casDateField'] = 'e.' . $query['casDateField'];
+    // Date field needs a proper alias
+    if (!(str_starts_with($query['casDateField'], 'e.') || str_starts_with($query['casDateField'], 'cr.'))) {
+      if ($query['casDateField'] == 'next_sched_contribution_date') {
+        // Alias the Auto-renew
+        $query['casDateField'] = 'cr.' . $query['casDateField'];
+      }
+      else {
+        // Otherwise alias all other Membership fields
+        $query['casDateField'] = 'e.' . $query['casDateField'];
+      }
     }
+
+    // Exclude the renewals that are cancelled or failed.
+    $nonRenewStatusIds = [
+      CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_ContributionRecur', 'contribution_status_id', 'Cancelled'),
+      CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_ContributionRecur', 'contribution_status_id', 'Failed'),
+    ];
 
     // FIXME: Numbers should be constants.
     if (in_array(2, $selectedStatuses)) {
       //auto-renew memberships
-      $query->where("e.contribution_recur_id IS NOT NULL");
+      $query->join('cr', 'INNER JOIN civicrm_contribution_recur cr on e.contribution_recur_id = cr.id');
+      $query->where("cr.contribution_status_id NOT IN (#nonRenewStatusIds)")
+        ->param('nonRenewStatusIds', $nonRenewStatusIds);
     }
     elseif (in_array(1, $selectedStatuses)) {
-      $query->where("e.contribution_recur_id IS NULL");
+      // non-auto-renew memberships
+      // Include the renewals that were cancelled or Failed.
+      $query->join('cr', 'LEFT JOIN civicrm_contribution_recur cr on e.contribution_recur_id = cr.id');
+      $query->where("e.contribution_recur_id IS NULL OR (
+        e.contribution_recur_id IS NOT NULL AND cr.contribution_status_id IN (#nonRenewStatusIds)
+        )")
+        ->param('nonRenewStatusIds', $nonRenewStatusIds);
     }
 
     if (!empty($selectedValues)) {

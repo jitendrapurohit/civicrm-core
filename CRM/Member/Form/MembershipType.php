@@ -30,10 +30,15 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
    */
   protected function setEntityFields() {
     $this->entityFields = [
-      'name' => [
+      'title' => [
         'required' => 'TRUE',
-        'name' => 'name',
-        'description' => ts("e.g. 'Student', 'Senior', 'Honor Society'..."),
+        'name' => 'title',
+        'description' => ts("Internal name, e.g. 'Student', 'Senior', 'Honor Society'..."),
+      ],
+      'frontend_title' => [
+        'required' => 'TRUE',
+        'name' => 'frontend_title',
+        'description' => ts('Name as shown on public pages.'),
       ],
       'description' => [
         'name' => 'description',
@@ -51,6 +56,7 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
       'financial_type_id' => [
         'name' => 'financial_type_id',
         'description' => ts('Select the financial type assigned to fees for this membership type (for example \'Membership Fees\'). This is required for all membership types - including free or complimentary memberships.'),
+        'required' => TRUE,
       ],
       'auto_renew' => [
         'name' => 'auto_renew',
@@ -70,19 +76,25 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
       'period_type' => [
         'name' => 'period_type',
         'description' => ts("Select 'rolling' if membership periods begin at date of signup. Select 'fixed' if membership periods begin on a set calendar date."),
-        'help' => ['id' => 'period-type', 'file' => "CRM/Member/Page/MembershipType.hlp"],
+        'help' => ['id' => 'period_type', 'file' => "CRM/Member/Page/MembershipType"],
         'required' => TRUE,
       ],
       'fixed_period_start_day' => [
         'name' => 'fixed_period_start_day',
         'description' => ts("Month and day on which a <strong>fixed</strong> period membership or subscription begins. Example: A fixed period membership with Start Day set to Jan 01 means that membership periods would be 1/1/06 - 12/31/06 for anyone signing up during 2006."),
+        // Not relying on auto-add until we have checked out the options function.
+        'not-auto-addable' => TRUE,
       ],
       'fixed_period_rollover_day' => [
         'name' => 'fixed_period_rollover_day',
         'description' => ts('Membership signups on or after this date cover the following calendar year as well. Example: If the rollover day is November 30, membership period for signups during December will cover the following year.'),
+        // Not relying on auto-add until we have checked out the options function.
+        'not-auto-addable' => TRUE,
       ],
       'relationship_type_id' => [
         'name' => 'relationship_type_id',
+        // Not relying on auto-add until we have checked out the options function.
+        'not-auto-addable' => TRUE,
       ],
       'max_related' => [
         'name' => 'max_related',
@@ -119,7 +131,14 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
    * We do this from the constructor in order to do a translation.
    */
   public function setDeleteMessage() {
-    $this->deleteMessage = ts('WARNING: Deleting this option will result in the loss of all membership records of this type.') . ts('This may mean the loss of a substantial amount of data, and the action cannot be undone.') . ts('Do you want to continue?');
+    $this->deleteMessage = $this->deleteMessage = implode(
+      ' ',
+      [
+        ts('WARNING: Deleting this option will result in the loss of all membership records of this type.'),
+        ts('This may mean the loss of a substantial amount of data, and the action cannot be undone.'),
+        ts('Do you want to continue?'),
+      ]
+    );
   }
 
   /**
@@ -211,11 +230,8 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
     // Fields in this array have been tested & in the tpl have been switched over to metadata.
     // Note this kinda 'works from the top' - ie. once we hit a field that needs some thought we need
     // to stop & make that one work.
-    $this->assign('tpl_standardised_fields', ['name', 'description', 'member_of_contact_id', 'minimum_fee']);
+    $this->assign('tpl_standardised_fields', ['title', 'frontend_title', 'description', 'member_of_contact_id', 'minimum_fee']);
 
-    $this->addRule('name', ts('A membership type with this name already exists. Please select another name.'),
-      'objectExists', ['CRM_Member_DAO_MembershipType', $this->_id]
-    );
     $this->addRule('minimum_fee', ts('Please enter a monetary value for the Minimum Fee.'), 'money');
 
     $props = ['api' => ['params' => ['contact_type' => 'Organization']]];
@@ -243,9 +259,6 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
     );
     $this->add('date', 'month_fixed_period_rollover_day', ts('Fixed Period Rollover Day'),
       CRM_Core_SelectValues::date(NULL, 'd'), FALSE
-    );
-    $this->add('select', 'financial_type_id', ts('Financial Type'),
-      ['' => ts('- select -')] + CRM_Financial_BAO_FinancialType::getAvailableFinancialTypes($financialTypes, $this->_action), TRUE, ['class' => 'crm-select2']
     );
 
     $relTypeInd = CRM_Contact_BAO_Relationship::getContactRelationshipType(NULL, NULL, NULL, NULL, TRUE);
@@ -281,10 +294,6 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
   public static function formRule($params) {
     $errors = [];
 
-    if (!$params['name']) {
-      $errors['name'] = ts('Please enter a membership type name.');
-    }
-
     if (($params['minimum_fee'] > 0) && !$params['financial_type_id']) {
       $errors['financial_type_id'] = ts('Please enter the financial Type.');
     }
@@ -293,10 +302,7 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
       $errors['duration_interval'] = ts('Please enter a duration interval.');
     }
 
-    if (in_array(CRM_Utils_Array::value('auto_renew', $params), [
-      1,
-      2,
-    ])) {
+    if (in_array($params['auto_renew'] ?? 0, [1, 2])) {
       if (($params['duration_interval'] > 1 && $params['duration_unit'] === 'year') ||
         ($params['duration_interval'] > 12 && $params['duration_unit'] === 'month')
       ) {
@@ -428,8 +434,8 @@ class CRM_Member_Form_MembershipType extends CRM_Member_Form_MembershipConfig {
         $params['id'] = $this->_id;
       }
 
-      $membershipTypeResult = civicrm_api3('MembershipType', 'create', $params);
-      $membershipTypeName = $membershipTypeResult['values'][$membershipTypeResult['id']]['name'];
+      $membershipTypeResult = CRM_Member_BAO_MembershipType::add($params);
+      $membershipTypeName = $membershipTypeResult->name;
 
       CRM_Core_Session::setStatus(ts("The membership type '%1' has been saved.",
         [1 => $membershipTypeName]

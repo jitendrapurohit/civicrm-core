@@ -4,6 +4,7 @@ namespace Civi\Afform;
 
 use Civi\API\Exception\UnauthorizedException;
 use Civi\Api4\Afform;
+use Civi\AfformAdmin\AfformAdminMeta;
 use Civi\Api4\Utils\CoreUtil;
 use CRM_Afform_ExtensionUtil as E;
 
@@ -144,20 +145,28 @@ class FormDataModel {
    * @param string $entity
    * @param string $join
    * @param string $searchDisplay
+   * @param array $afIfConditions
    */
-  protected function parseFields($nodes, $entity = NULL, $join = NULL, $searchDisplay = NULL) {
+  protected function parseFields($nodes, $entity = NULL, $join = NULL, $searchDisplay = NULL, $afIfConditions = []) {
     foreach ($nodes as $node) {
       if (!is_array($node) || !isset($node['#tag'])) {
         continue;
       }
-      elseif (isset($node['af-fieldset'])) {
+      if (!empty($node['af-if'])) {
+        $conditional = substr($node['af-if'], 1, -1);
+        $afIfConditions[] = json_decode(html_entity_decode($conditional));
+      }
+      if ($node['#tag'] === 'af-field' && $afIfConditions) {
+        $node['af-if'] = $afIfConditions;
+      }
+      if (isset($node['af-fieldset'])) {
         $entity = $node['af-fieldset'] ?? NULL;
         $searchDisplay = $entity ? NULL : $this->findSearchDisplay($node);
         if ($entity && isset($node['af-repeat'])) {
           $this->entities[$entity]['min'] = $node['min'] ?? 0;
           $this->entities[$entity]['max'] = $node['max'] ?? NULL;
         }
-        $this->parseFields($node['#children'] ?? [], $node['af-fieldset'], $join, $searchDisplay);
+        $this->parseFields($node['#children'] ?? [], $node['af-fieldset'], $join, $searchDisplay, $afIfConditions);
       }
       elseif ($searchDisplay && $node['#tag'] === 'af-field') {
         $this->searchDisplays[$searchDisplay]['fields'][$node['name']] = AHQ::getProps($node);
@@ -171,11 +180,21 @@ class FormDataModel {
         }
       }
       elseif ($entity && !empty($node['af-join'])) {
-        $this->entities[$entity]['joins'][$node['af-join']] = AHQ::getProps($node);
-        $this->parseFields($node['#children'] ?? [], $entity, $node['af-join']);
+        $joinProps = AHQ::getProps($node);
+        // If the join is declared > once, merge data
+        $existingJoin = $this->entities[$entity]['joins'][$node['af-join']] ?? [];
+        if (!empty($existingJoin['data']) && !empty($joinProps['data'])) {
+          foreach ($joinProps['data'] as $key => $value) {
+            if (!empty($existingJoin['data'][$key]) && $existingJoin['data'][$key] !== $value) {
+              $joinProps['data'][$key] = array_unique(array_merge((array) $existingJoin['data'][$key], (array) $value));
+            }
+          }
+        }
+        $this->entities[$entity]['joins'][$node['af-join']] = $joinProps + $existingJoin;
+        $this->parseFields($node['#children'] ?? [], $entity, $node['af-join'], NULL, $afIfConditions);
       }
       elseif (!empty($node['#children'])) {
-        $this->parseFields($node['#children'], $entity, $join, $searchDisplay);
+        $this->parseFields($node['#children'], $entity, $join, $searchDisplay, $afIfConditions);
       }
       // Recurse into embedded blocks
       if (isset($this->blocks[$node['#tag']])) {
@@ -183,7 +202,7 @@ class FormDataModel {
           $this->blocks[$node['#tag']] = Afform::get(FALSE)->setSelect(['name', 'layout'])->addWhere('name', '=', $this->blocks[$node['#tag']]['name'])->execute()->first();
         }
         if (!empty($this->blocks[$node['#tag']]['layout'])) {
-          $this->parseFields($this->blocks[$node['#tag']]['layout'], $entity, $join, $searchDisplay);
+          $this->parseFields($this->blocks[$node['#tag']]['layout'], $entity, $join, $searchDisplay, $afIfConditions);
         }
       }
     }
@@ -195,9 +214,10 @@ class FormDataModel {
    * @param string $entityName
    * @param string $fieldName
    * @param string $action
+   * @param array $values
    * @return array|NULL
    */
-  public static function getField(string $entityName, string $fieldName, string $action): ?array {
+  public static function getField(string $entityName, string $fieldName, string $action, array $values = []): ?array {
     // For explicit joins, strip the alias off the field name
     if (strpos($entityName, ' AS ')) {
       [$entityName, $alias] = explode(' AS ', $entityName);
@@ -208,7 +228,7 @@ class FormDataModel {
     if ($action === 'get' && strpos($fieldName, '.')) {
       $namesToMatch[] = substr($fieldName, 0, strrpos($fieldName, '.'));
     }
-    $select = ['name', 'label', 'input_type', 'data_type', 'input_attrs', 'help_pre', 'help_post', 'options', 'fk_entity', 'required'];
+    $select = ['name', 'label', 'input_type', 'data_type', 'input_attrs', 'help_pre', 'help_post', 'options', 'fk_entity', 'required', 'dfk_entities', 'serialize'];
     if ($action === 'get') {
       $select[] = 'operators';
     }
@@ -219,11 +239,8 @@ class FormDataModel {
       'loadOptions' => ['id', 'label'],
       // If the admin included this field on the form, then it's OK to get metadata about the field regardless of user permissions.
       'checkPermissions' => FALSE,
+      'values' => $values,
     ];
-    if (in_array($entityName, \CRM_Contact_BAO_ContactType::basicTypes(TRUE))) {
-      $params['values'] = ['contact_type' => $entityName];
-      $entityName = 'Contact';
-    }
     foreach (civicrm_api4($entityName, 'getFields', $params) as $field) {
       // In the highly unlikely event of 2 fields returned, prefer the exact match
       if ($field['name'] === $fieldName) {
@@ -233,8 +250,9 @@ class FormDataModel {
     if (!isset($field)) {
       return NULL;
     }
+
     // Id field for selecting existing entity
-    if ($action === 'create' && $field['name'] === CoreUtil::getIdFieldName($entityName)) {
+    if ($field['name'] === CoreUtil::getIdFieldName($entityName)) {
       $entityTitle = CoreUtil::getInfoItem($entityName, 'title');
       $field['input_type'] = 'EntityRef';
       $field['fk_entity'] = $entityName;
@@ -256,17 +274,86 @@ class FormDataModel {
   }
 
   /**
+   * @param string $inputType name of input type
+   * @return string path to the angular template for this input type
+   */
+  public static function getInputTypeTemplate(string $inputType): ?string {
+    // if afform admin is not enabled, there is no hook
+    // to add custom input types so we can just use the
+    // naive string concatenation
+    if (!class_exists('\\Civi\\AfformAdmin\\AfformAdminMeta')) {
+      return '~/af/fields/' . $inputType . '.html';
+    }
+
+    $inputTypes = AfformAdminMeta::getMetadata()['inputTypes'];
+
+    foreach ($inputTypes as $type) {
+      if ($type['name'] === $inputType) {
+        return $type['template'];
+      }
+    }
+    return NULL;
+  }
+
+  /**
+   * Retrieves the main search entity plus join entities & their aliases.
+   *
+   * @param array $savedSearch
+   * @return array
+   *   e.g.
+   *   ```
+   *   ['Contact', 'Activity AS Contact_Activity_01']
+   *   ```
+   */
+  public static function getSearchEntities(array $savedSearch): array {
+    $entityList = [$savedSearch['api_entity']];
+    foreach ($savedSearch['api_params']['join'] ?? [] as $join) {
+      $entityList[] = $join[0];
+      if (is_string($join[2] ?? NULL)) {
+        $entityList[] = $join[2] . ' AS ' . (explode(' AS ', $join[0])[1]);
+      }
+    }
+    return $entityList;
+  }
+
+  /**
+   * Determines name of the api entit(ies) based on the field name prefix
+   *
+   * Note: Normally will return a single entity name, but
+   * Will return 2 entity names in the case of Bridge joins e.g. RelationshipCache
+   *
+   * @param string $fieldName
+   * @param string[] $entityList
+   * @return array
+   */
+  public static function getSearchFieldEntityType($fieldName, $entityList): array {
+    $prefix = strpos($fieldName, '.') ? explode('.', $fieldName)[0] : NULL;
+    $joinEntities = [];
+    $baseEntity = array_shift($entityList);
+    if ($prefix) {
+      foreach ($entityList as $entityAndAlias) {
+        [$entity, $alias] = explode(' AS ', $entityAndAlias);
+        if ($alias === $prefix) {
+          $joinEntities[] = $entityAndAlias;
+        }
+      }
+    }
+    return $joinEntities ?: [$baseEntity];
+  }
+
+  /**
    * Finds a search display within a fieldset
    *
    * @param array $node
    */
-  public function findSearchDisplay($node) {
-    foreach (\Civi\Search\Display::getDisplayTypes(['name']) as $displayType) {
-      foreach (AHQ::getTags($node, $displayType['name']) as $display) {
+  public function findSearchDisplay(array $node): ?string {
+    foreach (Utils::getSearchDisplayTags() as $displayType) {
+      foreach (AHQ::getTags($node, $displayType) as $display) {
         $this->searchDisplays[$display['display-name']]['searchName'] = $display['search-name'];
         return $display['display-name'];
       }
     }
+    return NULL;
   }
 
   /**
@@ -280,14 +367,14 @@ class FormDataModel {
   /**
    * @return array{type: string, fields: array, joins: array, security: string, actions: array}
    */
-  public function getEntity($entityName) {
+  public function getEntity(string $entityName): ?array {
     return $this->entities[$entityName] ?? NULL;
   }
 
   /**
    * @return array{fields: array, searchName: string}
    */
-  public function getSearchDisplay($displayName) {
+  public function getSearchDisplay(string $displayName): ?array {
     return $this->searchDisplays[$displayName] ?? NULL;
   }
 

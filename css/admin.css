@@ -51,12 +51,23 @@
   margin-left: 5px;
 }
 
-.crm-container .crm-extensions-stage.fa-flask {
+.crm-container .crm-extensions-stage.fa-flask,
+.crm-container .crm-extensions-stage.fa-warning {
   color: #eba12d;
 }
 
-.crm-container .crm-extensions-stage.fa-check-circle {
+.crm-container .crm-extensions-stage.fa-check-circle,
+.crm-container .crm-extensions-stage.fa-trophy {
   color: #00994d;
+}
+
+/* Navigation Menu Editor */
+/* reduce the default hover/clicked background colors to tints for more downstream compatibility */
+.crm-container .navigation-tree .jstree-hovered {
+  background: #ffffff50;
+}
+.crm-container .navigation-tree .jstree-clicked {
+  background: #beebff50;
 }
 
 @media screen and (min-width: 480px) {
@@ -73,4 +84,18 @@
   #crm-container .admin-section-items dt {
     font-weight: bold;
   }
+}
+
+/* File CRUD form elements */
+/* Currently only used on CRM_Admin_Form_Generic */
+.crm-container label.crm-delete-file {
+  display: block;
+  cursor: pointer;
+}
+label.crm-delete-file input[type=checkbox],
+label.crm-delete-file:has(input[type=checkbox]:not(:checked)) + input[type=file] {
+  display: none;
+}
+label.crm-delete-file input[type=checkbox]:checked + span {
+  text-decoration: line-through;
 }
